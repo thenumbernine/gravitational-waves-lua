@@ -1,0 +1,20 @@
+hyperbolic formalism of GR simulation
+
+ADM1D3VarSim is based on my attempt to implement the formalism described in Alcubierre's "Introduction to 3+1 Numerical Relativity".
+Specifically, a 3-variable hyperbolic system with lapse (alpha) and metric (g) separated from the state variable computations.
+It doesn't work.
+I never did manage to get my 1D ADM hyperbolic sims based on that book, found in my "HydroGPU" project and "hydrodynamics-js" project, to work.
+Those don't work because they don't simulate alpha or g at all -- and they differentiate where they're supposed to integrate, causing one loss of degree of freedom to turn into two.  See if you can find the error.  I'll fix it soon.  Then hopefully I'll remebmer to remove this disclaimer.
+
+ADM1D5VarSim is a hyperbolic sim based on Alcubierre's "The appearance of coordinate shocks in hyperbolic formalisms of General Relativity"
+found here: http://arxiv.org/pdf/gr-qc/9609015v2.pdf
+It works.  Oh yeah.  I plugged in all 5 variables to a Roe solver and ... *drumroll* computed my own eigenbasis.
+I still need to figure out how to use the paper's listed eigenfields in my hyperbolic simulation.  The eigenfield math looks cleaner so I'm betting there's an easier implementation I haven't found out yet.
+
+ADM2DSim is my start at the spherical solution in the same paper mentioned above.
+I haven't got the eigenvectors of the flux to work quite yet.  Once again, I'm betting decyphering the implementation of the eigenfields into a hyperbolic solver will help things out.
+
+EulerSim is the Euler hydrodynamic equations I used as a test-case to verify the Roe solver was working.  Good ol' Euler fluid equations.
+
+What's next?  Probably the Schwarzschild simulation and then on to a cartesian 2D/3D or spherical 3D simulation.
+
