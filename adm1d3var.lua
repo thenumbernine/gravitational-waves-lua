@@ -22,7 +22,7 @@ d_t  + [0     0    alpha    ] d_x [D] = [          -alpha K A         ]
 --]]
 
 require 'ext'
-local Simulation = require 'relativity.simulation'
+local Simulation = require 'simulation'
 
 local ADM1D3VarSim = class(Simulation)
 

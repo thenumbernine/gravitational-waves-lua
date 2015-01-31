@@ -109,7 +109,7 @@ Alcubierre says sqrt(g_rr) K_hh + D_rhh == [0,0,0,0,0,1,0,sqrt(g_rr),0]
 
 --]]
 require 'ext'
-local Simulation = require 'relativity.simulation'
+local Simulation = require 'simulation'
 local ADM2DSim = class(Simulation)
 	
 ADM2DSim.numStates = 9

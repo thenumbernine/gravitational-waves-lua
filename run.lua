@@ -1,8 +1,8 @@
 #!/usr/bin/env luajit
 
 require 'ext'
-local slopeLimiters = require 'relativity.limiter' 
-local boundaryMethods = require 'relativity.boundary'
+local slopeLimiters = require 'limiter' 
+local boundaryMethods = require 'boundary'
 
 -- here's some globals I have to get rid of
 
@@ -13,10 +13,6 @@ function index(k,v) return k[v] end
 for k,v in pairs(math) do _G[k] = v end
 
 
-local ADM1D3VarSim = require 'relativity.adm1d3var'
-local ADM1D5VarSim = require 'relativity.adm1d5var'
-local ADM2D = require 'relativity.adm2d'
-local EulerSim = require 'relativity.euler'
 local symmath = require 'symmath'
 
 -- setup
@@ -27,8 +23,8 @@ do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
 	local h = 5 * symmath.exp(-((x - xc) / 10)^2)
-	--sim = ADM1D5VarSim{
-	sim = ADM1D3VarSim{
+	--sim = require'adm1d3var'{
+	sim = require'adm1d5var'{
 		gridsize = 1200,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,	-- still reflecting despite freeflow ...
@@ -40,16 +36,16 @@ do
 		alpha = 1,
 		-- Bona-Masso slicing conditions:
 		f_var = alpha,	
-		--f = 1,
+		f = 1,
 		--f = 1.69,
 		--f = .49,
-		f = (1 + 1/alpha^2),
+		--f = (1 + 1/alpha^2),
 	}
 end
 --]]
 
 --[[
-local sim = EulerSim{
+local sim = require'euler'{
 	gridsize = 200,
 	domain = {xmin=-1, xmax=1},
 	boundaryMethod = boundaryMethods.mirror,

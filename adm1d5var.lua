@@ -115,7 +115,7 @@ fluxMatrix;
 --]]
 
 require 'ext'
-local Simulation = require 'relativity.simulation'
+local Simulation = require 'simulation'
 
 local ADM1D5VarSim = class(Simulation)
 	

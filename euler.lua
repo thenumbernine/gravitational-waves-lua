@@ -1,5 +1,5 @@
 require 'ext'
-local Simulation = require 'relativity.simulation'
+local Simulation = require 'simulation'
 local EulerSim = class(Simulation)
 
 EulerSim.numStates = 3
