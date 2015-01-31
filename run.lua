@@ -21,14 +21,14 @@ local symmath = require 'symmath'
 
 -- setup
 -- [[
---local sim = ADM1D3VarSim{
 local sim
 do
 	local xc = 150
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
 	local h = 5 * symmath.exp(-((x - xc) / 10)^2)
-	sim = ADM1D5VarSim{
+	--sim = ADM1D5VarSim{
+	sim = ADM1D3VarSim{
 		gridsize = 1200,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,	-- still reflecting despite freeflow ...

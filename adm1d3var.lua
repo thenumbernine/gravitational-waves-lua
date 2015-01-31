@@ -1,3 +1,26 @@
+--[[
+based on the 5-var system, but with the hyperbolic formalism only based on A D K while alpha and g are updated separately
+
+A = (ln alpha),x = alpha,x / alpha
+alpha,x = alpha A
+
+D = 1/2 g,x
+g,x = 2 D
+
+prim evolution:
+d_t alpha = -alpha^2 f K / g
+d_t g = -2 alpha K
+state evolution:
+d_t A + alpha K / g f,x + alpha f / g K,x = alpha K f / g (2 D / g - A)
+d_t D + alpha K,x = -alpha K A
+d_t K + alpha A,x = alpha ((A D - K^2) / g - A^2)
+
+linear system:
+       [0     0  alpha f / g]     [A]   [ alpha K f / g (2 D / g - A) ]
+d_t  + [0     0    alpha    ] d_x [D] = [          -alpha K A         ]
+       [alpha 0      0      ]     [K]   [alpha ((A D - K^2) / g - A^2)]
+--]]
+
 require 'ext'
 local Simulation = require 'relativity.simulation'
 
@@ -6,8 +29,36 @@ local ADM1D3VarSim = class(Simulation)
 ADM1D3VarSim.numStates = 3
 
 -- initial conditions
-function ADM1D3VarSim:init(...)
-	Simulation.init(self, ...)
+function ADM1D3VarSim:init(args, ...)
+	Simulation.init(self, args, ...)
+
+	local symmath = require 'symmath'
+
+	local x = assert(args.x)
+
+	local h = symmath.clone(assert(args.h)):simplify()
+	self.calc_h = h:compile{x}
+	
+	local dx_h = h:diff(x):simplify()
+	self.calc_dx_h = dx_h:compile{x}
+	
+	local d2x_h = dx_h:diff(x):simplify()
+	self.calc_d2x_h = d2x_h:compile{x}
+
+	local g = symmath.clone(assert(args.g)):simplify()
+	self.calc_g = g:compile{x}
+
+	local dx_g = g:diff(x):simplify()
+	self.calc_dx_g = dx_g:compile{x}
+
+	local alpha = symmath.clone(assert(args.alpha)):simplify()
+	self.calc_alpha = alpha:compile{x}
+
+	local dx_alpha = alpha:diff(x):simplify()
+	self.calc_dx_alpha = dx_alpha:compile{x}
+
+	local f = symmath.clone(assert(args.alpha)):simplify()
+	self.calc_f = f:compile{assert(args.f_var)}
 
 	self.graphInfos = {
 		{viewport={0/3, 0/3, 1/3, 1/3}, getter=index:bind(self.qs):index'alpha', name='alpha', color={1,0,1}},
@@ -20,29 +71,14 @@ function ADM1D3VarSim:init(...)
 	}
 end
 
-do
-	local sigma = 10
-	local xc = 150
-	local H = 5
-	-- aux var for init
-	local function calc_h(x) return H * exp(-(x - xc)^2 / sigma^2) end
-	local function d_calc_h(x) return -2 * (x - xc) / sigma^2 * calc_h(x) end
-	local function d2_calc_h(x) return (-2 / sigma^2 + 4 * (x - xc)^2 / sigma^4) * calc_h(x) end
-	local function calc_g(x) return 1 - d_calc_h(x)^2 end
-	local function d_calc_g(x) return -2 * d_calc_h(x) * d2_calc_h(x) end
-	local function calc_alpha(x) return 1 end
-	local function d_calc_alpha(x) return 0 end
-
-	function ADM1D3VarSim:initCell(i)
-		local x = self.xs[i]
-		-- state variables:
-		local alpha = calc_alpha(x)
-		local g = calc_g(x)
-		local A = d_calc_alpha(x) / alpha
-		local D = .5 * d_calc_g(x)
-		local K = -d2_calc_h(x) / sqrt(calc_g(x))
-		return {A, D, K, alpha=alpha, g=g}
-	end
+function ADM1D3VarSim:initCell(i)
+	local x = self.xs[i]
+	local alpha = self.calc_alpha(x)
+	local g = self.calc_g(x)
+	local A = self.calc_dx_alpha(x) / self.calc_alpha(x)
+	local D = 1/2 * self.calc_dx_g(x)
+	local K = -self.calc_d2x_h(x) / sqrt(self.calc_g(x))
+	return {A, D, K, alpha=alpha, g=g}
 end
 
 function ADM1D3VarSim:calcInterfaceEigenBasis(i)
@@ -62,27 +98,20 @@ function ADM1D3VarSim:calcInterfaceEigenBasis(i)
 	self.eigenvalues[i] = {-lambda, 0, 0, 0, lambda}
 	-- row-major, math-indexed
 	self.fluxMatrix[i] = {
-		{0,0, alpha*f/sqrt(g)},
-		{0,0,2*alpha/sqrt(g)},
-		{alpha/sqrt(g),0,0},
+		{0,0, alpha*f/g},
+		{0,0,alpha},
+		{alpha,0,0},
 	}
 	self.eigenvectors[i] = {
-		{f,			0,	f		},
-		{2,			1,	2		},
-		{-sqrt(f),	0,	sqrt(f)	},
+		{f,			 0,	f			},
+		{g,			 1,	g			},
+		{-sqrt(f*g), 0,	sqrt(f*g)	},
 	}
 	self.eigenvectorsInverse[i] = {
-		{1/(2*f), 	0, -1/(2*sqrt(f))	},
-		{-2/f, 		1, 0				},
-		{1/(2*f), 	0, 1/(2*sqrt(f))	},
+		{1/(2*f), 	0, -1/(2*sqrt(f*g))	},
+		{-g/f, 		1, 0				},
+		{1/(2*f), 	0, 1/(2*sqrt(f*g))	},
 	}
-	-- doesn't work completely well
-	-- the 5D flux matrix has zeroes on the top two alpha & g rows, so that equates to this just fine
-	-- but on the first two alpha & g columns it has nonzero values, 
-	-- which means in the 3D system we are neglecting alpha & g's explicit contribution to the eigenbasis
-	-- that *should* be made up for through the reformulation, which shows us a different flux matrix for the lower 3x3 portion
-	-- however something is still being lost
-	-- it looks like alpha graph is growing on its rhs due to whatever influences 
 end
 
 function ADM1D3VarSim:zeroDeriv()
@@ -101,7 +130,9 @@ function ADM1D3VarSim:addSourceToDerivCell(i)
 	local f = self.calc_f(alpha)
 	self.dq_dts[i].alpha = self.dq_dts[i].alpha - alpha * alpha * f * K / g
 	self.dq_dts[i].g = self.dq_dts[i].g - 2 * alpha * K
-	self.dq_dts[i][3] = self.dq_dts[i][3] + alpha * (A * D - K * K) / g
+	self.dq_dts[i][1] = self.dq_dts[i][1] + alpha * K * f / g * (2 * D / g - A)
+	self.dq_dts[i][2] = self.dq_dts[i][2] - alpha * K * A
+	self.dq_dts[i][3] = self.dq_dts[i][3] + alpha * ((A * D - K * K) / g - A * A)
 end
 
 function ADM1D3VarSim:integrateDeriv(dt)
