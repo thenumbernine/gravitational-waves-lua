@@ -115,7 +115,7 @@ fluxMatrix;
 --]]
 
 require 'ext'
-local Simulation = require 'adm1d.simulation'
+local Simulation = require 'relativity.simulation'
 
 local ADM1D5VarSim = class(Simulation)
 	
@@ -150,7 +150,7 @@ function ADM1D5VarSim:init(args, ...)
 	self.calc_dx_alpha = dx_alpha:compile{x}
 
 	local f = symmath.clone(assert(args.alpha)):simplify()
-	self.calc_f = f:compile{assert(args.alpha_var)}
+	self.calc_f = f:compile{assert(args.f_var)}
 
 	self.graphInfos = {
 		{viewport={0/3, 0/3, 1/3, 1/3}, getter=index:bind(self.qs):index(1), name='alpha', color={1,0,1}},
@@ -164,14 +164,9 @@ function ADM1D5VarSim:init(args, ...)
 end
 	
 function ADM1D5VarSim:initCell(i)
-	local function calc_alpha(x) return 1 end
-	local function d_calc_alpha(x) return 0 end
-	
 	local x = self.xs[i]
-	-- primitives:
 	local alpha = self.calc_alpha(x)
 	local g = self.calc_g(x)
-	-- state variables:
 	local A = self.calc_dx_alpha(x) / self.calc_alpha(x)
 	local D = 1/2 * self.calc_dx_g(x)
 	local K = -self.calc_d2x_h(x) / sqrt(self.calc_g(x))

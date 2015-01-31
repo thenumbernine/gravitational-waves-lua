@@ -1,5 +1,5 @@
 require 'ext'
-local Simulation = require 'adm1d.simulation'
+local Simulation = require 'relativity.simulation'
 
 local ADM1D3VarSim = class(Simulation)
 

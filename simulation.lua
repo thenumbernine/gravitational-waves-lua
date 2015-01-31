@@ -1,5 +1,5 @@
 require 'ext'
-local calcFluxSchemes = require 'adm1d.scheme'
+local calcFluxSchemes = require 'relativity.scheme'
 
 -- base functions
 local Simulation = class()

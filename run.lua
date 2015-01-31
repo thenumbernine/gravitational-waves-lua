@@ -1,8 +1,8 @@
 #!/usr/bin/env luajit
 
 require 'ext'
-local slopeLimiters = require 'adm1d.limiter' 
-local boundaryMethods = require 'adm1d.boundary'
+local slopeLimiters = require 'relativity.limiter' 
+local boundaryMethods = require 'relativity.boundary'
 
 -- here's some globals I have to get rid of
 
@@ -13,10 +13,10 @@ function index(k,v) return k[v] end
 for k,v in pairs(math) do _G[k] = v end
 
 
-local ADM1D3VarSim = require 'adm1d.adm1d3var'
-local ADM1D5VarSim = require 'adm1d.adm1d5var'
-local ADM2D = require 'adm1d.adm2d'
-local EulerSim = require 'adm1d.euler'
+local ADM1D3VarSim = require 'relativity.adm1d3var'
+local ADM1D5VarSim = require 'relativity.adm1d5var'
+local ADM2D = require 'relativity.adm2d'
+local EulerSim = require 'relativity.euler'
 local symmath = require 'symmath'
 
 -- setup
@@ -34,27 +34,25 @@ do
 	
 	local h = H * symmath.exp(-(x - xc)^2 / sigma^2)
 	sim = ADM1D5VarSim{
-		x = x,
-		h = h,
-		g = 1 - h:diff(x)^2,
-		alpha = 1,
-		f = (1 + 1/alpha^2),
-		-- need the var that f is dependent on for compiling
-		-- can't use "alpha" since that is the function (dependent on x) for initializing the alpha and A state variables
-		alpha_var = alpha,	
 		gridsize = 1200,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,	-- still reflecting despite freeflow ...
 		slopeLimiter = slopeLimiters.donorCell,
+		-- the symbolic math driving it:
+		x = x,
+		h = h,
+		g = 1 - h:diff(x)^2,
+		alpha = 1,
+		-- Bona-Masso slicing conditions:
+		f_var = alpha,	
+		f = 1,
+		--f = 1.69,
+		--f = .49,
+		--f = (1 + 1/alpha^2),
 	}
 end
 sim.fixed_dt = nil	--.125 
 sim.stopAtTime = 70
-	-- Bona-Masso slicing conditions:
---sim.calc_f = function(alpha) return 1 end 
---sim.calc_f = function(alpha) return 1.69 end 
---sim.calc_f = function(alpha) return .49 end 
---sim.calc_f = function(alpha) return 1 + 1/(alpha*alpha) end 
 --]]
 
 --[[
