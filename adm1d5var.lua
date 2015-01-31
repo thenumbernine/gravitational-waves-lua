@@ -121,8 +121,36 @@ local ADM1D5VarSim = class(Simulation)
 	
 ADM1D5VarSim.numStates = 5 
 
-function ADM1D5VarSim:init(...)
-	Simulation.init(self, ...)
+function ADM1D5VarSim:init(args, ...)
+	Simulation.init(self, args, ...)
+
+	local symmath = require 'symmath'
+
+	local x = assert(args.x)
+
+	local h = symmath.clone(assert(args.h)):simplify()
+	self.calc_h = h:compile{x}
+	
+	local dx_h = h:diff(x):simplify()
+	self.calc_dx_h = dx_h:compile{x}
+	
+	local d2x_h = dx_h:diff(x):simplify()
+	self.calc_d2x_h = d2x_h:compile{x}
+
+	local g = symmath.clone(assert(args.g)):simplify()
+	self.calc_g = g:compile{x}
+
+	local dx_g = g:diff(x):simplify()
+	self.calc_dx_g = dx_g:compile{x}
+
+	local alpha = symmath.clone(assert(args.alpha)):simplify()
+	self.calc_alpha = alpha:compile{x}
+
+	local dx_alpha = alpha:diff(x):simplify()
+	self.calc_dx_alpha = dx_alpha:compile{x}
+
+	local f = symmath.clone(assert(args.alpha)):simplify()
+	self.calc_f = f:compile{assert(args.alpha_var)}
 
 	self.graphInfos = {
 		{viewport={0/3, 0/3, 1/3, 1/3}, getter=index:bind(self.qs):index(1), name='alpha', color={1,0,1}},
@@ -134,31 +162,20 @@ function ADM1D5VarSim:init(...)
 		{viewport={1/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='error', color={1,0,0}, range={-30, 30}},
 	}
 end
-
-do
-	local sigma = 10
-	local xc = 150
-	local H = 5
-	-- aux var for init
-	local function calc_h(x) return H * exp(-(x - xc)^2 / sigma^2) end
-	local function d_calc_h(x) return -2 * (x - xc) / sigma^2 * calc_h(x) end
-	local function d2_calc_h(x) return (-2 / sigma^2 + 4 * (x - xc)^2 / sigma^4) * calc_h(x) end
-	local function calc_g(x) return 1 - d_calc_h(x)^2 end
-	local function d_calc_g(x) return -2 * d_calc_h(x) * d2_calc_h(x) end
+	
+function ADM1D5VarSim:initCell(i)
 	local function calc_alpha(x) return 1 end
 	local function d_calc_alpha(x) return 0 end
-
-	function ADM1D5VarSim:initCell(i)
-		local x = self.xs[i]
-		-- primitives:
-		local alpha = calc_alpha(x)
-		local g = calc_g(x)
-		-- state variables:
-		local A = d_calc_alpha(x) / calc_alpha(x)
-		local D = 1/2 * d_calc_g(x)
-		local K = -d2_calc_h(x) / sqrt(calc_g(x))
-		return {alpha, g, A, D, K}
-	end
+	
+	local x = self.xs[i]
+	-- primitives:
+	local alpha = self.calc_alpha(x)
+	local g = self.calc_g(x)
+	-- state variables:
+	local A = self.calc_dx_alpha(x) / self.calc_alpha(x)
+	local D = 1/2 * self.calc_dx_g(x)
+	local K = -self.calc_d2x_h(x) / sqrt(self.calc_g(x))
+	return {alpha, g, A, D, K}
 end
 
 function ADM1D5VarSim:calcInterfaceEigenBasis(i)

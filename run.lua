@@ -17,24 +17,44 @@ local ADM1D3VarSim = require 'adm1d.adm1d3var'
 local ADM1D5VarSim = require 'adm1d.adm1d5var'
 local ADM2D = require 'adm1d.adm2d'
 local EulerSim = require 'adm1d.euler'
-
+local symmath = require 'symmath'
 
 -- setup
 -- [[
 --local sim = ADM1D3VarSim{
-local sim = ADM1D5VarSim{
-	gridsize = 1200,
-	domain = {xmin=0, xmax=300},
-	boundaryMethod = boundaryMethods.freeFlow,	-- still reflecting despite freeflow ...
-	slopeLimiter = slopeLimiters.donorCell,
-}
+local sim
+do
+	local sigma = 10
+	local xc = 150
+	local H = 5
+
+	-- dependent vars
+	local x = symmath.var'x'
+	local alpha = symmath.var'alpha'
+	
+	local h = H * symmath.exp(-(x - xc)^2 / sigma^2)
+	sim = ADM1D5VarSim{
+		x = x,
+		h = h,
+		g = 1 - h:diff(x)^2,
+		alpha = 1,
+		f = (1 + 1/alpha^2),
+		-- need the var that f is dependent on for compiling
+		-- can't use "alpha" since that is the function (dependent on x) for initializing the alpha and A state variables
+		alpha_var = alpha,	
+		gridsize = 1200,
+		domain = {xmin=0, xmax=300},
+		boundaryMethod = boundaryMethods.freeFlow,	-- still reflecting despite freeflow ...
+		slopeLimiter = slopeLimiters.donorCell,
+	}
+end
 sim.fixed_dt = nil	--.125 
-sim.tmax = 70
+sim.stopAtTime = 70
 	-- Bona-Masso slicing conditions:
 --sim.calc_f = function(alpha) return 1 end 
 --sim.calc_f = function(alpha) return 1.69 end 
 --sim.calc_f = function(alpha) return .49 end 
-sim.calc_f = function(alpha) return 1 + 1/(alpha*alpha) end 
+--sim.calc_f = function(alpha) return 1 + 1/(alpha*alpha) end 
 --]]
 
 --[[
@@ -106,10 +126,10 @@ TestApp.keyDownCallbacks = {
 function TestApp:update(...)
 	gl.glClear(gl.GL_COLOR_BUFFER_BIT)
 
-	if sim.tmax then
+	if sim.stopAtTime then
 		local t = sim.t
 		if self.oldt then
-			if t >= sim.tmax and self.oldt < sim.tmax then
+			if t >= sim.stopAtTime and self.oldt < sim.stopAtTime then
 				self.doIteration = false
 			end
 		end

@@ -1,6 +1,6 @@
 Hyperbolic formalism of GR simulation.
 
-Requires my lua-ext, lua-glapp, and maybe some Malkia UFO ffi lua files.
+Requires my lua-ext, symmath-lua, and optionally lua-glapp, and the Malkia UFO ffi lua files for the OpenGL display.
 There's a text-based version you can uncomment that will run it to the command-line if you don't want to bother set up the GL stuff.
 
 ADM1D3VarSim is based on my attempt to implement the formalism described in Alcubierre's "Introduction to 3+1 Numerical Relativity".
