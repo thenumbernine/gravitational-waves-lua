@@ -1016,7 +1016,7 @@ end
 local GLApp = require 'glapp'
 local gl = require 'ffi.OpenGL'
 local sdl = require 'ffi.sdl'
-local GLApp = require 'glapp.glapp'
+
 
 local TestApp = class(GLApp)
 

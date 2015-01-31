@@ -1,9 +1,12 @@
-hyperbolic formalism of GR simulation
+Hyperbolic formalism of GR simulation.
+
+Requires my lua-ext, lua-glapp, and maybe some Malkia UFO ffi lua files.
+There's a text-based version you can uncomment that will run it to the command-line if you don't want to bother set up the GL stuff.
 
 ADM1D3VarSim is based on my attempt to implement the formalism described in Alcubierre's "Introduction to 3+1 Numerical Relativity".
 Specifically, a 3-variable hyperbolic system with lapse (alpha) and metric (g) separated from the state variable computations.
 It doesn't work.
-I never did manage to get my 1D ADM hyperbolic sims based on that book, found in my "HydroGPU" project and "hydrodynamics-js" project, to work.
+I never did manage to get working my 1D ADM hyperbolic sims based on that book, found in my "HydroGPU" project and "hydrodynamics-js" project, to work.
 Those don't work because they don't simulate alpha or g at all -- and they differentiate where they're supposed to integrate, causing one loss of degree of freedom to turn into two.  See if you can find the error.  I'll fix it soon.  Then hopefully I'll remebmer to remove this disclaimer.
 
 ADM1D5VarSim is a hyperbolic sim based on Alcubierre's "The appearance of coordinate shocks in hyperbolic formalisms of General Relativity"
