@@ -24,15 +24,10 @@ local symmath = require 'symmath'
 --local sim = ADM1D3VarSim{
 local sim
 do
-	local sigma = 10
 	local xc = 150
-	local H = 5
-
-	-- dependent vars
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
-	
-	local h = H * symmath.exp(-(x - xc)^2 / sigma^2)
+	local h = 5 * symmath.exp(-((x - xc) / 10)^2)
 	sim = ADM1D5VarSim{
 		gridsize = 1200,
 		domain = {xmin=0, xmax=300},
@@ -45,14 +40,12 @@ do
 		alpha = 1,
 		-- Bona-Masso slicing conditions:
 		f_var = alpha,	
-		f = 1,
+		--f = 1,
 		--f = 1.69,
 		--f = .49,
-		--f = (1 + 1/alpha^2),
+		f = (1 + 1/alpha^2),
 	}
 end
-sim.fixed_dt = nil	--.125 
-sim.stopAtTime = 70
 --]]
 
 --[[
@@ -157,20 +150,18 @@ function TestApp:update(...)
 		if self.reportError then
 			print(info.name, 'min', ymin, 'max', ymax)
 		end
-	
-		if info.range then
-			ymin, ymax = unpack(info.range)
+
+		if not ymin or not ymax or ymin ~= ymin or ymax ~= ymax then
+			ymin = -1
+			ymax = 1
+		--elseif abs(ymin) == huge or abs(ymax) == huge then
 		else
-			if not ymin or not ymax or ymin ~= ymin or ymax ~= ymax then
-				ymin = -1
-				ymax = 1
-			--elseif abs(ymin) == huge or abs(ymax) == huge then
-			else
-				local base = 10	-- round to nearest base-10
-				local scale = 10 -- ...with increments of 10
-				ymin = (ymin<0 and -1 or 1)*(abs(ymin)==huge and 1e+100 or base^((log(abs(1.1*ymin-.1*ymax),base)*scale)/scale))
-				ymax = (ymax<0 and -1 or 1)*(abs(ymax)==huge and 1e+100 or base^((log(abs(1.1*ymax-.1*ymin),base)*scale)/scale))
-			end
+			local base = 10	-- round to nearest base-10
+			local scale = 10 -- ...with increments of 10
+			ymin, ymax = 1.1 * ymin - .1 * ymax, 1.1 * ymax - .1 * ymin	
+			local newymin = (ymin<0 and -1 or 1)*(abs(ymin)==huge and 1e+100 or base^log(abs(ymin),base))
+			local newymax = (ymax<0 and -1 or 1)*(abs(ymax)==huge and 1e+100 or base^log(abs(ymax),base))
+			ymin, ymax = newymin, newymax
 		end
 		
 		local xmin, xmax = sim.domain.xmin, sim.domain.xmax
