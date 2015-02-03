@@ -76,50 +76,58 @@ function Simulation:reset()
 	end
 end
 
-function Simulation:zeroDeriv()
+function Simulation:zeroDeriv(dq_dts)
 	-- zero deriv
 	for i=1,self.gridsize do
 		for j=1,self.numStates do
-			self.dq_dts[i][j] = 0
+			dq_dts[i][j] = 0
 		end
 	end
 end
 
-function Simulation:addSourceToDeriv()
+function Simulation:addSourceToDeriv(dq_dts)
 	for i=1,self.gridsize do
-		self:addSourceToDerivCell(i)
+		self:addSourceToDerivCell(dq_dts, i)
 	end
 end
 
-function Simulation:addFluxToDeriv()
+function Simulation:addFluxToDeriv(dq_dts)
 	-- 5) integrate
 	for i=1,self.gridsize do
 		local dx = self.ixs[i+1] - self.ixs[i]
 		for j=1,self.numStates do
-			self.dq_dts[i][j] = self.dq_dts[i][j] - (self.fluxes[i+1][j] - self.fluxes[i][j]) / dx
+			dq_dts[i][j] = dq_dts[i][j] - (self.fluxes[i+1][j] - self.fluxes[i][j]) / dx
 		end
 	end
 end
 
-function Simulation:integrateDeriv(dt)
+function Simulation:integrateDeriv(dq_dts, dt)
 	for i=1,self.gridsize do
 		for j=1,self.numStates do
-			self.qs[i][j] = self.qs[i][j] + dt * self.dq_dts[i][j]	
+			self.qs[i][j] = self.qs[i][j] + dt * dq_dts[i][j]	
 		end
 	end
 	self.t = self.t + dt
 end
 
 function Simulation:iterate()
-	
 	self:boundaryMethod()
 	
 	local dt = self:calcFlux()
 
-	self:zeroDeriv()	
-	self:addSourceToDeriv()
-	self:addFluxToDeriv()
-	self:integrateDeriv(dt)
+	-- TODO create this up front, and create as many as needed for a particular integrator
+	local dq_dts = {}
+	for i=1,self.gridsize do
+		dq_dts[i] = {}
+		for j=1,self.numStates do
+			dq_dts[i][j] = 0
+		end
+	end
+
+	self:zeroDeriv(dq_dts)
+	self:addSourceToDeriv(dq_dts)
+	self:addFluxToDeriv(dq_dts)
+	self:integrateDeriv(dq_dts, dt)
 end
 
 return Simulation

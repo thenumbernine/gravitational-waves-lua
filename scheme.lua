@@ -47,12 +47,15 @@ return {
 			for j=1,self.numStates do
 				local s = 0
 				for k=1,self.numStates do
+					-- all the sum terms are fine, but the result is nan...
 					s = s + self.eigenvectorsInverse[i][j][k] * (self.qs[i][k] - self.qs[i-1][k])
 				end
 				self.deltaQTildes[i][j] = s
 			end
 		end
-		
+	
+		local useFluxMatrix = true
+
 		-- 3) slope limit on interface difference
 		-- 4) transform back
 		for i=2,self.gridsize do
@@ -74,13 +77,22 @@ return {
 				local epsilon = self.eigenvalues[i][j] * dt / dx
 				local deltaFluxTilde = self.eigenvalues[i][j] * self.deltaQTildes[i][j]
 				fluxTilde[j] = -.5 * deltaFluxTilde * (theta + phi * (epsilon - theta))
+				if not useFluxMatrix then
+					local qAvgTilde = 0
+					for k=1,self.numStates do
+						qAvgTilde = qAvgTilde + self.eigenvectorsInverse[i][j][k] * (self.qs[i][k] + self.qs[i-1][k]) * .5
+					end
+					fluxTilde[j] = fluxTilde[j] + self.eigenvalues[i][j] * qAvgTilde
+				end
 			end
 			for j=1,self.numStates do
 				local s = 0
 				for k=1,self.numStates do
 					s = s + self.eigenvectors[i][j][k] * fluxTilde[k]
 					-- using the flux matrix itself allows for complete reconstruction even in the presence of zero-self.eigenvalues
-					s = s + self.fluxMatrix[i][j][k] * (self.qs[i-1][k] + self.qs[i][k]) * .5
+					if useFluxMatrix then
+						s = s + self.fluxMatrix[i][j][k] * (self.qs[i-1][k] + self.qs[i][k]) * .5
+					end
 				end
 				self.fluxes[i][j] = s
 			end

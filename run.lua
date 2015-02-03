@@ -16,18 +16,19 @@ for k,v in pairs(math) do _G[k] = v end
 local symmath = require 'symmath'
 
 -- setup
--- [[
+
+--[[
 local sim
 do
 	local xc = 150
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
 	local h = 5 * symmath.exp(-((x - xc) / 10)^2)
-	--sim = require'adm1d3var'{
-	sim = require'adm1d5var'{
-		gridsize = 1200,
+	sim = require'adm1d3var'{
+	--sim = require'adm1d5var'{
+		gridsize = 2000,
 		domain = {xmin=0, xmax=300},
-		boundaryMethod = boundaryMethods.freeFlow,	-- still reflecting despite freeflow ...
+		boundaryMethod = boundaryMethods.freeFlow,
 		slopeLimiter = slopeLimiters.donorCell,
 		-- the symbolic math driving it:
 		x = x,
@@ -35,11 +36,39 @@ do
 		g = 1 - h:diff(x)^2,
 		alpha = 1,
 		-- Bona-Masso slicing conditions:
-		f_var = alpha,	
+		f_param = alpha,	
+		--f = 1,
+		--f = 1.69,
+		--f = .49,
+		f = 1 + 1/alpha^2,
+	}
+end
+--]]
+
+-- [[
+local sim
+do
+	local rc = 300
+	local r = symmath.var'r'
+	local alpha = symmath.var'alpha'
+	local h = 5 * symmath.exp(-((r - rc) / 10)^2)
+	sim = require'adm2dspherical'{
+		gridsize = 2000,
+		domain = {xmin=100, xmax=500},
+		boundaryMethod = boundaryMethods.freeFlow,
+		slopeLimiter = slopeLimiters.donorCell,
+		-- the symbolic math driving it:
+		r = r,
+		h = h,
+		g_rr = 1 - h:diff(r)^2,
+		g_hh = r^2,
+		alpha = 1,
+		-- Bona-Masso slicing conditions:
+		f_param = alpha,	
 		f = 1,
 		--f = 1.69,
 		--f = .49,
-		--f = (1 + 1/alpha^2),
+		--f = 1 + 1/alpha^2,
 	}
 end
 --]]
@@ -72,18 +101,26 @@ end
 -- [=[ graphics
 local GLApp = require 'glapp'
 local gl = require 'ffi.OpenGL'
+local GLTex2D = require 'gl.tex2d'
 local sdl = require 'ffi.sdl'
-
+local Font = require 'gui.font'
 
 local TestApp = class(GLApp)
 
-TestApp.width = 640
-TestApp.height = 640
+TestApp.width = 800
+TestApp.height = 600
 TestApp.showFPS = false
 
 function TestApp:init()
 	TestApp.super.init(self)
 	self.doIteration = false
+	--[[ need to get image loading working
+	self.font = Font{
+		tex = GLTex2D{
+			filename='font.png'
+		}
+	}
+	--]]
 end
 
 function TestApp:event(event)
@@ -159,7 +196,8 @@ function TestApp:update(...)
 			local newymax = (ymax<0 and -1 or 1)*(abs(ymax)==huge and 1e+100 or base^log(abs(ymax),base))
 			ymin, ymax = newymin, newymax
 		end
-		
+		ymax = max(ymax, ymin+1e-9)
+
 		local xmin, xmax = sim.domain.xmin, sim.domain.xmax
 		xmin, xmax = 1.1 * xmin - .1 * xmax, 1.1 * xmax - .1 * xmin	
 		
@@ -176,24 +214,36 @@ function TestApp:update(...)
 		gl.glMatrixMode(gl.GL_MODELVIEW)
 		gl.glLoadIdentity()
 
--- [[
 		gl.glColor3f(.25, .25, .25)
 		local xrange = xmax - xmin
 		local xstep = 10^floor(log(xrange, 10) - .5)
+		local xticmin = floor(xmin/xstep)
+		local xticmax = ceil(xmax/xstep)
 		gl.glBegin(gl.GL_LINES)
-		for x=floor(xmin/xstep)*xstep,ceil(xmax/xstep)*xstep,xstep do
-			gl.glVertex2f(x,ymin)
-			gl.glVertex2f(x,ymax)
+		for x=xticmin,xticmax do
+			gl.glVertex2f(x*xstep,ymin)
+			gl.glVertex2f(x*xstep,ymax)
 		end
 		gl.glEnd()
 		local yrange = ymax - ymin
 		local ystep = 10^floor(log(yrange, 10) - .5)
+		local yticmin = floor(ymin/ystep)
+		local yticmax = ceil(ymax/ystep)
 		gl.glBegin(gl.GL_LINES)
-		for y=floor(ymin/ystep)*ystep,ceil(ymax/ystep)*ystep,ystep do
-			gl.glVertex2f(xmin,y)
-			gl.glVertex2f(xmax,y)
+		for y=yticmin,yticmax do
+			gl.glVertex2f(xmin,y*ystep)
+			gl.glVertex2f(xmax,y*ystep)
 		end
 		gl.glEnd()
+		if self.font then
+			for y=floor(ymin/ystep)*ystep,ceil(ymax/ystep)*ystep,ystep do
+				self.font:draw{
+					pos={xmin, y},
+					text=tostring(y),
+					fontSize={ystep,ystep},
+				}
+			end
+		end
 		gl.glColor3f(.5, .5, .5)
 		gl.glBegin(gl.GL_LINES)
 		gl.glVertex2f(xmin, 0)
@@ -201,7 +251,6 @@ function TestApp:update(...)
 		gl.glVertex2f(0, ymin)
 		gl.glVertex2f(0, ymax)
 		gl.glEnd()
---]]
 
 		gl.glColor3f(unpack(info.color))
 		gl.glPointSize(2)

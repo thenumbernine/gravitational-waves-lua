@@ -3,7 +3,7 @@ hyperbolic formalism:
 
 state vector: [alpha g A D K]	<- even though alpha and g are already represented by A and D ...
 fluxes vector: alpha K * [0, 0, f/g, 1, A/K]
-source vector: alpha / g * [-alhpa f K, -2 K g, 0, 0, A D - K^2]
+source vector: alpha / g * [-alpha f K, -2 K g, 0, 0, A D - K^2]
 
 alpha,t + (0),x = -alpha^2 f K / g
 g,t + (0),x = -2 alpha K
@@ -13,15 +13,19 @@ K,t + (alpha A),x = alpha / g (A D - K^2)
 
 d_t alpha + (0),x = -alpha^2 f K / g
 d_t g + (0),x = -2 alpha K
-d_t A + K f / g alpha,x + alpha K / g f,x + alpha f / g K,x - alpha K f / g^2 g,x = 0 
+d_t A + (f + alpha f,alpha) K / g alpha,x + alpha f / g K,x - alpha K f / g^2 g,x = 0 
 d_t D + K alpha,x + alpha K,x = 0
 d_t K + A alpha,x + alpha A,x = alpha / g (A D - K^2)
 
-    [alpha]   [   0,            0,          0,   0,      0     ]     [alpha]   [  -alpha^2 f K / g   ]
-    [  g  ]   [   0,            0,          0,   0,      0     ]     [  g  ]   [     -2 alpha K      ]
-d_t [  A  ] + [f K / g, -alpha f K / g^2,   0,   0, alpha f / g] d_x [  A  ] = [          0          ]
-    [  D  ]   [   K,            0,          0,   0,    alpha   ]     [  D  ]   [          0          ]
-    [  K  ]   [   A,            0,        alpha, 0,      0     ]     [  K  ]   [alpha / g (A D - K^2)]
+using f,x = f,alpha alpha,x
+
+    [alpha]   [             0,                    0,          0,   0,      0     ]     [alpha]   [  -alpha^2 f K / g   ]
+    [  g  ]   [             0,                    0,          0,   0,      0     ]     [  g  ]   [     -2 alpha K      ]
+d_t [  A  ] + [(f + alpha f,alpha) K / g, -alpha f K / g^2,   0,   0, alpha f / g] d_x [  A  ] = [          0          ]
+    [  D  ]   [             K,                    0,          0,   0,    alpha   ]     [  D  ]   [          0          ]
+    [  K  ]   [             A,                    0,        alpha, 0,      0     ]     [  K  ]   [alpha / g (A D - K^2)]
+
+from here on I put the df/dalpha term in the source
 
 eigenvalues of A:
 -lambda * (
@@ -122,7 +126,7 @@ local ADM1D5VarSim = class(Simulation)
 ADM1D5VarSim.numStates = 5 
 
 function ADM1D5VarSim:init(args, ...)
-	Simulation.init(self, args, ...)
+	ADM1D5VarSim.super.init(self, args, ...)
 
 	local symmath = require 'symmath'
 
@@ -131,10 +135,7 @@ function ADM1D5VarSim:init(args, ...)
 	local h = symmath.clone(assert(args.h)):simplify()
 	self.calc_h = h:compile{x}
 	
-	local dx_h = h:diff(x):simplify()
-	self.calc_dx_h = dx_h:compile{x}
-	
-	local d2x_h = dx_h:diff(x):simplify()
+	local d2x_h = h:diff(x,x):simplify()
 	self.calc_d2x_h = d2x_h:compile{x}
 
 	local g = symmath.clone(assert(args.g)):simplify()
@@ -150,16 +151,26 @@ function ADM1D5VarSim:init(args, ...)
 	self.calc_dx_alpha = dx_alpha:compile{x}
 
 	local f = symmath.clone(assert(args.alpha)):simplify()
-	self.calc_f = f:compile{assert(args.f_var)}
+	self.calc_f = f:compile{assert(args.f_param)}
 
+	local dalpha_f = f:diff(args.f_param):simplify()
+	self.calc_dalpha_f = dalpha_f:compile{args.f_param}
+
+	local get_state = index:bind(self.qs)
+	local get_alpha = get_state:index(1)
+	local get_g = get_state:index(2)
+	local get_A = get_state:index(3)
+	local get_D = get_state:index(4)
+	local get_K = get_state:index(5)
 	self.graphInfos = {
-		{viewport={0/3, 0/3, 1/3, 1/3}, getter=index:bind(self.qs):index(1), name='alpha', color={1,0,1}},
-		{viewport={0/3, 1/3, 1/3, 1/3}, getter=index:bind(self.qs):index(3), name='A', color={0,1,0}},
-		{viewport={1/3, 0/3, 1/3, 1/3}, getter=index:bind(self.qs):index(2), name='g', color={.5,.5,1}},
-		{viewport={1/3, 1/3, 1/3, 1/3}, getter=index:bind(self.qs):index(4), name='D', color={1,1,0}},
-		{viewport={2/3, 0/3, 1/3, 1/3}, getter=index:bind(self.qs):index(5), name='K', color={0,1,1}},
-		{viewport={0/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='error', color={1,0,0}, range={-30, 30}},
-		{viewport={1/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='error', color={1,0,0}, range={-30, 30}},
+		{viewport={0/3, 0/3, 1/3, 1/3}, getter=get_alpha, name='alpha', color={1,0,1}},
+		{viewport={0/3, 1/3, 1/3, 1/3}, getter=get_A, name='A', color={0,1,0}},
+		{viewport={1/3, 0/3, 1/3, 1/3}, getter=get_g, name='g', color={.5,.5,1}},
+		{viewport={1/3, 1/3, 1/3, 1/3}, getter=get_D, name='D', color={1,1,0}},
+		{viewport={2/3, 0/3, 1/3, 1/3}, getter=get_K, name='K', color={0,1,1}},
+		{viewport={2/3, 1/3, 1/3, 1/3}, getter=get_alpha * sqrt:compose(get_g), name='volume element', color={0,1,1}},
+		{viewport={0/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='eigenbasis error', color={1,0,0}, range={-30, 30}},
+		{viewport={1/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='reconstruction error', color={1,0,0}, range={-30, 30}},
 	}
 end
 	
@@ -209,12 +220,13 @@ function ADM1D5VarSim:calcInterfaceEigenBasis(i)
 	-- note that because we have zero eigenvalues that the eigendecomposition cannot reconstruct the flux matrix
 end
 
-function ADM1D5VarSim:addSourceToDerivCell(i)
+function ADM1D5VarSim:addSourceToDerivCell(dq_dts, i)
 	local alpha, g, A, D, K = unpack(self.qs[i])
 	local f = self.calc_f(alpha)
-	self.dq_dts[i][1] = self.dq_dts[i][1] - alpha * alpha * f * K / g
-	self.dq_dts[i][2] = self.dq_dts[i][2] - 2 * alpha * K
-	self.dq_dts[i][5] = self.dq_dts[i][5] + alpha * (A * D - K * K) / g
+	dq_dts[i][1] = dq_dts[i][1] - alpha * alpha * f * K / g
+	dq_dts[i][2] = dq_dts[i][2] - 2 * alpha * K
+	dq_dts[i][3] = dq_dts[i][3] - alpha * K * self.calc_dalpha_f(alpha) / g
+	dq_dts[i][5] = dq_dts[i][5] + alpha * (A * D - K * K) / g
 end
 
 return ADM1D5VarSim

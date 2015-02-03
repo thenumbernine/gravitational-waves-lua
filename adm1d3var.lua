@@ -30,7 +30,7 @@ ADM1D3VarSim.numStates = 3
 
 -- initial conditions
 function ADM1D3VarSim:init(args, ...)
-	Simulation.init(self, args, ...)
+	ADM1D3VarSim.super.init(self, args, ...)
 
 	local symmath = require 'symmath'
 
@@ -58,16 +58,23 @@ function ADM1D3VarSim:init(args, ...)
 	self.calc_dx_alpha = dx_alpha:compile{x}
 
 	local f = symmath.clone(assert(args.alpha)):simplify()
-	self.calc_f = f:compile{assert(args.f_var)}
+	self.calc_f = f:compile{assert(args.f_param)}
 
+	local get_state = index:bind(self.qs)
+	local get_alpha = get_state:index'alpha'
+	local get_g = get_state:index'g'
+	local get_A = get_state:index(1)
+	local get_D = get_state:index(2)
+	local get_K = get_state:index(3)
 	self.graphInfos = {
-		{viewport={0/3, 0/3, 1/3, 1/3}, getter=index:bind(self.qs):index'alpha', name='alpha', color={1,0,1}},
-		{viewport={0/3, 1/3, 1/3, 1/3}, getter=index:bind(self.qs):index(1), name='A', color={0,1,0}},
-		{viewport={1/3, 0/3, 1/3, 1/3}, getter=index:bind(self.qs):index'g', name='g', color={.5,.5,1}},
-		{viewport={1/3, 1/3, 1/3, 1/3}, getter=index:bind(self.qs):index(2), name='D', color={1,1,0}},
-		{viewport={2/3, 0/3, 1/3, 1/3}, getter=index:bind(self.qs):index(3), name='K', color={0,1,1}},
-		{viewport={0/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='error', color={1,0,0}, range={-30, 30}},
-		{viewport={1/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='error', color={1,0,0}, range={-30, 30}},
+		{viewport={0/3, 0/3, 1/3, 1/3}, getter=get_alpha, name='alpha', color={1,0,1}},
+		{viewport={0/3, 1/3, 1/3, 1/3}, getter=get_A, name='A', color={0,1,0}},
+		{viewport={1/3, 0/3, 1/3, 1/3}, getter=get_g, name='g', color={.5,.5,1}},
+		{viewport={1/3, 1/3, 1/3, 1/3}, getter=get_D, name='D', color={1,1,0}},
+		{viewport={2/3, 0/3, 1/3, 1/3}, getter=get_K, name='K', color={0,1,1}},
+		{viewport={2/3, 1/3, 1/3, 1/3}, getter=get_alpha * sqrt:compose(get_g), name='volume element', color={0,1,1}},
+		{viewport={0/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='eigenbasis error', color={1,0,0}, range={-30, 30}},
+		{viewport={1/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='reconstuction error', color={1,0,0}, range={-30, 30}},
 	}
 end
 
@@ -114,32 +121,32 @@ function ADM1D3VarSim:calcInterfaceEigenBasis(i)
 	}
 end
 
-function ADM1D3VarSim:zeroDeriv()
-	ADM1D3VarSim.super.zeroDeriv(self)
+function ADM1D3VarSim:zeroDeriv(dq_dts)
+	ADM1D3VarSim.super.zeroDeriv(self, dq_dts)
 	-- zero deriv
 	for i=1,self.gridsize do
-		self.dq_dts[i].alpha = 0
-		self.dq_dts[i].g = 0
+		dq_dts[i].alpha = 0
+		dq_dts[i].g = 0
 	end
 end
 
-function ADM1D3VarSim:addSourceToDerivCell(i)
+function ADM1D3VarSim:addSourceToDerivCell(dq_dts, i)
 	local A, D, K = unpack(self.qs[i])
 	local alpha = self.qs[i].alpha
 	local g = self.qs[i].g
 	local f = self.calc_f(alpha)
-	self.dq_dts[i].alpha = self.dq_dts[i].alpha - alpha * alpha * f * K / g
-	self.dq_dts[i].g = self.dq_dts[i].g - 2 * alpha * K
-	self.dq_dts[i][1] = self.dq_dts[i][1] + alpha * K * f / g * (2 * D / g - A)
-	self.dq_dts[i][2] = self.dq_dts[i][2] - alpha * K * A
-	self.dq_dts[i][3] = self.dq_dts[i][3] + alpha * ((A * D - K * K) / g - A * A)
+	dq_dts[i].alpha = dq_dts[i].alpha - alpha * alpha * f * K / g
+	dq_dts[i].g = dq_dts[i].g - 2 * alpha * K
+	dq_dts[i][1] = dq_dts[i][1] + alpha * K * f / g * (2 * D / g - A)
+	dq_dts[i][2] = dq_dts[i][2] - alpha * K * A
+	dq_dts[i][3] = dq_dts[i][3] + alpha * ((A * D - K * K) / g - A * A)
 end
 
-function ADM1D3VarSim:integrateDeriv(dt)
-	ADM1D3VarSim.super.integrateDeriv(self, dt)
+function ADM1D3VarSim:integrateDeriv(dq_dts, dt)
+	ADM1D3VarSim.super.integrateDeriv(self, dq_dts, dt)
 	for i=1,self.gridsize do
-		self.qs[i].alpha = self.qs[i].alpha + dt * self.dq_dts[i].alpha
-		self.qs[i].g = self.qs[i].g + dt * self.dq_dts[i].g
+		self.qs[i].alpha = self.qs[i].alpha + dt * dq_dts[i].alpha
+		self.qs[i].g = self.qs[i].g + dt * dq_dts[i].g
 	end
 	self.t = self.t + dt
 end
