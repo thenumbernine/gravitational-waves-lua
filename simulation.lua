@@ -130,7 +130,7 @@ function Simulation:iterate()
 	self:integrateDeriv(dq_dts, dt)
 end
 
-function Simulation:addSourceToDerivCell(i) end
+function Simulation:addSourceToDerivCell() end
 
 return Simulation
 

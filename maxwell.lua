@@ -75,5 +75,16 @@ function MaxwellSimulation:calcInterfaceEigenBasis(i)
 	}
 end
 
+local sigma = 1	-- conductivity
+function MaxwellSimulation:addSourceToDerivCell(dq_dts, i)
+	local eEx, eEy, eEz, Bx, By, Bz = unpack(self.qs[i])
+	local Ex = eEx / e0
+	local Ey = eEy / e0
+	local Ez = eEz / e0
+	dq_dts[i][1] = dq_dts[i][1] - Ex * sigma
+	dq_dts[i][2] = dq_dts[i][2] - Ey * sigma
+	dq_dts[i][3] = dq_dts[i][3] - Ez * sigma
+end
+
 return MaxwellSimulation
 
