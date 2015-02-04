@@ -1,11 +1,11 @@
 require 'ext'
 local Simulation = require 'simulation'
-local EulerSim = class(Simulation)
+local Euler1DSimulation = class(Simulation)
 
-EulerSim.numStates = 3
-EulerSim.gamma = 5/3	
+Euler1DSimulation.numStates = 3
+Euler1DSimulation.gamma = 5/3	
 
-function EulerSim:init(...)
+function Euler1DSimulation:init(...)
 	Simulation.init(self, ...)
 	
 	--index:bind(qs) => f(k) = qs[k] takes 1 arg and returns an array of 3 elements
@@ -19,14 +19,14 @@ function EulerSim:init(...)
 	}
 end
 
-function EulerSim:initCell(i)
+function Euler1DSimulation:initCell(i)
 	local rho = self.xs[i] < 0 and .1 or 1
 	local u = 0
 	local E = 1	+ .5 * u * u	-- internal + kinetic
 	return {rho, rho * u, rho * E}
 end
 
-function EulerSim:calcInterfaceEigenBasis(i)
+function Euler1DSimulation:calcInterfaceEigenBasis(i)
 	local rhoL = self.qs[i-1][1]
 	local uL = self.qs[i-1][2] / rhoL 
 	local EL = self.qs[i-1][3] / rhoL
@@ -105,7 +105,5 @@ function EulerSim:calcInterfaceEigenBasis(i)
 	--]]
 end
 
-function EulerSim:addSourceToDerivCell(i) end
-
-return EulerSim
+return Euler1DSimulation
 

@@ -45,9 +45,11 @@ do
 end
 --]]
 
--- [[
+--[[
 local sim
 do
+	-- r - eta(rs) = M ln(((rs + eta(r)) / (rs - eta(rs)))
+	-- eta(rs) = sqrt(rs^2 - 2 M rs)
 	local rc = 300
 	local r = symmath.var'r'
 	local alpha = symmath.var'alpha'
@@ -64,7 +66,7 @@ do
 		g_hh = r^2,
 		alpha = 1,
 		-- Bona-Masso slicing conditions:
-		f_param = alpha,	
+		f_param = alpha,
 		f = 1,
 		--f = 1.69,
 		--f = .49,
@@ -74,13 +76,23 @@ end
 --]]
 
 --[[
-local sim = require'euler'{
+local sim = require'euler1d'{
 	gridsize = 200,
 	domain = {xmin=-1, xmax=1},
 	boundaryMethod = boundaryMethods.mirror,
 	slopeLimiter = slopeLimiters.superbee,
 }
 --]]
+
+-- [[
+local sim = require'maxwell'{
+	gridsize = 200,
+	domain = {xmin=-1, xmax=1},
+	boundaryMethod = boundaryMethods.freeFlow,
+	slopeLimiter = slopeLimiters.donorCell,
+}
+--]]
+
 
 sim:reset()
 
