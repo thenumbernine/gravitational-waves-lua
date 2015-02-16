@@ -17,15 +17,15 @@ local symmath = require 'symmath'
 
 -- setup
 
---[[
+-- [[
 local sim
 do
 	local xc = 150
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
 	local h = 5 * symmath.exp(-((x - xc) / 10)^2)
-	sim = require'adm1d3var'{
-	--sim = require'adm1d5var'{
+	--sim = require'adm1d3var'{
+	sim = require'adm1d5var'{
 		gridsize = 2000,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
@@ -55,7 +55,7 @@ do
 	local alpha = symmath.var'alpha'
 	local h = 5 * symmath.exp(-((r - rc) / 10)^2)
 	sim = require'adm2dspherical'{
-		gridsize = 2000,
+		gridsize = 200,
 		domain = {xmin=100, xmax=500},
 		boundaryMethod = boundaryMethods.freeFlow,
 		slopeLimiter = slopeLimiters.donorCell,
@@ -84,7 +84,7 @@ local sim = require'euler1d'{
 }
 --]]
 
--- [[
+--[[
 local sim = require'maxwell'{
 	gridsize = 200,
 	domain = {xmin=-1, xmax=1},
@@ -123,15 +123,15 @@ TestApp.width = 800
 TestApp.height = 600
 TestApp.showFPS = false
 
-function TestApp:init()
-	TestApp.super.init(self)
+function TestApp:initGL()
 	self.doIteration = false
-	--[[ need to get image loading working
-	self.font = Font{
-		tex = GLTex2D{
-			filename='font.png'
-		}
+	-- [[ need to get image loading working
+	local fonttex = GLTex2D{
+		filename = 'font.png',
+		minFilter = gl.GL_NEAREST,
+		magFilter = gl.GL_LINEAR,
 	}
+	self.font = Font{tex=fonttex}
 	--]]
 end
 
@@ -208,7 +208,14 @@ function TestApp:update(...)
 			local newymax = (ymax<0 and -1 or 1)*(abs(ymax)==huge and 1e+100 or base^log(abs(ymax),base))
 			ymin, ymax = newymin, newymax
 		end
-		ymax = max(ymax, ymin+1e-9)
+		do
+			local minDeltaY = 1e-5
+			local deltaY = ymax - ymin
+			if deltaY < minDeltaY then
+				ymax = ymax + .5 * minDeltaY
+				ymin = ymin - .5 * minDeltaY
+			end
+		end
 
 		local xmin, xmax = sim.domain.xmin, sim.domain.xmax
 		xmin, xmax = 1.1 * xmin - .1 * xmax, 1.1 * xmax - .1 * xmin	
@@ -247,15 +254,7 @@ function TestApp:update(...)
 			gl.glVertex2f(xmax,y*ystep)
 		end
 		gl.glEnd()
-		if self.font then
-			for y=floor(ymin/ystep)*ystep,ceil(ymax/ystep)*ystep,ystep do
-				self.font:draw{
-					pos={xmin, y},
-					text=tostring(y),
-					fontSize={ystep,ystep},
-				}
-			end
-		end
+			
 		gl.glColor3f(.5, .5, .5)
 		gl.glBegin(gl.GL_LINES)
 		gl.glVertex2f(xmin, 0)
@@ -266,7 +265,10 @@ function TestApp:update(...)
 
 		gl.glColor3f(unpack(info.color))
 		gl.glPointSize(2)
-		for _,mode in ipairs{gl.GL_POINTS, gl.GL_LINE_STRIP} do
+		for _,mode in ipairs{
+			--gl.GL_POINTS,
+			gl.GL_LINE_STRIP
+		} do
 			gl.glBegin(mode)
 			for i=1,sim.gridsize do
 				gl.glVertex2f(xs[i], ys[i])
@@ -274,6 +276,22 @@ function TestApp:update(...)
 			gl.glEnd()
 		end
 		gl.glPointSize(1)
+		
+		if self.font then
+			local fontSizeX = (xmax - xmin) * .05
+			local fontSizeY = (ymax - ymin) * .1
+			local ystep = ystep * 10
+			for y=floor(ymin/ystep)*ystep,ceil(ymax/ystep)*ystep,ystep do
+				self.font:draw{
+					pos={xmin * .9 + xmax * .1, y + fontSizeY * .5},
+					text=tostring(y),
+					color = {1,1,1,1},
+					fontSize={fontSizeX, -fontSizeY},
+					multiLine=false,
+				}
+			end
+		end
+	
 	end
 	if self.reportError then
 		self.reportError = false

@@ -54,7 +54,7 @@ return {
 			end
 		end
 	
-		local useFluxMatrix = true
+		local useFluxMatrix = false
 
 		-- 3) slope limit on interface difference
 		-- 4) transform back

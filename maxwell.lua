@@ -5,22 +5,33 @@ local MaxwellSimulation = class(Simulation)
 
 MaxwellSimulation.numStates = 6	--E,B xyz
 
-function MaxwellSimulation:init(...)
-	MaxwellSimulation.super.init(self, ...)
-	self.graphInfos = {
-		{viewport={0/3, 0/3, 1/3, 1/3}, getter=index:bind(self.qs):index(1), name='Ex', color={1,0,0}},
-		{viewport={1/3, 0/3, 1/3, 1/3}, getter=index:bind(self.qs):index(2), name='Ey', color={0,1,0}},
-		{viewport={2/3, 0/3, 1/3, 1/3}, getter=index:bind(self.qs):index(3), name='Ez', color={0,0,1}},
-		{viewport={0/3, 1/3, 1/3, 1/3}, getter=index:bind(self.qs):index(4), name='Bx', color={0,1,1}},
-		{viewport={1/3, 1/3, 1/3, 1/3}, getter=index:bind(self.qs):index(5), name='By', color={1,0,1}},
-		{viewport={2/3, 1/3, 1/3, 1/3}, getter=index:bind(self.qs):index(6), name='Bz', color={1,1,0}},
-		{viewport={0/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='error', color={1,0,0}, range={-30, 30}},
-		{viewport={1/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='error', color={1,0,0}, range={-30, 30}},
-	}
-end
-
 local e0 = 1	-- permittivity
 local u0 = 1	-- permissivity
+
+function MaxwellSimulation:init(...)
+	MaxwellSimulation.super.init(self, ...)
+	local Ex = index:bind(self.qs):index(1) / e0
+	local Ey = index:bind(self.qs):index(2) / e0
+	local Ez = index:bind(self.qs):index(3) / e0
+	local ESq = Ex^2 + Ey^2 + Ez^2
+	local Bx = index:bind(self.qs):index(4)
+	local By = index:bind(self.qs):index(5)
+	local Bz = index:bind(self.qs):index(6)
+	local BSq = Bx^2 + By^2 + Bz^2
+	self.graphInfos = {
+		{viewport={0/4, 0/3, 1/4, 1/3}, getter=Ex, name='Ex', color={1,0,0}},
+		{viewport={1/4, 0/3, 1/4, 1/3}, getter=Ey, name='Ey', color={0,1,0}},
+		{viewport={2/4, 0/3, 1/4, 1/3}, getter=Ez, name='Ez', color={0,0,1}},
+		{viewport={3/4, 0/3, 1/4, 1/3}, getter=sqrt:compose(ESq), name='E', color={0,0,1}},
+		{viewport={0/4, 1/3, 1/4, 1/3}, getter=Bx, name='Bx', color={0,1,1}},
+		{viewport={1/4, 1/3, 1/4, 1/3}, getter=By, name='By', color={1,0,1}},
+		{viewport={2/4, 1/3, 1/4, 1/3}, getter=Bz, name='Bz', color={1,1,0}},
+		{viewport={3/4, 1/3, 1/4, 1/3}, getter=sqrt:compose(BSq), name='B', color={1,1,0}},
+		{viewport={0/4, 2/3, 1/4, 1/3}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='error', color={1,0,0}, range={-30, 30}},
+		{viewport={1/4, 2/3, 1/4, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='error', color={1,0,0}, range={-30, 30}},
+		{viewport={3/4, 2/3, 1/4, 1/3}, getter=.5 * (ESq * e0 + BSq / u0), name='energy', color={0,.5,1}},
+	}
+end
 
 function MaxwellSimulation:initCell(i)
 	local x = self.xs[i]
@@ -38,10 +49,6 @@ function MaxwellSimulation:calcInterfaceEigenBasis(i)
 	for j=1,self.numStates do
 		avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
 	end
-	local eEx, eEy, eEz, Bx, By, Bz = unpack(avgQ)
-	local Ex = eEx / e0
-	local Ey = eEy / e0
-	local Ez = eEz / e0
 	local lambda = 1/sqrt(e0 * u0)
 	self.eigenvalues[i] = {-lambda, -lambda, 0, 0, lambda, lambda}
 	local se = sqrt(e0/2)
