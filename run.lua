@@ -25,8 +25,9 @@ do
 	local alpha = symmath.var'alpha'
 	local h = 5 * symmath.exp(-((x - xc) / 10)^2)
 	--sim = require'adm1d3var'{
-	sim = require'adm1d5var'{
-		gridsize = 2000,
+	--sim = require'adm1d5var'{
+	sim = require'bssnok1d'{
+		gridsize = 200,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
 		slopeLimiter = slopeLimiters.donorCell,
