@@ -1,8 +1,5 @@
 --[[
-
-======== TRYING TO DO BSSNOK ========
-... but there's too many inconsistencies with Alcubierre's book's equations, and his Bona-Masso equations (which I've got to work)
-so I'm skipping this and moving on to another complete equation paper ...
+going by Alcubierre's book, with some help from the 5-var system in his paper at http://arxiv.org/pdf/gr-qc/9609015v2.pdf 
 
 p.85 non-hyperbolic description:
 d/dt gammaTilde_ij = -2 alpha ATilde_ij
@@ -234,8 +231,9 @@ function BSSNOK1DSim:calcInterfaceEigenBasis(i)
 	local e2p = exp(2*phi)
 	local ie2p = 1/e2p
 	local ie4p = ie2p * ie2p
-	local sqrt_f = sqrt(f)
-	local lambda = -alpha * sqrt_f * ie2p
+	local f_1_2 = sqrt(f)
+	local f_3_2 = f * f_1_2
+	local lambda = -alpha * f_1_2 * ie2p
 	self.eigenvalues[i] = {-lambda, 0, 0, 0, 0, lambda}
 	-- row-major, math-indexed
 	self.fluxMatrix[i] = {
@@ -249,19 +247,19 @@ function BSSNOK1DSim:calcInterfaceEigenBasis(i)
 	self.eigenvectors[i] = {
 		{0, 1, 0, 0, 0, 0},
 		{0, 0, 1, 0, 0, 0},
-		{6*f*sqrt_f*e2p, 0, 0, 0, 0, 6*f*sqrt_f*e2p},
-		{sqrt_f*e2p, 0, 0, 6*sqrt_f*ie2p, 0, sqrt_f*e2p},
+		{6*f_3_2*e2p, 0, 0, 0, 0, 6*f_3_2*e2p},
+		{f_1_2*e2p, 0, 0, 6*f_1_2*ie2p, 0, f_1_2*e2p},
 		{-6*f, 0, 0, 1, 0, 6*f},
 		{-6*f-2, 0, 0, 0, 1, 6*f+2},
 	}
-	local tmp1 = e2p/(36*f*sqrt_f)+ie2p/sqrt_f
+	local tmp1 = e2p/(36*f_3_2)+ie2p/f_1_2
 	self.eigenvectorsInverse[i] = {
-		{0, 0, ie2p/(6*f*sqrt_f)*(1 - .5*(sqrt_f*e2p*tmp1)), e2p/(72*f*sqrt_f), -1/(12*f), 0},
+		{0, 0, ie2p/(6*f_3_2)*(1 - .5*(f_1_2*e2p*tmp1)), e2p/(72*f_3_2), -1/(12*f), 0},
 		{1,0,0,0,0,0},
 		{0,1,0,0,0,0},
-		{0,0,-e2p/(36*f*sqrt_f),e2p/(6*sqrt_f),0,0},
-		{0,0,-(12*f+4)*tmp1/(12*f) - (-6*f-2)*ie2p/(6*f*sqrt_f), (12*f+4)*e2p/(72*f*sqrt_f), -(12*f+4)/(12*f), 1},
-		{0, 0, tmp1/(12*f), -e2p/(72*f*sqrt_f), 1/(12*f), 0},
+		{0,0,-e2p/(36*f_3_2),e2p/(6*f_1_2),0,0},
+		{0,0,-(12*f+4)*tmp1/(12*f) - (-6*f-2)*ie2p/(6*f_3_2), (12*f+4)*e2p/(72*f_3_2), -(12*f+4)/(12*f), 1},
+		{0, 0, tmp1/(12*f), -e2p/(72*f_3_2), 1/(12*f), 0},
 	}
 end
 

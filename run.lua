@@ -41,6 +41,7 @@ do
 		--f = 1,
 		--f = 1.69,
 		--f = .49,
+		--f = 1/3,
 		f = 1 + 1/alpha^2,
 	}
 end
@@ -281,7 +282,7 @@ function TestApp:update(...)
 		if self.font then
 			local fontSizeX = (xmax - xmin) * .05
 			local fontSizeY = (ymax - ymin) * .1
-			local ystep = ystep * 10
+			local ystep = ystep * 5
 			for y=floor(ymin/ystep)*ystep,ceil(ymax/ystep)*ystep,ystep do
 				self.font:draw{
 					pos={xmin * .9 + xmax * .1, y + fontSizeY * .5},
@@ -291,6 +292,13 @@ function TestApp:update(...)
 					multiLine=false,
 				}
 			end
+			self.font:draw{
+				pos={xmin, ymax},
+				text=info.name,
+				color = {1,1,1,1},
+				fontSize={fontSizeX, -fontSizeY},
+				multiLine=false,
+			}
 		end
 	
 	end
