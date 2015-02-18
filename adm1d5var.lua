@@ -1,4 +1,6 @@
 --[[
+based on http://arxiv.org/pdf/gr-qc/9609015v2.pdf
+
 hyperbolic formalism:
 
 state vector: [alpha g A D K]	<- even though alpha and g are already represented by A and D ...
@@ -168,9 +170,9 @@ function ADM1D5VarSim:init(args, ...)
 		{viewport={1/3, 0/3, 1/3, 1/3}, getter=get_g, name='g', color={.5,.5,1}},
 		{viewport={1/3, 1/3, 1/3, 1/3}, getter=get_D, name='D', color={1,1,0}},
 		{viewport={2/3, 0/3, 1/3, 1/3}, getter=get_K, name='K', color={0,1,1}},
-		{viewport={2/3, 1/3, 1/3, 1/3}, getter=get_alpha * sqrt:compose(get_g), name='volume element', color={0,1,1}},
-		{viewport={0/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='eigenbasis error', color={1,0,0}, range={-30, 30}},
-		{viewport={1/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='reconstruction error', color={1,0,0}, range={-30, 30}},
+		{viewport={2/3, 1/3, 1/3, 1/3}, getter=get_alpha * sqrt:compose(get_g), name='volume', color={0,1,1}},
+		{viewport={0/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
+		{viewport={1/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='log reconstruction error', color={1,0,0}, range={-30, 30}},
 	}
 end
 	

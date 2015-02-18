@@ -186,9 +186,9 @@ function ADM2DSphericalSimulation:init(args, ...)
 		{viewport = {0/4, 2/3, 1/4, 1/3}, getter = get_K_rr, name = 'K_rr', color = {0,1,1}},
 		{viewport = {1/4, 2/3, 1/4, 1/3}, getter = get_K_hh, name = 'K_hh', color = {0,1,1}},
 		{viewport = {2/4, 2/3, 1/4, 1/3}, getter = get_V_r * get_r, name = 'V_r*r', color = {0,1,1}},
-		{viewport = {3/4, 0/3, 1/4, 1/3}, getter = get_alpha * get_r * sqrt:compose(get_g_rr * get_g_hh), name = 'volume element', color = {0,1,1}},
-		{viewport = {3/4, 1/3, 1/4, 1/3}, getter = log:compose(index:bind(self.eigenbasisErrors)), name = 'eigenbasis error', color = {1,0,0}, range = {-30, 30}},
-		{viewport = {3/4, 2/3, 1/4, 1/3}, getter = log:compose(index:bind(self.fluxMatrixErrors)), name = 'reconstruction error', color = {1,0,0}, range = {-30, 30}},
+		{viewport = {3/4, 0/3, 1/4, 1/3}, getter = get_alpha * get_r * sqrt:compose(get_g_rr * get_g_hh), name = 'volume', color = {0,1,1}},
+		{viewport = {3/4, 1/3, 1/4, 1/3}, getter = log:compose(index:bind(self.eigenbasisErrors)), name = 'log eigenbasis error', color = {1,0,0}, range = {-30, 30}},
+		{viewport = {3/4, 2/3, 1/4, 1/3}, getter = log:compose(index:bind(self.fluxMatrixErrors)), name = 'log reconstruction error', color = {1,0,0}, range = {-30, 30}},
 	}
 end
 

@@ -2,21 +2,23 @@
 going by Alcubierre's book, with some help from the 5-var system in his paper at http://arxiv.org/pdf/gr-qc/9609015v2.pdf 
 
 p.85 non-hyperbolic description:
-d/dt gammaTilde_ij = -2 alpha ATilde_ij
-d/dt phi = -1/6 alpha K
-d/dt ATilde_ij = exp(-4 phi) ( -D_i D_j alpha + alpha R_ij + 4 pi alpha (gamma_ij (S - rho) - 2 S_ij))^TF + alpha (K ATilde_ij - 2 ATilde_ik ATilde^k_j)
-d/dt K = -D_i D^i alpha + alpha (ATilde_ij ATilde^ij + 1/3 K^2) + 4 pi alpha (rho + S)
-... taking Bona-Masso lapse: d/dt alpha = -alpha^2 f K
-... and no shift
+partial_t gammaTilde_ij = -2 alpha ATilde_ij
+partial_t phi = -1/6 alpha K
+partial_t ATilde_ij = exp(-4 phi) ( -D_i D_j alpha + alpha R_ij + 4 pi alpha (gamma_ij (S - rho) - 2 S_ij))^TF + alpha (K ATilde_ij - 2 ATilde_ik ATilde^k_j)
+partial_t K = -D_i D^i alpha + alpha (ATilde_ij ATilde^ij + 1/3 K^2) + 4 pi alpha (rho + S)
+partial_t Gamma^i = -2 ATilde^ij partial_j alpha + 2 alpha (GammaTilde^i_jk ATilde^jk + 6 ATilde^ij partial_j phi - 2/3 gammaTilde^ij partial_j K - 8 pi jTilde^i)
+... taking Bona-Masso lapse: partial_t alpha = -alpha^2 f K
+... and no shift (hence why all the beta terms aren't there)
 
-alpha
-g_xx
-a_x = partial_x ln alpha = partial_x alpha / alpha
-Phi_x = partial_x phi
-dTilde_xxx = 1/2 partial_x gammaTilde_xx
-K = K^x_x
-ATilde_xx = exp(-4 phi) (K_xx - 1/3 K gamma_xx) = conformal trace-free extrinsic curvature
-GammaTilde^x = gammaTilde^xx connTilde^x_xx
+extra hyperbolic conditioning variables:
+a_i = partial_i ln alpha = partial_i alpha / alpha
+Phi_i = partial_i phi
+dTilde_ijk = 1/2 partial_k gammaTilde_ij
+
+relations:
+K = K^i_i = gamma^ij K_ij
+ATilde_ij = exp(-4 phi) (K_ij - 1/3 K gamma_ij) = conformal trace-free extrinsic curvature
+GammaTilde^i = gammaTilde^jk connTilde^i_jk
 
 how do we recover phi from the state?
 Phi_x = partial_x phi
@@ -29,10 +31,11 @@ phi,t = -alpha K / 6
 so do like for alpha and keep track of phi and Phi_x separate
 
 1D relations:
-phi = -1/(4*n) ln gamma_xx
-gammaTilde_xx = exp(-4 phi) gamma_xx 
-...gammaTilde_xx = exp(1/n ln gamma_xx) gamma_xx 
-...gammaTilde_xx = gamma_xx / gamma_xx^1
+	ND: exp(-phi) = psi <=> phi = -ln psi = -ln (gamma^(1/12) = -1/12 ln gamma
+phi = -1/12 ln gamma_xx
+gammaTilde_xx = exp(-12 phi) gamma_xx			<- isn't this usually exp(-4 phi)?  courtesy of 1/12 * 3 spatial dimensions = 1/4?
+...gammaTilde_xx = exp(-ln gamma_xx) gamma_xx 
+...gammaTilde_xx = gamma_xx / gamma_xx
 ...gammaTilde_xx = 1
 dTilde_xxx = 1/2 partial_x gammaTilde_xx
 ...dTilde_xxx = 1/2 partial_x 1
@@ -201,8 +204,8 @@ function BSSNOK1DSim:init(args, ...)
 		{viewport={1/3, 1/3, 1/3, 1/3}, getter=get_Phi_x, name='Phi_x', color={1,1,0}},
 		{viewport={2/3, 0/3, 1/3, 1/3}, getter=get_K, name='K', color={0,1,1}},
 		{viewport={2/3, 1/3, 1/3, 1/3}, getter=get_ATilde_xx, name='ATilde_xx', color={0,1,1}},
-		{viewport={0/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='eigenbasis error', color={1,0,0}, range={-30, 30}},
-		{viewport={1/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='reconstruction error', color={1,0,0}, range={-30, 30}},
+		{viewport={0/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
+		{viewport={1/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='log reconstruction error', color={1,0,0}, range={-30, 30}},
 		{viewport={2/3, 2/3, 1/3, 1/3}, getter=get_alpha * exp:compose(-2 * get_phi), name='volume', color={0,1,1}},
 	}
 end

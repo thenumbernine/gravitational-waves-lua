@@ -14,8 +14,8 @@ function Euler1DSimulation:init(...)
 		{viewport={0/3, 0/2, 1/3, 1/2}, getter=index:bind(self.qs):index(1), name='rho', color={1,0,1}},
 		{viewport={1/3, 0/2, 1/3, 1/2}, getter=index:bind(self.qs):index(2) / index:bind(self.qs):index(1), name='u', color={0,1,0}},
 		{viewport={2/3, 0/2, 1/3, 1/2}, getter=index:bind(self.qs):index(3) / index:bind(self.qs):index(1), name='E', color={.5,.5,1}},
-		{viewport={0/3, 1/2, 1/3, 1/2}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='error', color={1,0,0}, range={-30, 30}},
-		{viewport={1/3, 1/2, 1/3, 1/2}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='error', color={1,0,0}, range={-30, 30}},
+		{viewport={0/3, 1/2, 1/3, 1/2}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
+		{viewport={1/3, 1/2, 1/3, 1/2}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='log reconstruction error', color={1,0,0}, range={-30, 30}},
 	}
 end
 
