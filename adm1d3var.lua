@@ -182,7 +182,7 @@ function ADM1D3VarSim:calcInterfaceEigenBasis(i)
 	local g = avgQ.g
 	local f = self.calc_f(alpha)
 	local lambda = alpha * sqrt(f / g)		
-	self.eigenvalues[i] = {-lambda, 0, 0, 0, lambda}
+	self.eigenvalues[i] = {-lambda, 0, lambda}
 	-- row-major, math-indexed
 	self.fluxMatrix[i] = {
 		{0,0, alpha*f/sqrt(g)},
