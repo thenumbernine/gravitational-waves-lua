@@ -1,27 +1,5 @@
 --[[
-based on the 5-var system in the gauge shock paper, but with the hyperbolic formalism only based on A D K while alpha and g are updated separately
-
-A = (ln alpha),x = alpha,x / alpha
-alpha,x = alpha A
-
-D = 1/2 g,x
-g,x = 2 D
-
-prim evolution:
-d_t alpha = -alpha^2 f K / g
-d_t g = -2 alpha K
-state evolution:
-d_t A + alpha K / g f,x + alpha f / g K,x = alpha K f / g (2 D / g - A)
-d_t D + alpha K,x = -alpha K A
-d_t K + alpha A,x = alpha ((A D - K^2) / g - A^2)
-
-linear system:
-    [A]   [0     0  alpha f / g]     [A]   [ alpha K f / g (2 D / g - A) ]
-d_t [D] + [0     0    alpha    ] d_x [D] = [          -alpha K A         ]
-    [K]   [alpha 0      0      ]     [K]   [alpha ((A D - K^2) / g - A^2)]
-
-
--- based on the book and on the "Introduction to Numerical Relativity" paper
+based on the book "Introduction to 3+1 Numerical Relativity" and on the paper "Introduction to Numerical Relativity", both by Alcubierre
 
 A = (ln alpha),x = alpha,x / alpha
 D = (ln g),x = g,x / g
@@ -52,7 +30,7 @@ KTilde,t + alpha / sqrt(g) A,x = A alpha / sqrt(g) (1/2 D - A)
 [  D   ],t + [0,               0, 2 alpha / sqrt(g)] [  D   ],x = [2 alpha KTilde / sqrt(g) (1/2 D - A)                    ]
 [KTilde]     [alpha / sqrt(g), 0, 0                ] [KTilde]     [A alpha / sqrt(g) (1/2 D - A)                           ]
 
-...and this is the matrix he has.  ...and!!! there are source terms there!! which I kept forgetting before (that you come up with from distributing the d_x through the (M v) term) 
+...and this is the matrix he has.
 now we look at eigenvectors ...
 
 /* [wxMaxima: input   start ] */
