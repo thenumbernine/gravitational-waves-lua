@@ -37,27 +37,41 @@ function Simulation:init(args)
 		if j > self.numStates then return end
 		return sumR(1, m[j], ...), sumCol(j+1, m, ...)
 	end
+
+	local function buildField(m)
+		return function(i, ...)
+			return sumCol(1, m[i], ...)
+		end
+	end
+
+	--[[
+	default implementation will dot with j'th row of eigenvectorsInverse[i]
+	subclasses with sparse matrices (like ADM) will be able to override this and optimize away (those 37x37 matrices)
 	
-	-- [[ default implementation will dot with j'th row of eigenvectorsInverse[i]
-	-- subclasses with sparse matrices (like ADM) will be able to override this and optimize away (those 37x37 matrices)
-	for _,info in ipairs{
-		{'fluxTransform', 'fluxMatrix'},
-		{'eigenfields', 'eigenvectorsInverse'},
-		{'eigenfieldsInverse', 'eigenvectors'},
-	} do
-		local key, matrix = unpack(info)
-		self[key] = setmetatable({}, {
+	another note: eigenfields never have input vectors.  they are made of state vaules, and their input is state values, so there's no need to define an inner product.
+	...except the fact that some of the state variables are on the i'th entry, and some are of the i+1/2'th entry...
+	--]]
+	self:buildFields{
+		fluxTransform = buildField(self.fluxMatrix),
+		eigenfields = buildField(self.eigenvectorsInverse),
+		eigenfieldsInverse = buildField(self.eigenvectors),
+	}
+end
+
+function Simulation:buildFields(infos)
+	for name,func in pairs(infos) do
+		self[name] = setmetatable({}, {
 			__index = function(self_, i)
 				return setmetatable({}, {
 					__call = function(self_, ...)
-						return sumCol(1, self[matrix][i], ...)
+						return func(i, ...)
 					end
 				})
 			end
 		})
 	end
-	--]]
 end
+
 
 function Simulation:reset()
 	for i=1,self.gridsize do

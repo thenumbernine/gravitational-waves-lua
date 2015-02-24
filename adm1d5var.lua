@@ -220,6 +220,36 @@ function ADM1D5VarSim:calcInterfaceEigenBasis(i)
 		{(g * A / f + K * sqrt(g / f)) / (2 * alpha), 0, g / (2 * f), 0, .5 * sqrt(g / f)}, 
 	}
 	-- note that because we have zero eigenvalues that the eigendecomposition cannot reconstruct the flux matrix
+	
+	local function buildField(call)
+		return function(i, ...)
+			local v1, v2, v3, v4, v5 = ...
+			local alpha, g, A, D, K = unpack(self.qs[i])
+			local f = self.calc_f(alpha)
+			return call(v1, v2, v3, v4, v5, alpha, f, g, A, D, K)
+		end
+	end
+	
+	self:buildFields{
+		fluxTransform = buildField(function(v1, v2, v3, v4, v5, alpha, f, g, A, D, K)
+			return 
+				0,
+				0,
+				v1*f*K/g - v2*alpha*f*K/g^2 + v5*alpha*f/g,
+				v1*K + v5*alpha,
+				v1*A + v3*alpha
+		end),
+		--[[fixme
+		eigenfields = buildField(function(v1, v2, v3, v4, v5, alpha, f, g, A, D, K)
+			return 
+				v1 * (g * A / f - K * sqrt(g / f)) / (2 * alpha) + v3 * g / (2 * f) - v5 * .5 * sqrt(g / f),
+				v1 / alpha,
+				-v1 * (g * A) / (alpha * f) - v3 * g / f + v4,
+				v2,
+				v1 * (g * A / f + K * sqrt(g / f)) / (2 * alpha) + v3 * g / (2 * f) + v5 * .5 * sqrt(g / f) 
+		end),
+		--]]
+	}
 end
 
 function ADM1D5VarSim:addSourceToDerivCell(dq_dts, i)
