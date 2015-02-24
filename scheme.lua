@@ -8,16 +8,48 @@ return {
 			-- collect error for reporting
 			local eigenbasisError = 0
 			local fluxMatrixError = 0
+			-- for the i'th cell:
+			-- Q = eigenvectors matrix
+			-- L = eigenvalues matrix
+			-- A_jk = Q_jl L_l invQ_lk
+			-- eigenbasisError = Q_jl invQ_lk - delta_jk
+			-- fluxMatrixError = Q_jl L_l invQ_lk - A_jk
 			for j=1,self.numStates do
+				-- local basis_j = 0's everywhere except a 1 at the j'th entry
+				-- local eigencoords_j = {k,eigenfield[i][k](basis_j)}			<- dot input vector with eigenvector inverse row k
+				-- local eigenscaled_j = eigencoords_j * lambda_j
+				-- local newbasis_j = {k,eigenfieldInverse[i][k](eigencoords_j)}	<- dot input vector with eigenvector row k
+				-- local newtransformed_j = {k,eigenfieldInverse[i][k](eigenscaled_j)}
+				-- sum up abs error between basis_j and newbasis_j 
+				-- sum up abs error between A_jk basis_k and newtransformed_j
+			
+				-- basis_k = delta_jk
+				local basis = {}
 				for k=1,self.numStates do
-					local eigenbasisSum = 0
-					local fluxMatrixSum = 0
-					for l=1,self.numStates do
-						eigenbasisSum = eigenbasisSum + self.eigenvectors[i][j][l] * self.eigenvectorsInverse[i][l][k]
-						fluxMatrixSum = fluxMatrixSum + self.eigenvectors[i][j][l] * self.eigenvectorsInverse[i][l][k] * self.eigenvalues[i][l]
-					end
-					eigenbasisError = eigenbasisError + abs(eigenbasisSum - (j == k and 1 or 0))
-					fluxMatrixError = fluxMatrixError + abs(fluxMatrixSum - self.fluxMatrix[i][j][k])
+					basis[k] = k == j and 1 or 0
+				end
+
+				-- eigenCoords_k = invQ_kl basis_l
+				local eigenCoords = {self.eigenfields[i](unpack(basis))}
+
+				-- eigenScaled_k = lambda_k * eigenCoords_k
+				local eigenScaled = {}
+				for k=1,self.numStates do
+					eigenScaled[k] = self.eigenvalues[i][k] * eigenCoords[k]
+				end
+				
+				-- newbasis_k = Q_kl eigenCoords_l
+				local newbasis = {self.eigenfieldsInverse[i](unpack(eigenCoords))}
+				
+				-- newtransformed_k = Q_kl eigenScaled_l = Q_kl lambda_l eigenCoords_k
+				local newtransformed = {self.eigenfieldsInverse[i](unpack(eigenScaled))}
+
+				-- transformed_k = A_kl basis_l
+				local transformed = {self.fluxTransform[i](unpack(basis))}
+
+				for k=1,self.numStates do
+					eigenbasisError = eigenbasisError + math.abs(basis[k] - newbasis[k])
+					fluxMatrixError = fluxMatrixError + math.abs(transformed[k] - newtransformed[k])
 				end
 			end
 			self.eigenbasisErrors[i] = eigenbasisError
@@ -44,14 +76,11 @@ return {
 
 		-- 2) calculate interface state difference in eigenbasis coordinates
 		for i=2,self.gridsize do
+			local dq = {}
 			for j=1,self.numStates do
-				local s = 0
-				for k=1,self.numStates do
-					-- all the sum terms are fine, but the result is nan...
-					s = s + self.eigenvectorsInverse[i][j][k] * (self.qs[i][k] - self.qs[i-1][k])
-				end
-				self.deltaQTildes[i][j] = s
+				dq[j] = self.qs[i][j] - self.qs[i-1][j]
 			end
+			self.deltaQTildes[i] = {self.eigenfields[i](unpack(dq))}
 		end
 	
 		local useFluxMatrix = false
@@ -59,42 +88,50 @@ return {
 		-- 3) slope limit on interface difference
 		-- 4) transform back
 		for i=2,self.gridsize do
-			local fluxTilde = {}
+			
+			local qAvg = {}
 			for j=1,self.numStates do
-				local rTilde
+				qAvg[j] = .5 * (self.qs[i][j] + self.qs[i-1][j])
+			end
+				
+			local rTildes = {}
+			for j=1,self.numStates do
 				if self.deltaQTildes[i][j] == 0 then
-					rTilde = 0
+					rTildes[j] = 0
 				else
 					if self.eigenvalues[i][j] >= 0 then
-						rTilde = self.deltaQTildes[i-1][j] / self.deltaQTildes[i][j]
+						rTildes[j] = self.deltaQTildes[i-1][j] / self.deltaQTildes[i][j]
 					else
-						rTilde = self.deltaQTildes[i+1][j] / self.deltaQTildes[i][j]
+						rTildes[j] = self.deltaQTildes[i+1][j] / self.deltaQTildes[i][j]
 					end
 				end
-				local phi = self.slopeLimiter(rTilde)
+			end
+
+			local fluxTilde = {}
+			for j=1,self.numStates do
+				local phi = self.slopeLimiter(rTildes[j])
 				local theta = self.eigenvalues[i][j] >= 0 and 1 or -1
 				local dx = self.xs[i] - self.xs[i-1]
 				local epsilon = self.eigenvalues[i][j] * dt / dx
 				local deltaFluxTilde = self.eigenvalues[i][j] * self.deltaQTildes[i][j]
 				fluxTilde[j] = -.5 * deltaFluxTilde * (theta + phi * (epsilon - theta))
-				if not useFluxMatrix then
-					local qAvgTilde = 0
-					for k=1,self.numStates do
-						qAvgTilde = qAvgTilde + self.eigenvectorsInverse[i][j][k] * (self.qs[i][k] + self.qs[i-1][k]) * .5
-					end
-					fluxTilde[j] = fluxTilde[j] + self.eigenvalues[i][j] * qAvgTilde
+			end
+			
+			if not useFluxMatrix then
+				local qAvgTildes = {self.eigenfields[i](unpack(qAvg))}
+				for j=1,self.numStates do
+					fluxTilde[j] = fluxTilde[j] + self.eigenvalues[i][j] * qAvgTildes[j]
 				end
 			end
-			for j=1,self.numStates do
-				local s = 0
-				for k=1,self.numStates do
-					s = s + self.eigenvectors[i][j][k] * fluxTilde[k]
-					-- using the flux matrix itself allows for complete reconstruction even in the presence of zero-self.eigenvalues
-					if useFluxMatrix then
-						s = s + self.fluxMatrix[i][j][k] * (self.qs[i-1][k] + self.qs[i][k]) * .5
-					end
+			
+			self.fluxes[i] = {self.eigenfieldsInverse[i](unpack(fluxTilde))}
+			
+			-- using the flux matrix itself allows for complete reconstruction even in the presence of zero-self.eigenvalues
+			if useFluxMatrix then
+				local fluxQs = {self.fluxTransform[i](unpack(qAvg))}
+				for j=1,self.numStates do
+					self.fluxes[i][j] = self.fluxes[i][j] + fluxQs[j]
 				end
-				self.fluxes[i][j] = s
 			end
 		end
 

@@ -165,18 +165,73 @@ function ADM1D3VarSim:calcInterfaceEigenBasis(i)
 	self.fluxMatrix[i] = {
 		{0,0, alpha*f/sqrt(g)},
 		{0,0, 2*alpha/sqrt(g)},
-		{alpha/sqrt(g),0,0},
+		{alpha/sqrt(g),0,0}
 	}
-	self.eigenvectors[i] = {
-		{f,			0,	f		},
-		{2,		 	1,	2		},
-		{-sqrt(f), 	0,	sqrt(f)	},
+	self.eigenvectors[i]={
+		{f, 0, f},
+		{2, 1, 2},
+		{-sqrt(f), 0, sqrt(f)}
 	}
-	self.eigenvectorsInverse[i] = {
-		{1/(2*f), 	0, -1/(2*sqrt(f))	},
-		{-2/f, 		1, 0				},
-		{1/(2*f), 	0, 1/(2*sqrt(f))	},
+	self.eigenvectorsInverse[i]={
+		{1/(2*f), 0, -1/(2*sqrt(f))},
+		{-2/f, 1, 0},
+		{1/(2*f), 0, 1/(2*sqrt(f))}
 	}
+
+	-- [=[
+	-- [[ for some odd reason, multiplying the matrices is more accurate
+	self.fluxTransform = setmetatable({}, {
+		__index = function(self_, i)
+			return setmetatable({}, {
+				__call = function(self_, ...)
+					local v1, v2, v3 = ...
+					local q = self.qs[i]
+					local alpha, g, A, D, KTilde = q.alpha, q.g, unpack(q)
+					local f = self.calc_f(alpha)
+					return
+						v3 * alpha * f / sqrt(g),
+						v3 * 2 * alpha / sqrt(g),
+						v1 * alpha / sqrt(g)
+				end
+			})
+		end
+	})
+	--]]
+
+	self.eigenfields = setmetatable({}, {
+		__index = function(self_, i)
+			return setmetatable({}, {
+				__call = function(self_, ...)
+					local v1, v2, v3 = ...
+					local q = self.qs[i]
+					local alpha, g, A, D, KTilde = q.alpha, q.g, unpack(q)
+					local f = self.calc_f(alpha)
+					return
+						v1 / (2 * f) - v3 / (2 * sqrt(f)),
+						-2*v1/f + v2,
+						v1 / (2 * f) + v3 / (2 * sqrt(f))
+				end
+			})
+		end
+	})
+
+	self.eigenfieldsInverse = setmetatable({}, {
+		__index = function(self_, i)
+			return setmetatable({}, {
+				__call = function(self_, ...)
+					local v1, v2, v3 = ...
+					local q = self.qs[i]
+					local alpha, g, A, D, KTilde = q.alpha, q.g, unpack(q)
+					local f = self.calc_f(alpha)
+					return
+						(v1 + v3) * f,
+						2 * v1 + v2 + 2 * v3,
+						sqrt(f) * (-v1 + v3)
+				end
+			})
+		end
+	})
+	--]=]
 end
 
 function ADM1D3VarSim:zeroDeriv(dq_dts)

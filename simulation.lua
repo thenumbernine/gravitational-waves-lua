@@ -27,6 +27,36 @@ function Simulation:init(args)
 	self.eigenvectorsInverse = {}
 	self.eigenbasisErrors = {}
 	self.fluxMatrixErrors = {}
+
+	local function sumR(k, m, v, ...)
+		if not v then return 0 end
+		return m[k] * v + sumR(k+1, m, ...)
+	end
+
+	local function sumCol(j, m, ...)
+		if j > self.numStates then return end
+		return sumR(1, m[j], ...), sumCol(j+1, m, ...)
+	end
+	
+	-- [[ default implementation will dot with j'th row of eigenvectorsInverse[i]
+	-- subclasses with sparse matrices (like ADM) will be able to override this and optimize away (those 37x37 matrices)
+	for _,info in ipairs{
+		{'fluxTransform', 'fluxMatrix'},
+		{'eigenfields', 'eigenvectorsInverse'},
+		{'eigenfieldsInverse', 'eigenvectors'},
+	} do
+		local key, matrix = unpack(info)
+		self[key] = setmetatable({}, {
+			__index = function(self_, i)
+				return setmetatable({}, {
+					__call = function(self_, ...)
+						return sumCol(1, self[matrix][i], ...)
+					end
+				})
+			end
+		})
+	end
+	--]]
 end
 
 function Simulation:reset()
