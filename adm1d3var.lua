@@ -147,71 +147,53 @@ function ADM1D3VarSim:initCell(i)
 end
 
 function ADM1D3VarSim:calcInterfaceEigenBasis(i)
-	local avgQ = {}
-	for j=1,self.numStates do 
-		avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
-	end
-	avgQ.alpha = (self.qs[i-1].alpha + self.qs[i].alpha) / 2
-	avgQ.g = (self.qs[i-1].g + self.qs[i].g) / 2
-	
-	local A, D, KTilde = unpack(avgQ)
-	local x = self.ixs[i]
-	local alpha = avgQ.alpha
-	local g = avgQ.g
+	local alpha = (self.qs[i-1].alpha + self.qs[i].alpha) / 2
+	local g = (self.qs[i-1].g + self.qs[i].g) / 2
 	local f = self.calc_f(alpha)
 	local lambda = alpha * sqrt(f / g)		
 	self.eigenvalues[i] = {-lambda, 0, lambda}
-	-- row-major, math-indexed
-	self.fluxMatrix[i] = {
-		{0,0, alpha*f/sqrt(g)},
-		{0,0, 2*alpha/sqrt(g)},
-		{alpha/sqrt(g),0,0}
-	}
-	self.eigenvectors[i]={
-		{f, 0, f},
-		{2, 1, 2},
-		{-sqrt(f), 0, sqrt(f)}
-	}
-	self.eigenvectorsInverse[i]={
-		{1/(2*f), 0, -1/(2*sqrt(f))},
-		{-2/f, 1, 0},
-		{1/(2*f), 0, 1/(2*sqrt(f))}
-	}
 
 	local function buildField(call)
 		return function(i, ...)
 			local v1, v2, v3 = ...
-			local q = self.qs[i]
-			local alpha, g, A, D, KTilde = q.alpha, q.g, unpack(q)
+			
+			local avgQ = {}
+			for j=1,self.numStates do 
+				avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
+			end
+			avgQ.alpha = (self.qs[i-1].alpha + self.qs[i].alpha) / 2
+			avgQ.g = (self.qs[i-1].g + self.qs[i].g) / 2
+			
+			local A, D, KTilde = unpack(avgQ)
+			local x = self.ixs[i]
+			local alpha = avgQ.alpha
+			local g = avgQ.g
 			local f = self.calc_f(alpha)
-			return call(v1, v2, v3, alpha, f, g, A, D, KTilde)
+
+			return call(alpha, f, g, A, D, KTilde, v1, v2, v3)
 		end
 	end
 
--- [==[
 	self:buildFields{
--- [=[ for some odd reason, multiplying the matrices is more accurate
-		fluxTransform = buildField(function(v1, v2, v3, alpha, f, g, A, D, KTilde)
+		fluxTransform = buildField(function(alpha, f, g, A, D, KTilde, v1, v2, v3)
 			return
 				v3 * alpha * f / sqrt(g),
 				v3 * 2 * alpha / sqrt(g),
 				v1 * alpha / sqrt(g)
 		end),
---]=]
-		eigenfields = buildField(function(v1, v2, v3, alpha, f, g, A, D, KTilde)
+		eigenfields = buildField(function(alpha, f, g, A, D, KTilde, v1, v2, v3)
 			return
 				v1 / (2 * f) - v3 / (2 * sqrt(f)),
 				-2*v1/f + v2,
 				v1 / (2 * f) + v3 / (2 * sqrt(f))
 		end),
-		eigenfieldsInverse = buildField(function(v1, v2, v3, alpha, f, g, A, D, KTilde)
+		eigenfieldsInverse = buildField(function(alpha, f, g, A, D, KTilde, v1, v2, v3)
 			return
 				(v1 + v3) * f,
 				2 * v1 + v2 + 2 * v3,
 				sqrt(f) * (-v1 + v3)
 		end),
 	} 
---]==]
 end
 
 function ADM1D3VarSim:zeroDeriv(dq_dts)

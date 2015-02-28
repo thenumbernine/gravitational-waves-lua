@@ -226,12 +226,12 @@ function ADM1D5VarSim:calcInterfaceEigenBasis(i)
 			local v1, v2, v3, v4, v5 = ...
 			local alpha, g, A, D, K = unpack(self.qs[i])
 			local f = self.calc_f(alpha)
-			return call(v1, v2, v3, v4, v5, alpha, f, g, A, D, K)
+			return call(alpha, f, g, A, D, K, v1, v2, v3, v4, v5)
 		end
 	end
 	
 	self:buildFields{
-		fluxTransform = buildField(function(v1, v2, v3, v4, v5, alpha, f, g, A, D, K)
+		fluxTransform = buildField(function(alpha, f, g, A, D, K, v1, v2, v3, v4, v5)
 			return 
 				0,
 				0,
@@ -240,7 +240,7 @@ function ADM1D5VarSim:calcInterfaceEigenBasis(i)
 				v1*A + v3*alpha
 		end),
 		--[[fixme
-		eigenfields = buildField(function(v1, v2, v3, v4, v5, alpha, f, g, A, D, K)
+		eigenfields = buildField(function(alpha, f, g, A, D, K, v1, v2, v3, v4, v5)
 			return 
 				v1 * (g * A / f - K * sqrt(g / f)) / (2 * alpha) + v3 * g / (2 * f) - v5 * .5 * sqrt(g / f),
 				v1 / alpha,
