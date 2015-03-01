@@ -20,15 +20,18 @@ local symmath = require 'symmath'
 -- [[
 local sim
 do
-	local xc = 150
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
-	local h = 5 * symmath.exp(-((x - xc) / 10)^2)
-	sim = require'adm1d3var'{
+	local xc = 150
+	local H = 5
+	local sigma = 10
+	local h = H * symmath.exp(-(x - xc)^2 / sigma^2)
+	local g = 1 - h:diff(x)^2
+	local K = -h:diff(x,x) / g^.5
+	--sim = require'adm1d3var'{
 	--sim = require'adm1d3to5var'{
-	--sim = require'adm1d5var'{
+	sim = require'adm1d5var'{
 	--sim = require'bssnok1d'{
-	--sim = require'adm3d'{
 		gridsize = 200,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
@@ -36,16 +39,18 @@ do
 		-- the symbolic math driving it:
 		x = x,
 		h = h,
-		g = 1 - h:diff(x)^2,
+		g = g,
+		K = K,
 		alpha = 1,
 		-- Bona-Masso slicing conditions:
-		f_param = alpha,	
-		--f = 1,
+		f_param = alpha,
+		f = 1,
 		--f = 1.69,
 		--f = .49,
-		--f = 1/3,
-		f = 1 + 1/alpha^2,
+		--f = 1 + 1/alpha^2,
 	}
+	sim.stopAtTime = 100
+	--sim.fixed_dt = 0.125
 end
 --]]
 
@@ -79,6 +84,41 @@ do
 end
 --]]
 
+--[[
+local sim
+do
+	local x = symmath.var'x'
+	local y = symmath.var'y'
+	local z = symmath.var'z'
+	local xc = 150
+	local yc = 0
+	local zc = 0
+	local alpha = symmath.var'alpha'
+	local sigma = 10
+	local h = 5 * symmath.exp(-((x - xc)^2 + (y - yc)^2 + (z - zc)^2) / sigma^2)
+	sim = require'adm3d'{
+		gridsize = 200,
+		domain = {xmin=0, xmax=300},
+		boundaryMethod = boundaryMethods.freeFlow,
+		slopeLimiter = slopeLimiters.donorCell,
+		-- the symbolic math driving it:
+		x = x,
+		y = y,
+		z = z,
+		h = h,
+		g = 1 - h:diff(x)^2,
+		rs = 10,
+		-- Bona-Masso slicing conditions:
+		f_param = alpha,	
+		--f = 1,
+		--f = 1.69,
+		--f = .49,
+		--f = 1/3,
+		f = 1 + 1/alpha^2,
+	}
+end
+
+--]]
 --[[
 local sim = require'euler1d'{
 	gridsize = 200,
@@ -182,14 +222,16 @@ function TestApp:update(...)
 		end
 		sim:iterate()
 	end
-	
+
 	local xs = sim.xs
 	local w, h = self:size()
 	for infoIndex,info in ipairs(sim.graphInfos) do
+		
 		local ys = {}
 		local ymin, ymax
 		for i=1,sim.gridsize do
 			local y = info.getter(i)
+			if not y then error("failed to get for getter "..info.name) end
 			ys[i] = y
 			if y == y and abs(y) < huge then
 				if not ymin or y < ymin then ymin = y end

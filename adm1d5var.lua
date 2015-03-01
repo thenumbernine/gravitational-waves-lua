@@ -152,7 +152,7 @@ function ADM1D5VarSim:init(args, ...)
 	local dx_alpha = alpha:diff(x):simplify()
 	self.calc_dx_alpha = dx_alpha:compile{x}
 
-	local f = symmath.clone(assert(args.alpha)):simplify()
+	local f = symmath.clone(assert(args.f)):simplify()
 	self.calc_f = f:compile{assert(args.f_param)}
 
 	local dalpha_f = f:diff(args.f_param):simplify()

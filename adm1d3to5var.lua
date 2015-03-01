@@ -40,7 +40,7 @@ function ADM1D3to5VarSim:init(args, ...)
 
 	local f_param = assert(args.f_param)
 
-	local f = symmath.clone(assert(args.alpha)):simplify()
+	local f = symmath.clone(assert(args.f)):simplify()
 	self.calc_f = f:compile{f_param}
 
 	local dalpha_f = f:diff(f_param):simplify()
@@ -52,39 +52,18 @@ function ADM1D3to5VarSim:init(args, ...)
 	local get_A = get_state:index(3)
 	local get_D = get_state:index(4)
 	local get_KTilde = get_state:index(5)
+	local get_K = get_KTilde / sqrt:compose(get_g)
 	self.graphInfos = {
 		{viewport={0/3, 0/3, 1/3, 1/3}, getter=get_alpha, name='alpha', color={1,0,1}},
 		{viewport={0/3, 1/3, 1/3, 1/3}, getter=get_A, name='A', color={0,1,0}},
 		{viewport={1/3, 0/3, 1/3, 1/3}, getter=get_g, name='g', color={.5,.5,1}},
 		{viewport={1/3, 1/3, 1/3, 1/3}, getter=get_D, name='D', color={1,1,0}},
-		{viewport={2/3, 0/3, 1/3, 1/3}, getter=get_KTilde, name='KTilde', color={0,1,1}},
+		{viewport={2/3, 0/3, 1/3, 1/3}, getter=get_K, name='K', color={0,1,1}},
 		{viewport={2/3, 1/3, 1/3, 1/3}, getter=get_alpha * sqrt:compose(get_g), name='volume', color={0,1,1}},
 		{viewport={0/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
 		{viewport={1/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='log reconstuction error', color={1,0,0}, range={-30, 30}},
 	}
-end
 
-function ADM1D3to5VarSim:initCell(i)
-	local x = self.xs[i]
-	local alpha = self.calc_alpha(x)
-	local g = self.calc_g(x)
-	local A = self.calc_dx_alpha(x) / self.calc_alpha(x)
-	local D = 1/2 * self.calc_dx_g(x)
-	local K = -self.calc_d2x_h(x) / sqrt(self.calc_g(x))
-	local KTilde = K / sqrt(g)
-	return {alpha, g, A, D, KTilde}
-end
-
-function ADM1D3to5VarSim:calcInterfaceEigenBasis(i)
-	local avgQ = {}
-	for j=1,self.numStates do 
-		avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
-	end
-	local alpha, g, A, D, KTilde = unpack(avgQ)
-	local f = self.calc_f(alpha)
-	local lambda = alpha * sqrt(f / g)		
-	self.eigenvalues[i] = {-lambda, 0, 0, 0, lambda}
-	
 	local function buildField(call)
 		return function(i, ...)
 			local avgQ = {}
@@ -127,7 +106,29 @@ function ADM1D3to5VarSim:calcInterfaceEigenBasis(i)
 				2 * v1 + v2 + 2 * v3,
 				sqrt(f) * (-v1 + v3)
 		end),
-	} 
+	}
+end
+
+function ADM1D3to5VarSim:initCell(i)
+	local x = self.xs[i]
+	local alpha = self.calc_alpha(x)
+	local g = self.calc_g(x)
+	local A = self.calc_dx_alpha(x) / self.calc_alpha(x)
+	local D = 1/2 * self.calc_dx_g(x)
+	local K = -self.calc_d2x_h(x) / sqrt(self.calc_g(x))
+	local KTilde = K / sqrt(g)
+	return {alpha, g, A, D, KTilde}
+end
+
+function ADM1D3to5VarSim:calcInterfaceEigenBasis(i)
+	local avgQ = {}
+	for j=1,self.numStates do 
+		avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
+	end
+	local alpha, g, A, D, KTilde = unpack(avgQ)
+	local f = self.calc_f(alpha)
+	local lambda = alpha * sqrt(f / g)		
+	self.eigenvalues[i] = {-lambda, 0, 0, 0, lambda}
 end
 
 function ADM1D3to5VarSim:addSourceToDerivCell(dq_dts, i)

@@ -99,6 +99,9 @@ function ADM1D3VarSim:init(args, ...)
 
 	local g = symmath.clone(assert(args.g)):simplify()
 	self.calc_g = g:compile{x}
+	
+	local K = symmath.clone(assert(args.K)):simplify()
+	self.calc_K = K:compile{x}
 
 	local dx_g = g:diff(x):simplify()
 	self.calc_dx_g = dx_g:compile{x}
@@ -111,7 +114,7 @@ function ADM1D3VarSim:init(args, ...)
 
 	local f_param = assert(args.f_param)
 
-	local f = symmath.clone(assert(args.alpha)):simplify()
+	local f = symmath.clone(assert(args.f)):simplify()
 	self.calc_f = f:compile{f_param}
 
 	local dalpha_f = f:diff(f_param):simplify()
@@ -123,35 +126,17 @@ function ADM1D3VarSim:init(args, ...)
 	local get_A = get_state:index(1)
 	local get_D = get_state:index(2)
 	local get_KTilde = get_state:index(3)
+	local get_K = get_KTilde / sqrt:compose(get_g)
 	self.graphInfos = {
 		{viewport={0/3, 0/3, 1/3, 1/3}, getter=get_alpha, name='alpha', color={1,0,1}},
 		{viewport={0/3, 1/3, 1/3, 1/3}, getter=get_A, name='A', color={0,1,0}},
 		{viewport={1/3, 0/3, 1/3, 1/3}, getter=get_g, name='g', color={.5,.5,1}},
 		{viewport={1/3, 1/3, 1/3, 1/3}, getter=get_D, name='D', color={1,1,0}},
-		{viewport={2/3, 0/3, 1/3, 1/3}, getter=get_KTilde, name='KTilde', color={0,1,1}},
+		{viewport={2/3, 0/3, 1/3, 1/3}, getter=get_K, name='K', color={0,1,1}},
 		{viewport={2/3, 1/3, 1/3, 1/3}, getter=get_alpha * sqrt:compose(get_g), name='volume', color={0,1,1}},
 		{viewport={0/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
 		{viewport={1/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='log reconstuction error', color={1,0,0}, range={-30, 30}},
 	}
-end
-
-function ADM1D3VarSim:initCell(i)
-	local x = self.xs[i]
-	local alpha = self.calc_alpha(x)
-	local g = self.calc_g(x)
-	local A = self.calc_dx_alpha(x) / self.calc_alpha(x)
-	local D = 1/2 * self.calc_dx_g(x)
-	local K = -self.calc_d2x_h(x) / sqrt(self.calc_g(x))
-	local KTilde = K / sqrt(g)
-	return {A, D, KTilde, alpha=alpha, g=g}
-end
-
-function ADM1D3VarSim:calcInterfaceEigenBasis(i)
-	local alpha = (self.qs[i-1].alpha + self.qs[i].alpha) / 2
-	local g = (self.qs[i-1].g + self.qs[i].g) / 2
-	local f = self.calc_f(alpha)
-	local lambda = alpha * sqrt(f / g)		
-	self.eigenvalues[i] = {-lambda, 0, lambda}
 
 	local function buildField(call)
 		return function(i, ...)
@@ -194,6 +179,25 @@ function ADM1D3VarSim:calcInterfaceEigenBasis(i)
 				sqrt(f) * (-v1 + v3)
 		end),
 	} 
+end
+
+function ADM1D3VarSim:initCell(i)
+	local x = self.xs[i]
+	local alpha = self.calc_alpha(x)
+	local g = self.calc_g(x)
+	local A = self.calc_dx_alpha(x) / self.calc_alpha(x)
+	local D = 1/2 * self.calc_dx_g(x)
+	local K = self.calc_K(x) 
+	local KTilde = K / sqrt(g)
+	return {alpha=alpha, g=g, A, D, KTilde}
+end
+
+function ADM1D3VarSim:calcInterfaceEigenBasis(i)
+	local alpha = (self.qs[i-1].alpha + self.qs[i].alpha) / 2
+	local g = (self.qs[i-1].g + self.qs[i].g) / 2
+	local f = self.calc_f(alpha)
+	local lambda = alpha * sqrt(f / g)		
+	self.eigenvalues[i] = {-lambda, 0, lambda}
 end
 
 function ADM1D3VarSim:zeroDeriv(dq_dts)
