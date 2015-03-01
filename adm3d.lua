@@ -79,12 +79,6 @@ function ADM3DSimulation:init(args, ...)
 	local z = assert(args.z)
 	local vars = table{x,y,z}
 
-	local alpha = symmath.clone(assert(args.alpha)):simplify()
-	self.calc_alpha = alpha:compile(vars)
-
-	local diff_alpha = vars:map(function(var) return alpha:diff(var):simplify() end)
-	self.calc_diff_alpha = diff_alpha:map(function(eqn) return (eqn:compile(vars)) end)
-
 	local f_param = assert(args.f_param)
 
 	local f = symmath.clone(assert(args.f)):simplify()
@@ -92,12 +86,6 @@ function ADM3DSimulation:init(args, ...)
 
 	local dalpha_f = f:diff(f_param):simplify()
 	self.calc_dalpha_f = dalpha_f:compile{f_param}
-
-	-- pseudo-Cartesian Schwarzschild coordinates from "Catalogue of Spacetimes"
-	-- I need to avoid coordinate singularities or something
-	local r = (x^2 + y^2 + z^2)^.5
-
-	local rs = assert(tonumber(args.rs))	-- schwarzschild radius
 
 	--[[
 	from "Catalogue of Spacetimes"
@@ -116,6 +104,7 @@ function ADM3DSimulation:init(args, ...)
 		rho_s = rs / 4
 	... which means our xyz are no longer radially related to the 'r' coordinate of the original schwarzschild coordinates ...
 	--]]	
+	local rs = assert(tonumber(args.rs))	-- schwarzschild radius
 	local rho_s = rs / 4	
 	local rho = x^2 + y^2 + z^2
 	local g_tt = -((1 - rho_s / rho)/(1 + rho_s/rho))^2
@@ -136,6 +125,12 @@ function ADM3DSimulation:init(args, ...)
 	
 	local gU = inv3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz)
 	self.calc_gU = table.map(gU, function(gUij) return (gUij:compile(vars)) end)
+
+	local alpha = -((1 - rho_s/rho)/(1 + rho_s/rho))^2
+	self.calc_alpha = alpha:compile(vars)
+
+	local diff_alpha = vars:map(function(var) return alpha:diff(var):simplify() end)
+	self.calc_diff_alpha = diff_alpha:map(function(eqn) return (eqn:compile(vars)) end)
 
 	-- and for the graphs ...
 
@@ -286,7 +281,7 @@ function ADM3DSimulation:init(args, ...)
 
 			return {
 				-- negative gauge
-				sqrt(q_f) * (q_gUxx * v_K_xx + q_gUxy * v_K_xy + q_gUxz * v_K_xz + q_gUyy * v_K_yy + q_gUyz * v_K_yz + q_gUzz * v_K_zz) - sqrt(q_gUxx) * (v_K_Ax + 2 * (v[35] + q_gUxy/q_gUxx*v[36] + q_gUxz/q_gUxx*v[37])),
+				sqrt(q_f) * (q_gUxx * v_K_xx + q_gUxy * v_K_xy + q_gUxz * v_K_xz + q_gUyy * v_K_yy + q_gUyz * v_K_yz + q_gUzz * v_K_zz) - sqrt(q_gUxx) * (v_A_x + 2 * (v_V_x + q_gUxy/q_gUxx*v_V_y + q_gUxz/q_gUxx*v_V_z)),
 				-- negative light cone
 				-- zero
 				-- positive light cone
@@ -301,7 +296,7 @@ function ADM3DSimulation:initCell(i)
 	local y = 0
 	local z = 0
 	local xs = table{x,y,z}
-	local alpha = self.calc_alpha(x)
+	local alpha = self.calc_alpha(x,y,z)
 	local diff_alpha = self.calc_diff_alpha:map(function(f) return f(x,y,z) end)
 	local A = diff_alpha:map(function(diff_alpha_i) return diff_alpha_i / alpha end)
 	local g = self.calc_g:map(function(f) return f(x,y,z) end)
@@ -370,7 +365,8 @@ function ADM3DSimulation:calcInterfaceEigenBasis(i)
 
 	local lambdaLight = alpha * sqrt(gUxx)
 	local lambdaGauge = lambdaLight * sqrt(f)
-
+print(lambdaLight)
+print(lambdaGauge)
 	self.eigenvalues[i] = {
 		-- gauge field
 		-lambdaGauge,

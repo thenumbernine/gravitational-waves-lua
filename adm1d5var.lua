@@ -126,6 +126,7 @@ local Simulation = require 'simulation'
 local ADM1D5VarSim = class(Simulation)
 	
 ADM1D5VarSim.numStates = 5 
+ADM1D5VarSim.treatMconstant = true
 
 function ADM1D5VarSim:init(args, ...)
 	ADM1D5VarSim.super.init(self, args, ...)
@@ -257,7 +258,9 @@ function ADM1D5VarSim:addSourceToDerivCell(dq_dts, i)
 	local f = self.calc_f(alpha)
 	dq_dts[i][1] = dq_dts[i][1] - alpha * alpha * f * K / g
 	dq_dts[i][2] = dq_dts[i][2] - 2 * alpha * K
-	dq_dts[i][3] = dq_dts[i][3] - alpha * K * self.calc_dalpha_f(alpha) / g
+	if not self.treatMconstant then
+		dq_dts[i][3] = dq_dts[i][3] - alpha * K * self.calc_dalpha_f(alpha) / g
+	end
 	dq_dts[i][5] = dq_dts[i][5] + alpha * (A * D - K * K) / g
 end
 

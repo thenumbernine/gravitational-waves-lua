@@ -80,6 +80,15 @@ local ADM1D3VarSim = class(Simulation)
 
 ADM1D3VarSim.numStates = 3
 
+--[[
+the equation is stated as dv_dt + d_dx(M*v) = s
+M is composed of variables in v, so I'm assuming this should be ...
+	dv_dt + M*dv_dx = s - dM/dx*v
+...however if M is supposed to be treated like a matrix of constants then it would only be
+	dv_dt * M*dv_dx = s
+--]]
+ADM1D3VarSim.treatMconstant = true
+
 -- initial conditions
 function ADM1D3VarSim:init(args, ...)
 	ADM1D3VarSim.super.init(self, args, ...)
@@ -218,12 +227,11 @@ function ADM1D3VarSim:addSourceToDerivCell(dq_dts, i)
 	
 	dq_dts[i].alpha = dq_dts[i].alpha - alpha * alpha * f * KTilde / (g * sqrt(g))
 	dq_dts[i].g = dq_dts[i].g - 2 * alpha * KTilde / sqrt(g)
-	
-	local tmp1 = alpha / sqrt(g)
-	local tmp2 = .5 * D - A
-	dq_dts[i][1] = dq_dts[i][1] + KTilde * tmp1 * (f * tmp2 - A * alpha * dalpha_f)
-	dq_dts[i][2] = dq_dts[i][2] + 2 * KTilde * tmp1 * tmp2
-	dq_dts[i][3] = dq_dts[i][3] + A * tmp1 * tmp2
+	if not self.treatMconstant then
+		dq_dts[i][1] = dq_dts[i][1] + KTilde * alpha / sqrt(g) * (f * (.5 * D - A) - A * alpha * dalpha_f)
+		dq_dts[i][2] = dq_dts[i][2] + 2 * KTilde * alpha / sqrt(g) * (.5 * D - A)
+		dq_dts[i][3] = dq_dts[i][3] + A * alpha / sqrt(g) * (.5 * D - A)
+	end
 end
 
 function ADM1D3VarSim:integrateDeriv(dq_dts, dt)

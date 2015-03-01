@@ -28,9 +28,9 @@ do
 	local h = H * symmath.exp(-(x - xc)^2 / sigma^2)
 	local g = 1 - h:diff(x)^2
 	local K = -h:diff(x,x) / g^.5
-	--sim = require'adm1d3var'{
+	sim = require'adm1d3var'{
 	--sim = require'adm1d3to5var'{
-	sim = require'adm1d5var'{
+	--sim = require'adm1d5var'{
 	--sim = require'bssnok1d'{
 		gridsize = 200,
 		domain = {xmin=0, xmax=300},
@@ -44,10 +44,10 @@ do
 		alpha = 1,
 		-- Bona-Masso slicing conditions:
 		f_param = alpha,
-		f = 1,
+		--f = 1,
 		--f = 1.69,
 		--f = .49,
-		--f = 1 + 1/alpha^2,
+		f = 1 + 1/alpha^2,
 	}
 	sim.stopAtTime = 100
 	--sim.fixed_dt = 0.125

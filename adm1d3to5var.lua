@@ -9,6 +9,8 @@ local ADM1D3to5VarSim = class(Simulation)
 
 ADM1D3to5VarSim.numStates = 5
 
+ADM1D3to5VarSim.treatMconstant = true
+
 -- initial conditions
 function ADM1D3to5VarSim:init(args, ...)
 	ADM1D3to5VarSim.super.init(self, args, ...)
@@ -77,34 +79,33 @@ function ADM1D3to5VarSim:init(args, ...)
 		end
 	end
 
-	-- I tried to keep the v numberings matching those of the adm1d3var sim
 	self:buildFields{
 		fluxTransform = buildField(function(alpha, f, g, A, D, KTilde, ...)
-			local _, _, v1, v2, v3 = ... 
+			local v1, v2, v3, v4, v5 = ... 
 			return
 				0,
 				0,
-				v3 * alpha * f / sqrt(g),
-				v3 * 2 * alpha / sqrt(g),
-				v1 * alpha / sqrt(g)
+				v5 * alpha * f / sqrt(g),
+				v5 * 2 * alpha / sqrt(g),
+				v3 * alpha / sqrt(g)
 		end),
 		eigenfields = buildField(function(alpha, f, g, A, D, KTilde, ...)
-			local _, _, v1, v2, v3 = ... 
+			local v1, v2, v3, v4, v5 = ... 
 			return
-				v1 / (2 * f) - v3 / (2 * sqrt(f)),	-- first column so it lines up with the min eigenvalue
-				0,
-				0,
-				-2*v1/f + v2,
-				v1 / (2 * f) + v3 / (2 * sqrt(f))
+				v3 / (2 * f) - v5 / (2 * sqrt(f)),	-- first column so it lines up with the min eigenvalue
+				v1,
+				v2,
+				-2*v3/f + v4,
+				v3 / (2 * f) + v5 / (2 * sqrt(f))
 		end),
 		eigenfieldsInverse = buildField(function(alpha, f, g, A, D, KTilde, ...)
-			local v1, _, _, v2, v3 = ...
+			local v1, v2, v3, v4, v5 = ...
 			return
-				0,
-				0,
-				(v1 + v3) * f,
-				2 * v1 + v2 + 2 * v3,
-				sqrt(f) * (-v1 + v3)
+				v2,
+				v3,
+				(v1 + v5) * f,
+				2 * v1 + v4 + 2 * v5,
+				sqrt(f) * (-v1 + v5)
 		end),
 	}
 end
@@ -136,13 +137,13 @@ function ADM1D3to5VarSim:addSourceToDerivCell(dq_dts, i)
 	local f = self.calc_f(alpha)
 	local dalpha_f = self.calc_dalpha_f(alpha)
 	
-	local tmp1 = alpha / sqrt(g)
-	local tmp2 = .5 * D - A
 	dq_dts[i][1] = dq_dts[i][1] - alpha * alpha * f * KTilde / (g * sqrt(g))
 	dq_dts[i][2] = dq_dts[i][2] - 2 * alpha * KTilde / sqrt(g)
-	dq_dts[i][3] = dq_dts[i][3] + KTilde * tmp1 * (f * tmp2 - A * alpha * dalpha_f)
-	dq_dts[i][4] = dq_dts[i][4] + 2 * KTilde * tmp1 * tmp2
-	dq_dts[i][5] = dq_dts[i][5] + A * tmp1 * tmp2
+	if not self.treatMconstant then
+		dq_dts[i][3] = dq_dts[i][3] + KTilde * alpha / sqrt(g) * (f * (.5 * D - A) - A * alpha * dalpha_f)
+		dq_dts[i][4] = dq_dts[i][4] + 2 * KTilde * alpha / sqrt(g) * (.5 * D - A)
+		dq_dts[i][5] = dq_dts[i][5] + A * alpha / sqrt(g) * (.5 * D - A)
+	end
 end
 
 return ADM1D3to5VarSim
