@@ -13,20 +13,6 @@ A,t + (alpha K f / g),x = 0
 D,t + (alpha K),x = 0
 K,t + (alpha A),x = alpha / g (A D - K^2)
 
-d_t alpha + (0),x = -alpha^2 f K / g
-d_t g + (0),x = -2 alpha K
-d_t A + (f + alpha f,alpha) K / g alpha,x + alpha f / g K,x - alpha K f / g^2 g,x = 0 
-d_t D + K alpha,x + alpha K,x = 0
-d_t K + A alpha,x + alpha A,x = alpha / g (A D - K^2)
-
-using f,x = f,alpha alpha,x
-
-    [alpha]   [             0,                    0,          0,   0,      0     ]     [alpha]   [  -alpha^2 f K / g   ]
-    [  g  ]   [             0,                    0,          0,   0,      0     ]     [  g  ]   [     -2 alpha K      ]
-d_t [  A  ] + [(f + alpha f,alpha) K / g, -alpha f K / g^2,   0,   0, alpha f / g] d_x [  A  ] = [          0          ]
-    [  D  ]   [             K,                    0,          0,   0,    alpha   ]     [  D  ]   [          0          ]
-    [  K  ]   [             A,                    0,        alpha, 0,      0     ]     [  K  ]   [alpha / g (A D - K^2)]
-
 from here on I put the df/dalpha term in the source
 
 eigenvalues of A:
@@ -126,7 +112,6 @@ local Simulation = require 'simulation'
 local ADM1D5VarSim = class(Simulation)
 	
 ADM1D5VarSim.numStates = 5 
-ADM1D5VarSim.treatMconstant = true
 
 function ADM1D5VarSim:init(args, ...)
 	ADM1D5VarSim.super.init(self, args, ...)
@@ -258,9 +243,6 @@ function ADM1D5VarSim:addSourceToDerivCell(dq_dts, i)
 	local f = self.calc_f(alpha)
 	dq_dts[i][1] = dq_dts[i][1] - alpha * alpha * f * K / g
 	dq_dts[i][2] = dq_dts[i][2] - 2 * alpha * K
-	if not self.treatMconstant then
-		dq_dts[i][3] = dq_dts[i][3] - alpha * K * self.calc_dalpha_f(alpha) / g
-	end
 	dq_dts[i][5] = dq_dts[i][5] + alpha * (A * D - K * K) / g
 end
 

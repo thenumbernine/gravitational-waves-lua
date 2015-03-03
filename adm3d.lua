@@ -126,7 +126,7 @@ function ADM3DSimulation:init(args, ...)
 	local gU = inv3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz)
 	self.calc_gU = table.map(gU, function(gUij) return (gUij:compile(vars)) end)
 
-	local alpha = -((1 - rho_s/rho)/(1 + rho_s/rho))^2
+	local alpha = ((1 - rho_s/rho)/(1 + rho_s/rho))^2
 	self.calc_alpha = alpha:compile(vars)
 
 	local diff_alpha = vars:map(function(var) return alpha:diff(var):simplify() end)
@@ -245,12 +245,9 @@ function ADM3DSimulation:init(args, ...)
 			for j=1,self.numStates do 
 				avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
 			end
-			
 			local q_alpha = avgQ[1]
 			local q_g_xx, q_g_xy, q_g_xz, q_g_yy, q_g_yz, q_g_zz = unpack(avgQ, 5, 10)
-			print('q_g_ij',q_g_xx, q_g_xy, q_g_xz, q_g_yy, q_g_yz, q_g_zz)
 			local q_g = det3x3sym(q_g_xx, q_g_xy, q_g_xz, q_g_yy, q_g_yz, q_g_zz)
-			print('q_g',q_g)
 			local q_A_x, q_A_y, q_A_z = unpack(avgQ, 2, 4)
 			local q_D_xxx, q_D_xxy, q_D_xxz, q_D_xyy, q_D_xyz, q_D_xzz = unpack(avgQ, 11, 16)
 			local q_D_yxx, q_D_yxy, q_D_yxz, q_D_yyy, q_D_yyz, q_D_yzz = unpack(avgQ, 17, 22)
@@ -279,14 +276,91 @@ function ADM3DSimulation:init(args, ...)
 			local v_V_x, v_V_y, v_V_z = unpack(avgQ, 35, 37)
 			local v_gUxx, v_gUxy, v_gUxz, v_gUyy, v_gUyz, v_gUzz = unpack(inv3x3sym(v_g_xx, v_g_xy, v_g_xz, v_g_yy, v_g_yz, v_g_zz))
 
-			return {
+			return
 				-- negative gauge
 				sqrt(q_f) * (q_gUxx * v_K_xx + q_gUxy * v_K_xy + q_gUxz * v_K_xz + q_gUyy * v_K_yy + q_gUyz * v_K_yz + q_gUzz * v_K_zz) - sqrt(q_gUxx) * (v_A_x + 2 * (v_V_x + q_gUxy/q_gUxx*v_V_y + q_gUxz/q_gUxx*v_V_z)),
 				-- negative light cone
+				v_K_xy - sqrt(q_gUxx) * v_D_xxy - v_V_y / q_gUxx,
+				v_K_xz - sqrt(q_gUxx) * v_D_xxz - v_V_z / q_gUxx,
+				v_K_yy - sqrt(q_gUxx) * v_D_xyy,
+				v_K_yz - sqrt(q_gUxx) * v_D_xyz,
+				v_K_zz - sqrt(q_gUxx) * v_D_xzz,
 				-- zero
+				v_alpha,
+				v_g_xx,
+				v_g_xy,
+				v_g_xz,
+				v_g_yy,
+				v_g_yz,
+				v_g_zz,
+				v_A_y,
+				v_A_z,
+				v_D_yxx,
+				v_D_yxy,
+				v_D_yxz,
+				v_D_yyy,
+				v_D_yyz,
+				v_D_yzz,
+				v_D_zxx,
+				v_D_zxy,
+				v_D_zxz,
+				v_D_zyy,
+				v_D_zyz,
+				v_D_zzz,
+				v_V_x,
+				v_V_y,
+				v_V_z,
+				v_A_x - q_f * (q_gUxx * v_D_xxx + q_gUxy * v_D_xxy + q_gUxz * v_D_xxz + q_gUyy * v_D_xyy + q_gUyz * v_D_xyz + q_gUzz * v_D_xzz),
 				-- positive light cone
+				v_K_xy + sqrt(q_gUxx) * v_D_xxy + v_V_y / q_gUxx,
+				v_K_xz + sqrt(q_gUxx) * v_D_xxz + v_V_z / q_gUxx,
+				v_K_yy + sqrt(q_gUxx) * v_D_xyy,
+				v_K_yz + sqrt(q_gUxx) * v_D_xyz,
+				v_K_zz + sqrt(q_gUxx) * v_D_xzz,
 				-- positive gauge
-			}
+				sqrt(q_f) * (q_gUxx * v_K_xx + q_gUxy * v_K_xy + q_gUxz * v_K_xz + q_gUyy * v_K_yy + q_gUyz * v_K_yz + q_gUzz * v_K_zz) + sqrt(q_gUxx) * (v_A_x + 2 * (v_V_x + q_gUxy/q_gUxx*v_V_y + q_gUxz/q_gUxx*v_V_z))
+		end,
+		eigenfieldsInverse = function(i, ...)
+--[=[
+[[0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[-.5/sqrt(gUxx),0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1/gUxx^(3/2)-1,-gUxy/gUxx,-gUxz/gUxx,0,0,0,0,0,0,.5/sqrt(gUxx)],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[-.5/(f*gUxx^(3/2)),.5*gUxy/gUxx^(3/2),.5*gUxz/gUxx^(3/2),.5*gUyy/gUxx^(3/2),.5*gUyz/gUxx^(3/2),.5*gUzz/gUxx^(3/2),0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,(-g^(1/2) - gUxx^2)/(f*gUxx^3),(gUxy (f - sqrt(gUxx)))/(gUxx^(5 / 2) f),(gUxz (-sqrt(gUxx) + f)) / (gUxx^(5 / 2) f),1 / (-f gUxx),(-gUxy) / (2 gUxx^(3 / 2)),(-gUxz) / (2 gUxx^(3 / 2)),(-gUyy) / (2 gUxx^(3 / 2)),(-gUyz) / (2 gUxx^(3 / 2)),(-gUzz) / (2 gUxx^(3 / 2)),1 / (2 f gUxx^(3 / 2))],
+[0,-.5/sqrt(gUxx),0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1/gUxx^(3/2),0,0,.5/sqrt(gUxx),0,0,0,0,0],
+[0,0,-.5/sqrt(gUxx),0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1/gUxx^(3/2),0,0,.5/sqrt(gUxx),0,0,0,0],
+[0,0,0,-.5/sqrt(gUxx),0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,.5/sqrt(gUxx),0,0,0],
+[0,0,0,0,-.5/sqrt(gUxx),0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,.5/sqrt(gUxx),0,0],
+[0,0,0,0,0,-.5/sqrt(gUxx),0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,.5/sqrt(gUxx),0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0],
+[1 / (2 sqrt(f) gUxx),(-gUxy) / (2 gUxx),(-gUxz) / (2 gUxx),(-gUyy) / (2 gUxx),(-gUyz) / (2 gUxx),(-gUzz) / (2 gUxx),0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,(-1 + gUxx^(3 / 2)) / (gUxx^2 sqrt(f)),gUxy / (gUxx^(3 / 2) sqrt(f)),gUxz / (gUxx^(3 / 2) sqrt(f)),0,(-gUxy) / (2 gUxx),(-gUxz) / (2 gUxx),(-gUyy) / (2 gUxx),(-gUyz) / (2 gUxx),(-gUzz) / (2 gUxx),1 / (2 sqrt(f) gUxx)],
+[0,1 / 2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 / 2,0,0,0,0,0],
+[0,0,1 / 2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 / 2,0,0,0,0],
+[0,0,0,1 / 2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 / 2,0,0,0],
+[0,0,0,0,1 / 2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 / 2,0,0],
+[0,0,0,0,0,1 / 2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 / 2,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0],
+[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]]
+--]=]
+		
 		end,
 	}
 end
@@ -334,7 +408,7 @@ function ADM3DSimulation:initCell(i)
 		K[i] = 0
 	end
 
-	return {
+	local results = {
 		alpha,
 		g[1], g[2], g[3], g[4], g[5], g[6],
 		A[1], A[2], A[3],
@@ -344,6 +418,11 @@ function ADM3DSimulation:initCell(i)
 		K[1], K[2], K[3], K[4], K[5], K[6],
 		V[1], V[2], V[3],
 	}
+	for i=1,#results do
+		assert(type(results[i])=='number')
+	end
+	assert(#results==self.numStates)
+	return results
 end
 
 function ADM3DSimulation:calcInterfaceEigenBasis(i)
@@ -365,8 +444,7 @@ function ADM3DSimulation:calcInterfaceEigenBasis(i)
 
 	local lambdaLight = alpha * sqrt(gUxx)
 	local lambdaGauge = lambdaLight * sqrt(f)
-print(lambdaLight)
-print(lambdaGauge)
+	
 	self.eigenvalues[i] = {
 		-- gauge field
 		-lambdaGauge,
@@ -391,6 +469,10 @@ print(lambdaGauge)
 		-- gauge field
 		lambdaGauge,
 	}
+	assert(#self.eigenvalues[i] == self.numStates)
+	for j=1,self.numStates do
+		assert(type(self.eigenvalues[i][j])=='number')
+	end
 end
 
 return ADM3DSimulation

@@ -38,34 +38,6 @@ g_tt is fixed?  or is derived?  is alpha^2?
 g_pp is fixed?
 either way, none of the skew elements exist so the inverse metric is the diagonal of inverse elements 
 
-... evolution equations become ...
-alpha,t = -alpha^2 f tr K
-g_rr,t = -2 alpha K_rr
-g_hh,t = -2 alpha K_hh
-A_r,t 
-	+ alpha,r (f tr K) 
-	+ f,r (alpha tr K) 	... which equals ... alpha,r (df/dalpha alpha tr K)
-	+ g_rr,r (-alpha f K_rr / g_rr^2) 
-	+ g_hh,r (-alpha f K_hh / g_hh^2) 
-	+ K_rr,r (alpha f / g_rr)
-	+ K_hh,r (alpha f / g_hh)
-	= 0
-D_rrr,t + alpha,r K_rr + K_rr,r alpha = 0
-D_rhh,t + alpha,r K_hh + K_hh,r alpha = 0
-K_rr,t 
-	+ alpha,r lambda^r_rr 
-	+ g_hh,r (2 alpha D_rhh / g_hh^2)
-	+ A_r,r alpha
-	+ D_rhh,r (-2 alpha / g_hh)
-	+ V_r,r (2 alpha)
-	= alpha S_rr
-K_hh,t 
-	+ alpha,r lambda^r_hh 
-	+ g_rr,r (-alpha / g_rr^2)
-	+ D_rhh,r (alpha / g_rr)
-	= alpha S_hh
-V_r,t = alpha P_r
-
 alpha, g_rr, g_hh, A_r, D_rrr, D_rhh, K_rr, K_hh, V_r
 flux matrix:
 [0,	0,	0,	0,	0,	0,	0,	0,	0]

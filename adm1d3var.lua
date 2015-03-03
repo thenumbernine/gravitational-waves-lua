@@ -18,19 +18,6 @@ A,t + (alpha f KTilde / sqrt(g)),x = 0
 D,t + (2 alpha KTilde / sqrt(g)),x = 0
 KTilde,t + (alpha A / sqrt(g)),x = 0
 
-A,t + (f KTilde/sqrt(g) + alpha KTilde/sqrt(g) f,alpha) alpha,x + alpha f / sqrt(g) KTilde,x - 1/2 alpha f KTilde / g^(3/2) g,x = 0
-D,t + 2 KTilde/sqrt(g) alpha,x + 2 alpha/sqrt(g) KTilde,x - alpha KTilde / g^(3/2) g,x = 0
-KTilde,t + A / sqrt(g) alpha,x + alpha / sqrt(g) A,x - 1/2 alpha A / g^(3/2) g,x = 0
-
-A,t + alpha f / sqrt(g) KTilde,x = alpha KTilde / sqrt(g) (f (1/2 D - A) - A alpha f,alpha)
-D,t + 2 alpha / sqrt(g) KTilde,x = 2 alpha KTilde / sqrt(g) (1/2 D - A)
-KTilde,t + alpha / sqrt(g) A,x = A alpha / sqrt(g) (1/2 D - A)
-
-[  A   ]     [0,               0, alpha f / sqrt(g)] [  A   ]     [alpha KTilde / sqrt(g) (f (1/2 D - A) - A alpha f,alpha)]
-[  D   ],t + [0,               0, 2 alpha / sqrt(g)] [  D   ],x = [2 alpha KTilde / sqrt(g) (1/2 D - A)                    ]
-[KTilde]     [alpha / sqrt(g), 0, 0                ] [KTilde]     [A alpha / sqrt(g) (1/2 D - A)                           ]
-
-...and this is the matrix he has.
 now we look at eigenvectors ...
 
 /* [wxMaxima: input   start ] */
@@ -79,15 +66,6 @@ local Simulation = require 'simulation'
 local ADM1D3VarSim = class(Simulation)
 
 ADM1D3VarSim.numStates = 3
-
---[[
-the equation is stated as dv_dt + d_dx(M*v) = s
-M is composed of variables in v, so I'm assuming this should be ...
-	dv_dt + M*dv_dx = s - dM/dx*v
-...however if M is supposed to be treated like a matrix of constants then it would only be
-	dv_dt * M*dv_dx = s
---]]
-ADM1D3VarSim.treatMconstant = true
 
 -- initial conditions
 function ADM1D3VarSim:init(args, ...)
@@ -227,11 +205,6 @@ function ADM1D3VarSim:addSourceToDerivCell(dq_dts, i)
 	
 	dq_dts[i].alpha = dq_dts[i].alpha - alpha * alpha * f * KTilde / (g * sqrt(g))
 	dq_dts[i].g = dq_dts[i].g - 2 * alpha * KTilde / sqrt(g)
-	if not self.treatMconstant then
-		dq_dts[i][1] = dq_dts[i][1] + KTilde * alpha / sqrt(g) * (f * (.5 * D - A) - A * alpha * dalpha_f)
-		dq_dts[i][2] = dq_dts[i][2] + 2 * KTilde * alpha / sqrt(g) * (.5 * D - A)
-		dq_dts[i][3] = dq_dts[i][3] + A * alpha / sqrt(g) * (.5 * D - A)
-	end
 end
 
 function ADM1D3VarSim:integrateDeriv(dq_dts, dt)

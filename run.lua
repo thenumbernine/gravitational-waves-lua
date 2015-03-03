@@ -17,7 +17,7 @@ local symmath = require 'symmath'
 
 -- setup
 
--- [[
+--[[
 local sim
 do
 	local x = symmath.var'x'
@@ -28,10 +28,10 @@ do
 	local h = H * symmath.exp(-(x - xc)^2 / sigma^2)
 	local g = 1 - h:diff(x)^2
 	local K = -h:diff(x,x) / g^.5
-	sim = require'adm1d3var'{
+	--sim = require'adm1d3var'{
 	--sim = require'adm1d3to5var'{
 	--sim = require'adm1d5var'{
-	--sim = require'bssnok1d'{
+	sim = require'bssnok1d'{
 		gridsize = 200,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
@@ -84,7 +84,7 @@ do
 end
 --]]
 
---[[
+-- [[
 local sim
 do
 	local x = symmath.var'x'

@@ -9,8 +9,6 @@ local ADM1D3to5VarSim = class(Simulation)
 
 ADM1D3to5VarSim.numStates = 5
 
-ADM1D3to5VarSim.treatMconstant = true
-
 -- initial conditions
 function ADM1D3to5VarSim:init(args, ...)
 	ADM1D3to5VarSim.super.init(self, args, ...)
@@ -139,11 +137,6 @@ function ADM1D3to5VarSim:addSourceToDerivCell(dq_dts, i)
 	
 	dq_dts[i][1] = dq_dts[i][1] - alpha * alpha * f * KTilde / (g * sqrt(g))
 	dq_dts[i][2] = dq_dts[i][2] - 2 * alpha * KTilde / sqrt(g)
-	if not self.treatMconstant then
-		dq_dts[i][3] = dq_dts[i][3] + KTilde * alpha / sqrt(g) * (f * (.5 * D - A) - A * alpha * dalpha_f)
-		dq_dts[i][4] = dq_dts[i][4] + 2 * KTilde * alpha / sqrt(g) * (.5 * D - A)
-		dq_dts[i][5] = dq_dts[i][5] + A * alpha / sqrt(g) * (.5 * D - A)
-	end
 end
 
 return ADM1D3to5VarSim
