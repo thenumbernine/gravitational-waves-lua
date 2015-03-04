@@ -48,46 +48,57 @@ function Euler1DSimulation:calcInterfaceEigenBasis(i)
 	local E = (weightL * EL + weightR * ER) / (weightL + weightR)
 	
 	local Cs = sqrt((self.gamma - 1) * (H - .5 * u^2))
-
-	self.fluxMatrix[i] = {
-		{0, 1, 0},
-		{(self.gamma-3)/2*u^2, (3-self.gamma)*u, self.gamma-1},
-		{-u*(self.gamma*E + (1-self.gamma)*u^2), H + (1-self.gamma) * u^2, self.gamma * u},
-	}
-	self.eigenvalues[i] = {u - Cs, u, u + Cs}
-	self.eigenvectors[i] = {
-		{1,				1,			1,			},
-		{u - Cs,		u,			u + Cs,		},
-		{H - Cs * u,	.5 * u^2,	H + Cs * u,	},
-	}
+	
+	local F = self.fluxMatrix[i]
+	F[1][1] = 0
+	F[1][2] = 1
+	F[1][3] = 0
+	F[2][1] = (self.gamma-3)/2*u*u
+	F[2][2] = (3-self.gamma)*u
+	F[2][3] = self.gamma-1
+	F[3][1] = -u*(self.gamma*E + (1-self.gamma)*u*u)
+	F[3][2] = H + (1-self.gamma) * u*u
+	F[3][3] = self.gamma * u
+	
+	local S = self.eigenvalues[i]
+	S[1] = u - Cs
+	S[2] = u
+	S[3] = u + Cs
+	
+	local U = self.eigenvectors[i]
+	U[1][1] = 1
+	U[1][2] = 1
+	U[1][3] = 1
+	U[2][1] = u - Cs
+	U[2][2] = u
+	U[2][3] = u + Cs
+	U[3][1] = H - Cs * u
+	U[3][2] = .5 * u*u
+	U[3][3] = H + Cs * u
+	
 	-- [[ symbolically
-	self.eigenvectorsInverse[i] = {
-		{
-			(.5 * (self.gamma - 1) * u^2 + Cs * u) / (2 * Cs^2),
-			-(Cs + (self.gamma - 1) * u) / (2 * Cs^2),
-			(self.gamma - 1) / (2 * Cs^2),
-		}, {
-			1 - (self.gamma - 1) * u^2 / (2 * Cs^2),
-			(self.gamma - 1) * u / Cs^2,
-			-(self.gamma - 1) / Cs^2,
-		}, {
-			(.5 * (self.gamma - 1) * u^2 - Cs * u) / (2 * Cs^2),
-			(Cs - (self.gamma - 1) * u) / (2 * Cs^2),
-			(self.gamma - 1) / (2 * Cs^2),		
-		}
-	}
+	local V = self.eigenvectorsInverse[i]
+	V[1][1] = (.5 * (self.gamma - 1) * u^2 + Cs * u) / (2 * Cs^2)
+	V[1][2] = -(Cs + (self.gamma - 1) * u) / (2 * Cs^2)
+	V[1][3] = (self.gamma - 1) / (2 * Cs^2)
+	V[2][1] = 1 - (self.gamma - 1) * u^2 / (2 * Cs^2)
+	V[2][2] = (self.gamma - 1) * u / Cs^2
+	V[2][3] = -(self.gamma - 1) / Cs^2
+	V[3][1] = (.5 * (self.gamma - 1) * u^2 - Cs * u) / (2 * Cs^2)
+	V[3][2] = (Cs - (self.gamma - 1) * u) / (2 * Cs^2)
+	V[3][3] = (self.gamma - 1) / (2 * Cs^2)
 	--]]
 	--[[ numerically via cramers rule
-	local det = eigenvectors[i][1][1] * eigenvectors[i][2][2] * eigenvectors[i][3][3]
-			+ eigenvectors[i][2][1] * eigenvectors[i][3][2] * eigenvectors[i][1][3]
-			+ eigenvectors[i][3][1] * eigenvectors[i][1][2] * eigenvectors[i][2][3]
-			- eigenvectors[i][3][1] * eigenvectors[i][2][2] * eigenvectors[i][1][3]
-			- eigenvectors[i][2][1] * eigenvectors[i][1][2] * eigenvectors[i][3][3]
-			- eigenvectors[i][1][1] * eigenvectors[i][3][2] * eigenvectors[i][2][3];
+	local det = U[1][1] * U[2][2] * U[3][3]
+			+ U[2][1] * U[3][2] * U[1][3]
+			+ U[3][1] * U[1][2] * U[2][3]
+			- U[3][1] * U[2][2] * U[1][3]
+			- U[2][1] * U[1][2] * U[3][3]
+			- U[1][1] * U[3][2] * U[2][3];
 	if det == 0 then
 		for j=1,3 do
 			for k=1,3 do
-				console.log('A('+i+','+j+') = '+eigenvectors[i][j][k]);
+				console.log('A('+i+','+j+') = '+U[j][k]);
 			end
 		end
 		error 'singular!'
@@ -99,7 +110,7 @@ function Euler1DSimulation:calcInterfaceEigenBasis(i)
 		for k=1,3 do
 			local k1 = k % 3 + 1
 			local k2 = k1 % 3 + 1
-			eigenvectorsInverse[i][k][j] = invDet * (eigenvectors[i][j1][k1] * eigenvectors[i][j2][k2] - eigenvectors[i][j1][k2] * eigenvectors[i][j2][k1])
+			V[k][j] = invDet * (U[j1][k1] * U[j2][k2] - U[j1][k2] * U[j2][k1])
 		end
 	end
 	--]]

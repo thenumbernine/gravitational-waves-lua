@@ -126,8 +126,8 @@ function ADM1D3VarSim:init(args, ...)
 	}
 
 	local function buildField(call)
-		return function(i, ...)
-			local v1, v2, v3 = ...
+		return function(i, v)
+			local v1, v2, v3 = unpack(v)
 			
 			local avgQ = {}
 			for j=1,self.numStates do 
@@ -142,30 +142,28 @@ function ADM1D3VarSim:init(args, ...)
 			local g = avgQ.g
 			local f = self.calc_f(alpha)
 
-			return call(alpha, f, g, A, D, KTilde, v1, v2, v3)
+			return {call(alpha, f, g, A, D, KTilde, v1, v2, v3)}
 		end
 	end
 
-	self:buildFields{
-		fluxTransform = buildField(function(alpha, f, g, A, D, KTilde, v1, v2, v3)
-			return
-				v3 * alpha * f / sqrt(g),
-				v3 * 2 * alpha / sqrt(g),
-				v1 * alpha / sqrt(g)
-		end),
-		eigenfields = buildField(function(alpha, f, g, A, D, KTilde, v1, v2, v3)
-			return
-				v1 / (2 * f) - v3 / (2 * sqrt(f)),
-				-2*v1/f + v2,
-				v1 / (2 * f) + v3 / (2 * sqrt(f))
-		end),
-		eigenfieldsInverse = buildField(function(alpha, f, g, A, D, KTilde, v1, v2, v3)
-			return
-				(v1 + v3) * f,
-				2 * v1 + v2 + 2 * v3,
-				sqrt(f) * (-v1 + v3)
-		end),
-	} 
+	self.fluxTransform = buildField(function(alpha, f, g, A, D, KTilde, v1, v2, v3)
+		return
+			v3 * alpha * f / sqrt(g),
+			v3 * 2 * alpha / sqrt(g),
+			v1 * alpha / sqrt(g)
+	end)
+	self.eigenfields = buildField(function(alpha, f, g, A, D, KTilde, v1, v2, v3)
+		return
+			v1 / (2 * f) - v3 / (2 * sqrt(f)),
+			-2*v1/f + v2,
+			v1 / (2 * f) + v3 / (2 * sqrt(f))
+	end)
+	self.eigenfieldsInverse = buildField(function(alpha, f, g, A, D, KTilde, v1, v2, v3)
+		return
+			(v1 + v3) * f,
+			2 * v1 + v2 + 2 * v3,
+			sqrt(f) * (-v1 + v3)
+	end)
 end
 
 function ADM1D3VarSim:initCell(i)

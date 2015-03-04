@@ -28,11 +28,11 @@ do
 	local h = H * symmath.exp(-(x - xc)^2 / sigma^2)
 	local g = 1 - h:diff(x)^2
 	local K = -h:diff(x,x) / g^.5
-	--sim = require'adm1d3var'{
+	sim = require'adm1d3var'{
 	--sim = require'adm1d3to5var'{
 	--sim = require'adm1d5var'{
-	sim = require'bssnok1d'{
-		gridsize = 200,
+	--sim = require'bssnok1d'{
+		gridsize = 10,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
 		slopeLimiter = slopeLimiters.donorCell,
@@ -97,7 +97,7 @@ do
 	local sigma = 10
 	local h = 5 * symmath.exp(-((x - xc)^2 + (y - yc)^2 + (z - zc)^2) / sigma^2)
 	sim = require'adm3d'{
-		gridsize = 200,
+		gridsize = 10,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
 		slopeLimiter = slopeLimiters.donorCell,
@@ -117,8 +117,8 @@ do
 		f = 1 + 1/alpha^2,
 	}
 end
-
 --]]
+
 --[[
 local sim = require'euler1d'{
 	gridsize = 200,
@@ -141,17 +141,23 @@ local sim = require'maxwell'{
 sim:reset()
 
 
---[[ text
-for iter=1,100 do
-	sim:iterate()
-	for j=1,sim.numStates do
-		io.write(({'alpha','g','A','D','K'})[j])
+-- [[ text
+local printState = function()
+	for infoIndex,info in ipairs(sim.graphInfos) do
+		io.write(info.name)
 		for i=1,sim.gridsize do
-			io.write('\t', qs[i][j])
+			local y = info.getter(i)
+			io.write('\t', y)
 		end
 		print()
 	end
 end
+printState()
+for iter=1,0 do
+	sim:iterate()
+	printState()
+end
+os.exit()
 --]]
 
 -- [=[ graphics

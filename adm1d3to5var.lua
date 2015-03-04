@@ -65,7 +65,7 @@ function ADM1D3to5VarSim:init(args, ...)
 	}
 
 	local function buildField(call)
-		return function(i, ...)
+		return function(i, v)
 			local avgQ = {}
 			for j=1,self.numStates do 
 				avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
@@ -73,39 +73,37 @@ function ADM1D3to5VarSim:init(args, ...)
 			local alpha, g, A, D, KTilde = unpack(avgQ)		
 			local f = self.calc_f(alpha)
 			
-			return call(alpha, f, g, A, D, KTilde, ...)
+			return {call(alpha, f, g, A, D, KTilde, unpack(v))}
 		end
 	end
 
-	self:buildFields{
-		fluxTransform = buildField(function(alpha, f, g, A, D, KTilde, ...)
-			local v1, v2, v3, v4, v5 = ... 
-			return
-				0,
-				0,
-				v5 * alpha * f / sqrt(g),
-				v5 * 2 * alpha / sqrt(g),
-				v3 * alpha / sqrt(g)
-		end),
-		eigenfields = buildField(function(alpha, f, g, A, D, KTilde, ...)
-			local v1, v2, v3, v4, v5 = ... 
-			return
-				v3 / (2 * f) - v5 / (2 * sqrt(f)),	-- first column so it lines up with the min eigenvalue
-				v1,
-				v2,
-				-2*v3/f + v4,
-				v3 / (2 * f) + v5 / (2 * sqrt(f))
-		end),
-		eigenfieldsInverse = buildField(function(alpha, f, g, A, D, KTilde, ...)
-			local v1, v2, v3, v4, v5 = ...
-			return
-				v2,
-				v3,
-				(v1 + v5) * f,
-				2 * v1 + v4 + 2 * v5,
-				sqrt(f) * (-v1 + v5)
-		end),
-	}
+	self.fluxTransform = buildField(function(alpha, f, g, A, D, KTilde, ...)
+		local v1, v2, v3, v4, v5 = ... 
+		return
+			0,
+			0,
+			v5 * alpha * f / sqrt(g),
+			v5 * 2 * alpha / sqrt(g),
+			v3 * alpha / sqrt(g)
+	end)
+	self.eigenfields = buildField(function(alpha, f, g, A, D, KTilde, ...)
+		local v1, v2, v3, v4, v5 = ... 
+		return
+			v3 / (2 * f) - v5 / (2 * sqrt(f)),	-- first column so it lines up with the min eigenvalue
+			v1,
+			v2,
+			-2*v3/f + v4,
+			v3 / (2 * f) + v5 / (2 * sqrt(f))
+	end)
+	self.eigenfieldsInverse = buildField(function(alpha, f, g, A, D, KTilde, ...)
+		local v1, v2, v3, v4, v5 = ...
+		return
+			v2,
+			v3,
+			(v1 + v5) * f,
+			2 * v1 + v4 + 2 * v5,
+			sqrt(f) * (-v1 + v5)
+	end)
 end
 
 function ADM1D3to5VarSim:initCell(i)

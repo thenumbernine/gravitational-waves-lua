@@ -28,19 +28,18 @@ function Simulation:init(args)
 	self.eigenbasisErrors = {}
 	self.fluxMatrixErrors = {}
 
-	local function sumR(k, m, v, ...)
-		if not v then return 0 end
-		return m[k] * v + sumR(k+1, m, ...)
-	end
-
-	local function sumCol(j, m, ...)
-		if j > self.numStates then return end
-		return sumR(1, m[j], ...), sumCol(j+1, m, ...)
-	end
-
-	local function buildField(m)
-		return function(i, ...)
-			return sumCol(1, m[i], ...)
+	local function buildField(matrixField)
+		return function(i, v)
+			local m = matrixField[i]
+			local result = {}
+			for j=1,self.numStates do
+				local sum = 0
+				for k=1,self.numStates do
+					sum = sum + m[j][k] * v[k]
+				end
+				result[j] = sum
+			end
+			return result 
 		end
 	end
 
@@ -51,27 +50,10 @@ function Simulation:init(args)
 	another note: eigenfields never have input vectors.  they are made of state vaules, and their input is state values, so there's no need to define an inner product.
 	...except the fact that some of the state variables are on the i'th entry, and some are of the i+1/2'th entry...
 	--]]
-	self:buildFields{
-		fluxTransform = buildField(self.fluxMatrix),
-		eigenfields = buildField(self.eigenvectorsInverse),
-		eigenfieldsInverse = buildField(self.eigenvectors),
-	}
+	self.fluxTransform = buildField(self.fluxMatrix)
+	self.eigenfields = buildField(self.eigenvectorsInverse)
+	self.eigenfieldsInverse = buildField(self.eigenvectors)
 end
-
-function Simulation:buildFields(infos)
-	for name,func in pairs(infos) do
-		self[name] = setmetatable({}, {
-			__index = function(self_, i)
-				return setmetatable({}, {
-					__call = function(self_, ...)
-						return func(i, ...)
-					end
-				})
-			end
-		})
-	end
-end
-
 
 function Simulation:reset()
 	for i=1,self.gridsize do
