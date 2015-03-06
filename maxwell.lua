@@ -54,32 +54,38 @@ function MaxwellSimulation:calcInterfaceEigenBasis(i)
 	local se = sqrt(e0/2)
 	local su = sqrt(u0/2)
 	local seu = sqrt(e0/u0)/u0
-	self.fluxMatrix[i] = {
-		{0,0,0,0,0,0},
-		{0,0,0,0,0,seu},
-		{0,0,0,0,-seu,0},
-		{0,0,0,0,0,0},
-		{0,0,-1/seu,0,0,0},
-		{0,1/seu,0,0,0,0}
-	}
-	self.eigenvectors[i] = {
-		{0,0,-se,se,0,0},
-		{0,-se,0,0,se,0},
-		{se,0,0,0,0,-se},
-		{0,0,su,su,0,0},
-		{su,0,0,0,0,su},
-		{0,su,0,0,su,0}
-	}
 	local ise = 1/se
 	local isu = 1/su
-	self.eigenvectorsInverse[i] = {
-		{0,0,ise,0,isu,0},
-		{0,-ise,0,0,0,isu},
-		{-ise,0,0,isu,0,0},
-		{ise,0,0,isu,0,0},
-		{0,ise,0,0,0,isu},
-		{0,0,-ise,0,isu,0}
-	}
+	self.fluxTransform = function(i, v)
+		return {
+			0,
+			seu * v[6],
+			-seu * v[5],
+			0,
+			-v[3]/seu,
+			v[2]/seu
+		}
+	end
+	self.eigenfields = function(i, v)
+		return {
+			ise * v[3] + isu * v[5],
+			-ise * v[2] + isu * v[6],
+			-ise * v[1] + isu * v[4],
+			ise * v[1] + isu * v[4],
+			ise * v[2] + isu * v[6],
+			-ise * v[3] + isu * v[5]
+		}
+	end
+	self.eigenfieldsInverse = function(i, v)
+		return {
+			-se * v[3] + se * v[4],
+			-se * v[2] + se * v[5],
+			se * v[1] - se * v[6],
+			su * v[3] + su * v[4],
+			su * v[1] + su * v[6],
+			su * v[2] + su * v[5]
+		}
+	end
 end
 
 local sigma = 1	-- conductivity

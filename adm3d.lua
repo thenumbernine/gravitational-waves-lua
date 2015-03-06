@@ -103,6 +103,8 @@ function ADM3DSimulation:init(args, ...)
 		rho = 1/4 (2r - rs +/- 2 sqrt(r (r - rs)) )
 		rho_s = rs / 4
 	... which means our xyz are no longer radially related to the 'r' coordinate of the original schwarzschild coordinates ...
+	
+	now for calculating extrinsic curvature...
 	--]]	
 	local rs = assert(tonumber(args.rs))	-- schwarzschild radius
 	local rho_s = rs / 4	

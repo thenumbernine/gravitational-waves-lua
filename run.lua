@@ -84,7 +84,7 @@ do
 end
 --]]
 
--- [[
+--[[
 local sim
 do
 	local x = symmath.var'x'
@@ -128,7 +128,7 @@ local sim = require'euler1d'{
 }
 --]]
 
---[[
+-- [[
 local sim = require'maxwell'{
 	gridsize = 200,
 	domain = {xmin=-1, xmax=1},
@@ -141,7 +141,7 @@ local sim = require'maxwell'{
 sim:reset()
 
 
--- [[ text
+--[[ text
 local printState = function()
 	for infoIndex,info in ipairs(sim.graphInfos) do
 		io.write(info.name)
