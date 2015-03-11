@@ -101,12 +101,12 @@ function MHDSimulation:calcInterfaceEigenBasis(i)
 	local p = .5*(pL + pR)
 
 	local mu = self.mu
-	local bSq = Bx*Bx + By*By + Bz*Bz
+	local BSq = Bx*Bx + By*By + Bz*Bz
 	local vaxSq = Bx*Bx / (mu*rho)
 	local vax = sqrt(vaxSq)
 	local CsSq = gamma*p / rho
 	local Cs= sqrt(CsSq)
-	local vaSq = bSq / (mu*rho)
+	local vaSq = BSq / (mu*rho)
 	local va = sqrt(vaSq)
 	local cStarSq = .5*(vaSq + CsSq)
 	local discr = sqrt(cStarSq*cStarSq - vaxSq*CsSq)
@@ -318,21 +318,21 @@ function MHDSimulation:calcInterfaceEigenBasis(i)
 		}
 	}
 
+	local rhoSq = rho*rho
 	local tauSq = tau*tau
 	local uSq = ux*ux + uy*uy + uz*uz
 
 	--specified by row, so dU_dW[i][j] == (dU/dW)_ij
 	local dU_dW = {
-		{-rho*rho,	0,	0,	0,	0,	0,	0,	0},
-		{-ux*rho*rho,	rho,	0,	0,	0,	0,	0,	0},
-		{-uy*rho*rho,	0,	rho,	0,	0,	0,	0,	0},
-		{-uz*rho*rho,	0,	0,	rho,	0,	0,	0,	0},
+		{-rhoSq,	0,	0,	0,	0,	0,	0,	0},
+		{-ux*rhoSq,	rho,	0,	0,	0,	0,	0,	0},
+		{-uy*rhoSq,	0,	rho,	0,	0,	0,	0,	0},
+		{-uz*rhoSq,	0,	0,	rho,	0,	0,	0,	0},
 		{0,	0,	0,	0,	1,	0,	0,	0},
 		{0,	0,	0,	0,	0,	1,	0,	0},
 		{0,	0,	0,	0,	0,	0,	1,	0},
-		{-.5*uSq*rho*rho,	ux*rho,	uy*rho,	uz*rho,	Bx/mu,	By/mu,	Bz/mu,	1/gammaMinusOne}
+		{.5*BSq/mu,	ux,	uy,	uz,	Bx*tau/mu,	By*tau/mu,	Bz*tau/mu,	1/gammaMinusOne}
 	}
-
 	--specified by row, so dW_dU[i][j] == (dW/dU)_ij
 	local dW_dU = {
 		{-tauSq,	0,	0,	0,	0,	0,	0,	0},
@@ -342,9 +342,8 @@ function MHDSimulation:calcInterfaceEigenBasis(i)
 		{0,	0,	0,	0,	1,	0,	0,	0},
 		{0,	0,	0,	0,	0,	1,	0,	0},
 		{0,	0,	0,	0,	0,	0,	1,	0},
-		{.5*uSq*gammaMinusOne,	ux*gammaMinusOne,	uy*gammaMinusOne,	uz*gammaMinusOne,	-Bx/mu*gammaMinusOne,	-By/mu*gammaMinusOne,	-Bz/mu*gammaMinusOne,	gammaMinusOne}
+		{gammaMinusOne*tau*(uSq + .5*BSq*tau/mu),	-gammaMinusOne*tau*ux,	-gammaMinusOne*tau*uy,	-gammaMinusOne*tau*uz,	-gammaMinusOne*Bx*tau/mu,	-gammaMinusOne*By*tau/mu,	-gammaMinusOne*Bz*tau/mu,	gammaMinusOne}
 	}
-
 	--now transform these to the left and right eigenvectors of the flux ...
 	--with transformations: R_U = dU/dW*R_A and L_U = L_A*dW/dU
 	--don't forget indexing is A_ij == A[i][j] except R_A is transposed
