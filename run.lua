@@ -26,22 +26,24 @@ do
 	local H = 5
 	local sigma = 10
 	local h = H * symmath.exp(-(x - xc)^2 / sigma^2)
-	local g = 1 - h:diff(x)^2
-	local K = -h:diff(x,x) / g^.5
-	sim = require'adm1d3var'{
+	local g_xx = 1 - h:diff(x)^2
+	local K_xx = -h:diff(x,x) / g_xx^.5
+	--sim = require'adm1d3var'{
 	--sim = require'adm1d3to5var'{
 	--sim = require'adm1d5var'{
 	--sim = require'bssnok1d'{
-		gridsize = 10,
+	sim = require'adm3d'{
+		gridsize = 200,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
 		slopeLimiter = slopeLimiters.donorCell,
 		-- the symbolic math driving it:
-		x = x,
-		h = h,
-		g = g,
-		K = K,
+		x = x,	-- variable
 		alpha = 1,
+		g_xx = g_xx,	-- g_xx
+		-- A_x = d/dx alpha
+		-- D_xxx = 1/2 d/dx g_xx
+		K_xx = K_xx,	-- K_xx
 		-- Bona-Masso slicing conditions:
 		f_param = alpha,
 		--f = 1,
@@ -119,8 +121,11 @@ do
 end
 --]]
 
---[[
-local sim = require'euler1d'{
+-- [[
+local sim = 
+--require'euler1d'
+require'mhd'
+{
 	gridsize = 200,
 	domain = {xmin=-1, xmax=1},
 	boundaryMethod = boundaryMethods.mirror,
@@ -128,7 +133,7 @@ local sim = require'euler1d'{
 }
 --]]
 
--- [[
+--[[
 local sim = require'maxwell'{
 	gridsize = 200,
 	domain = {xmin=-1, xmax=1},

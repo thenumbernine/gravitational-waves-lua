@@ -30,7 +30,7 @@ return {
 				end
 
 				-- eigenCoords_k = invQ_kl basis_l
-				local eigenCoords = self.eigenfields(i, basis)
+				local eigenCoords = self:eigenfields(i, basis)
 				for k=1,self.numStates do
 					assert(type(eigenCoords[k])=='number', "failed for coord "..k.." got type "..type(eigenCoords[k]))
 				end
@@ -42,13 +42,13 @@ return {
 				end
 				
 				-- newbasis_k = Q_kl eigenCoords_l
-				local newbasis = self.eigenfieldsInverse(i, eigenCoords)
+				local newbasis = self:eigenfieldsInverse(i, eigenCoords)
 				
 				-- newtransformed_k = Q_kl eigenScaled_l = Q_kl lambda_l eigenCoords_k
-				local newtransformed = self.eigenfieldsInverse(i, eigenScaled)
+				local newtransformed = self:eigenfieldsInverse(i, eigenScaled)
 
 				-- transformed_k = A_kl basis_l
-				local transformed = self.fluxTransform(i, basis)
+				local transformed = self:fluxTransform(i, basis)
 
 				for k=1,self.numStates do
 					eigenbasisError = eigenbasisError + math.abs(basis[k] - newbasis[k])
@@ -83,7 +83,7 @@ return {
 			for j=1,self.numStates do
 				dq[j] = self.qs[i][j] - self.qs[i-1][j]
 			end
-			self.deltaQTildes[i] = self.eigenfields(i, dq)
+			self.deltaQTildes[i] = self:eigenfields(i, dq)
 		end
 	
 		local useFluxMatrix = false
@@ -121,17 +121,17 @@ return {
 			end
 			
 			if not useFluxMatrix then
-				local qAvgTildes = self.eigenfields(i, qAvg)
+				local qAvgTildes = self:eigenfields(i, qAvg)
 				for j=1,self.numStates do
 					fluxTilde[j] = fluxTilde[j] + self.eigenvalues[i][j] * qAvgTildes[j]
 				end
 			end
 			
-			self.fluxes[i] = self.eigenfieldsInverse(i, fluxTilde)
+			self.fluxes[i] = self:eigenfieldsInverse(i, fluxTilde)
 			
 			-- using the flux matrix itself allows for complete reconstruction even in the presence of zero-self.eigenvalues
 			if useFluxMatrix then
-				local fluxQs = self.fluxTransform(i, qAvg)
+				local fluxQs = self:fluxTransform(i, qAvg)
 				for j=1,self.numStates do
 					self.fluxes[i][j] = self.fluxes[i][j] + fluxQs[j]
 				end

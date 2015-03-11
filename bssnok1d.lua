@@ -4,7 +4,7 @@ going by Alcubierre's book, with some help from the 5-var system in his paper at
 p.85 non-hyperbolic description:
 partial_t gammaTilde_ij = -2 alpha ATilde_ij
 partial_t phi = -1/6 alpha K
-partial_t ATilde_ij = exp(-4 phi) ( -D_i D_j alpha + alpha R_ij + 4 pi alpha (gamma_ij (S - rho) - 2 S_ij))^TF + alpha (K ATilde_ij - 2 ATilde_ik ATilde^k_j)
+partial_t ATilde_ij = exp(-4 phi) ( -D_i D_j alpha + alpha R_ij + 4 pi alpha (g_ij (S - rho) - 2 S_ij))^TF + alpha (K ATilde_ij - 2 ATilde_ik ATilde^k_j)
 partial_t K = -D_i D^i alpha + alpha (ATilde_ij ATilde^ij + 1/3 K^2) + 4 pi alpha (rho + S)
 partial_t Gamma^i = -2 ATilde^ij partial_j alpha + 2 alpha (GammaTilde^i_jk ATilde^jk + 6 ATilde^ij partial_j phi - 2/3 gammaTilde^ij partial_j K - 8 pi jTilde^i)
 ... taking Bona-Masso lapse: partial_t alpha = -alpha^2 f K
@@ -17,7 +17,7 @@ dTilde_ijk = 1/2 partial_k gammaTilde_ij
 
 relations:
 K = K^i_i = gamma^ij K_ij
-ATilde_ij = exp(-4 phi) (K_ij - 1/3 K gamma_ij) = conformal trace-free extrinsic curvature
+ATilde_ij = exp(-4 phi) (K_ij - 1/3 K g_ij) = conformal trace-free extrinsic curvature
 GammaTilde^i = gammaTilde^jk connTilde^i_jk
 
 how do we recover phi from the state?
@@ -32,10 +32,10 @@ so do like for alpha and keep track of phi and Phi_x separate
 
 1D relations:
 	ND: exp(-phi) = psi <=> phi = -ln psi = -ln (gamma^(1/12) = -1/12 ln gamma
-phi = -1/12 ln gamma_xx
-gammaTilde_xx = exp(-12 phi) gamma_xx			<- isn't this usually exp(-4 phi)?  courtesy of 1/12 * 3 spatial dimensions = 1/4?
-...gammaTilde_xx = exp(-ln gamma_xx) gamma_xx 
-...gammaTilde_xx = gamma_xx / gamma_xx
+phi = -1/12 ln g_xx
+gammaTilde_xx = exp(-12 phi) g_xx			<- isn't this usually exp(-4 phi)?  courtesy of 1/12 * 3 spatial dimensions = 1/4?
+...gammaTilde_xx = exp(-ln g_xx) g_xx 
+...gammaTilde_xx = g_xx / g_xx
 ...gammaTilde_xx = 1
 dTilde_xxx = 1/2 partial_x gammaTilde_xx
 ...dTilde_xxx = 1/2 partial_x 1
@@ -48,20 +48,20 @@ GammaTilde^x
 alpha,t = -alpha^2 f K						<- p.165 or so, which does match the paper, and does include a source term
 gammaTilde_xx,t = -2 alpha ATilde_xx		<- p.80, looks like this lines up too
 phi,t = -alpha K / 6
-a_x,t + alpha partial_x Q = 0
-...a_x,t + alpha partial_x (f K) = 0
-...a_x,t + alpha K f,alpha partial_x alpha + alpha f partial_x K = 0
+A_x,t + alpha partial_x Q = 0
+...A_x,t + alpha partial_x (f K) = 0
+...A_x,t + alpha K f,alpha partial_x alpha + alpha f partial_x K = 0
 Phi_x,t + 1/6 alpha partial_x K = 0
 dTilde_xxx,t + alpha partial_x ATilde_xx = 0
-K,t + alpha exp(-4 phi) / gammaTilde_xx partial_x a_x = 0
+K,t + alpha exp(-4 phi) / gammaTilde_xx partial_x A_x = 0
 ATilde_xx,t + alpha exp(-4 phi) partial_x LambdaTilde^x_xx = 0
 GammaTilde^x,t + 4/3 alpha partial_x (K / gammaTilde_xx) = 0
 ...GammaTilde^x,t + 4/3 alpha / gammaTilde_xx partial_x K - 4/3 alpha K / gammaTilde_xx^2 partial_x gammaTilde_xx = 0
 
-for LambdaTilde^x_xx = (dTilde^x_xx + a_x - GammaTilde_x + 2 Phi_x)^TF
-...LambdaTilde^x_xx = (a_x + 2 Phi_x)^TF
+for LambdaTilde^x_xx = (dTilde^x_xx + A_x - GammaTilde_x + 2 Phi_x)^TF
+...LambdaTilde^x_xx = (A_x + 2 Phi_x)^TF
 
-... paper says a_x,t + partial_x (alpha f K) = 0 ... so the alpha is on the inside instead of the outside ...
+... paper says A_x,t + partial_x (alpha f K) = 0 ... so the alpha is on the inside instead of the outside ...
 ... paper is on Bona-Masso, and the book's entry on BM matches the book's entry on BSSNOK but not the paper's BM ...
 the book has no source terms whatsoever, though refers to everything in terms of ~= which neglects some terms (like the source terms maybe?) 
 
@@ -69,21 +69,21 @@ the book has no source terms whatsoever, though refers to everything in terms of
 
 alpha,t = -alpha^2 f K						<- p.165 or so, which does match the paper, and does include a source term
 phi,t = -alpha K / 6
-a_x,t + alpha partial_x Q = 0
-...a_x,t + alpha partial_x (f K) = 0
-...a_x,t + alpha K f,alpha partial_x alpha + alpha f partial_x K = 0
+A_x,t + alpha partial_x Q = 0
+...A_x,t + alpha partial_x (f K) = 0
+...A_x,t + alpha K f,alpha partial_x alpha + alpha f partial_x K = 0
 Phi_x,t + alpha/6 partial_x K = 0
-K,t + alpha exp(-4 phi) partial_x a_x = 0
+K,t + alpha exp(-4 phi) partial_x A_x = 0
 ATilde_xx,t + alpha exp(-4 phi) partial_x LambdaTilde^x_xx = 0
-...ATilde_xx,t + alpha exp(-4 phi) partial_x (a_x + 2 Phi_x) = 0
-...ATilde_xx,t + alpha exp(-4 phi) partial_x a_x + 2 alpha exp(-4 phi) partial_x Phi_x = 0
+...ATilde_xx,t + alpha exp(-4 phi) partial_x (A_x + 2 Phi_x) = 0
+...ATilde_xx,t + alpha exp(-4 phi) partial_x A_x + 2 alpha exp(-4 phi) partial_x Phi_x = 0
 
 variables:
-alpha, phi, a_x, Phi_x, K, ATilde_xx
+alpha, phi, A_x, Phi_x, K, ATilde_xx
 
 	[  alpha  ]   [0,               0, 0,                 0,                   0,       0]     [  alpha  ]   [-alpha^2 f K]
 	[   phi   ]   [0,               0, 0,                 0,                   0,       0]     [   phi   ]   [-alpha K / 6]
-d_t [   a_x   ]   [alpha K f,alpha, 0, 0,                 0,                   alpha f, 0] d_x [   a_x   ]   [     0      ]
+d_t [   A_x   ]   [alpha K f,alpha, 0, 0,                 0,                   alpha f, 0] d_x [   A_x   ]   [     0      ]
     [  Phi_x  ] + [0,               0, 0,                 0,                   alpha/6, 0]     [  Phi_x  ] = [     0      ]
     [    K    ]   [0,               0, alpha exp(-4 phi), 0,                   0,       0]     [    K    ]   [     0      ]
     [ATilde_xx]   [0,               0, alpha exp(-4 phi), 2 alpha exp(-4 phi), 0,       0]     [ATilde_xx]   [     0      ]
@@ -94,7 +94,7 @@ load("eigen");
 assume(alpha>0, f>0);
 /* [wxMaxima: input   end   ] */
 /* [wxMaxima: input   start ] */
-vars : [alpha, phi, a_x, Phi_x, K, ATilde_xx];
+vars : [alpha, phi, A_x, Phi_x, K, ATilde_xx];
 /* [wxMaxima: input   end   ] */
 /* [wxMaxima: input   start ] */
 A : matrix(
@@ -157,49 +157,51 @@ BSSNOK1DSim.numStates = 6
 function BSSNOK1DSim:init(args, ...)
 	BSSNOK1DSim.super.init(self, args, ...)
 	local symmath = require 'symmath'
-	local function makesym(x) return symmath.clone(assert(x)):simplify() end
+	local function makesym(field)
+		return symmath.clone(assert(args[field], "expected to find field "..field)):simplify() 
+	end
 	
 	local x = assert(args.x)
-
-	local alpha = makesym(args.alpha)
-	self.calc_alpha = alpha:compile{x}
-	local a_x = (alpha:diff(x) / alpha):simplify()
-	self.calc_a_x = a_x:compile{x}
 	
-	local gamma_xx = makesym(args.g)
-	local phi = -symmath.log(gamma_xx)/4
-	self.calc_phi = phi:compile{x}
-	local Phi_x = phi:diff(x):simplify()
-	self.calc_Phi_x = Phi_x:compile{x}
+	-- parameters that are symbolic functions -- based on coordinates 
+	local stateExprs = table{'alpha', 'g_xx', 'K_xx'}:map(function(name)
+		return makesym(name), name
+	end)
 
-	local h = makesym(args.h)
-	local d2x_h = h:diff(x,x):simplify()
-	local K_xx = -d2x_h / symmath.sqrt(gamma_xx)
-	local K = (K_xx / gamma_xx):simplify()
-	self.calc_K = K:compile{x}
-
-	local ATilde_xx = symmath.exp(-4 * phi) * (K_xx - K/3 * gamma_xx)
-	self.calc_ATilde_xx = ATilde_xx:compile{x}
-
-	local f = makesym(args.alpha)
-	self.calc_f = f:compile{x}
+	-- derived functions
+	stateExprs.A_x = (stateExprs.alpha:diff(x) / stateExprs.alpha):simplify()
+	stateExprs.phi = -symmath.log(stateExprs.g_xx)/4
+	stateExprs.Phi_x = stateExprs.phi:diff(x):simplify()
+	stateExprs.K = (stateExprs.K_xx / stateExprs.g_xx):simplify()
+	stateExprs.ATilde_xx = symmath.exp(-4 * stateExprs.phi) * (stateExprs.K_xx - stateExprs.K/3 * stateExprs.g_xx)
+	
+	-- convert from symbolic functions to Lua functions
+	self.calc = stateExprs:map(function(expr, name)
+		return expr:compile{x}, name
+	end)
+	
+	-- parameters that are symbolic functions -- based on f's alpha
+	-- NOTICE: assign these *after* mapping stateExprs to calc
+	local f = makesym'f'
+	local f_param = assert(args.f_param)
+	self.calc.f = f:compile{f_param}
 	
 	local dalpha_f = f:diff(args.f_param):simplify()
-	self.calc_dalpha_f = dalpha_f:compile{args.f_param}
+	self.calc.dalpha_f = dalpha_f:compile{args.f_param}
 
 	local get_state = index:bind(self.qs)
 	local get_alpha = get_state:index(1)
 	local get_phi = get_state:index(2)
-	local get_a_x = get_state:index(3)
+	local get_A_x = get_state:index(3)
 	local get_Phi_x = get_state:index(4)
 	local get_K = get_state:index(5)
 	local get_ATilde_xx = get_state:index(6)
-	--phi = -1/(4*n) ln gamma_xx
-	-- exp(-4n phi) = gamma_xx for n=1
-	-- volume = sqrt(gamma_xx) = sqrt(exp(-4n phi)) = exp(-2n phi)
+	--phi = -1/(4*n) ln g_xx
+	-- exp(-4n phi) = g_xx for n=1
+	-- volume = sqrt(g_xx) = sqrt(exp(-4n phi)) = exp(-2n phi)
 	self.graphInfos = {
 		{viewport={0/3, 0/3, 1/3, 1/3}, getter=get_alpha, name='alpha', color={1,0,1}},
-		{viewport={0/3, 1/3, 1/3, 1/3}, getter=get_a_x, name='a_x', color={0,1,0}},
+		{viewport={0/3, 1/3, 1/3, 1/3}, getter=get_A_x, name='A_x', color={0,1,0}},
 		{viewport={1/3, 0/3, 1/3, 1/3}, getter=get_phi, name='phi', color={.5,.5,1}},
 		{viewport={1/3, 1/3, 1/3, 1/3}, getter=get_Phi_x, name='Phi_x', color={1,1,0}},
 		{viewport={2/3, 0/3, 1/3, 1/3}, getter=get_K, name='K', color={0,1,1}},
@@ -212,13 +214,13 @@ end
 
 function BSSNOK1DSim:initCell(i)
 	local x = self.xs[i]
-	local alpha = self.calc_alpha(x)
-	local phi = self.calc_phi(x)
-	local a_x = self.calc_a_x(x)
-	local Phi_x = self.calc_Phi_x(x)
-	local K = self.calc_K(x)
-	local ATilde_xx = self.calc_ATilde_xx(x)
-	return {alpha, phi, a_x, Phi_x, K, ATilde_xx}
+	local alpha = self.calc.alpha(x)
+	local phi = self.calc.phi(x)
+	local A_x = self.calc.A_x(x)
+	local Phi_x = self.calc.Phi_x(x)
+	local K = self.calc.K(x)
+	local ATilde_xx = self.calc.ATilde_xx(x)
+	return {alpha, phi, A_x, Phi_x, K, ATilde_xx}
 end
 
 function BSSNOK1DSim:calcInterfaceEigenBasis(i)
@@ -227,9 +229,9 @@ function BSSNOK1DSim:calcInterfaceEigenBasis(i)
 		avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
 	end
 	
-	local alpha, phi, a_x, Phi_x, K, ATilde_xx = unpack(avgQ)
-	local f = self.calc_f(alpha)
-	local dalpha_f = self.calc_dalpha_f(alpha)
+	local alpha, phi, A_x, Phi_x, K, ATilde_xx = unpack(avgQ)
+	local f = self.calc.f(alpha)
+	local dalpha_f = self.calc.dalpha_f(alpha)
 	
 	local e2p = exp(2*phi)
 	local ie2p = 1/e2p
@@ -267,8 +269,8 @@ function BSSNOK1DSim:calcInterfaceEigenBasis(i)
 end
 
 function BSSNOK1DSim:addSourceToDerivCell(dq_dts, i)
-	local alpha, phi, a_x, Phi_x, K, ATilde_xx = unpack(self.qs[i])
-	local f = self.calc_f(alpha)
+	local alpha, phi, A_x, Phi_x, K, ATilde_xx = unpack(self.qs[i])
+	local f = self.calc.f(alpha)
 	dq_dts[i][1] = dq_dts[i][1] - alpha * alpha * f * K
 	dq_dts[i][2] = dq_dts[i][2] - alpha * K / 6
 end

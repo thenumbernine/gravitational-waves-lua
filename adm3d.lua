@@ -59,34 +59,84 @@ end
 	
 local function inv3x3sym(xx, xy, xz, yy, yz, zz, det)
 	if not det then det = det3x3sym(xx, xy, xz, yy, yz, zz) end
-	return {
-		(yy * zz - yz^2) / det,	-- xx
+	return 
+		(yy * zz - yz^2) / det,		-- xx
 		(xz * yz - xy * zz)  / det,	-- xy
 		(xy * yz - xz * yy) / det,	-- xz
-		(xx * zz - xz^2) / det,	-- yy
+		(xx * zz - xz^2) / det,		-- yy
 		(xz * xy - xx * yz) / det,	-- yz
-		(xx * yy - xy^2) / det,	-- zz
-	}
+		(xx * yy - xy^2) / det		-- zz
 end
 
 function ADM3DSimulation:init(args, ...)
 	ADM3DSimulation.super.init(self, args, ...)
 
 	local symmath = require 'symmath'
+	local function makesym(field)
+		return symmath.clone(assert(args[field], "expected to find field "..field)):simplify() 
+	end
 
+	-- parameters that are variables of symbolic functions
 	local x = assert(args.x)
-	local y = assert(args.y)
-	local z = assert(args.z)
+	local y = args.y or symmath.var'y'
+	local z = args.z or symmath.var'z'
 	local vars = table{x,y,z}
+	local symvars = {'xx', 'xy', 'xz', 'yy', 'yz', 'zz'}
 
+	-- parameters that are symbolic functions -- based on coordinates 
+	local exprs = table{'alpha', 'g_xx', 'K_xx'}:map(function(name)
+		return makesym(name), name
+	end)
+	exprs.g = table{
+		exprs.g_xx,	--xx
+		symmath.Constant(0),	--xy
+		symmath.Constant(0),	--xz
+		symmath.Constant(1),	--yy
+		symmath.Constant(0),	--yz
+		symmath.Constant(1),	--zz
+	}
+	exprs.g_xx = nil
+
+	-- ... fill in the rest ...
+
+	-- derived functions
+	exprs.A = vars:map(function(var)
+		return (exprs.alpha:diff(var) / exprs.alpha):simplify()
+	end)
+	exprs.K = table{
+		exprs.K_xx,
+		symmath.Constant(0),	--xy
+		symmath.Constant(0),	--xz
+		symmath.Constant(0),	--yy
+		symmath.Constant(0),	--yz
+		symmath.Constant(0),	--zz
+	}
+	exprs.K_xx = nil
+	
+	local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = inv3x3sym(unpack(exprs.g))
+	exprs.gU = table{gUxx, gUxy, gUxz, gUyy, gUyz, gUzz}
+	exprs.D = vars:map(function(x) return exprs.g:map(function(g_ij) return (g_ij:diff(x)/2):simplify() end) end)
+
+	-- convert from symbolic functions to Lua functions
+	local function buildCalc(expr, name)
+		assert(type(expr) == 'table')
+		if expr.isa and expr:isa(symmath.Expression) then
+			return expr:compile{x}, name
+		else
+			return table.map(expr, buildCalc), name
+		end
+	end
+	self.calc = exprs:map(buildCalc)
+	
 	local f_param = assert(args.f_param)
 
 	local f = symmath.clone(assert(args.f)):simplify()
-	self.calc_f = f:compile{f_param}
+	self.calc.f = f:compile{f_param}
 
 	local dalpha_f = f:diff(f_param):simplify()
-	self.calc_dalpha_f = dalpha_f:compile{f_param}
+	self.calc.dalpha_f = dalpha_f:compile{f_param}
 
+--[=[ me trying to branch out on my own ...
 	--[[
 	from "Catalogue of Spacetimes"
 	Schwarzschild Cartesian isotropic coordinates
@@ -117,24 +167,9 @@ function ADM3DSimulation:init(args, ...)
 	local g_xy = symmath.Constant(0)
 	local g_xz = symmath.Constant(0)
 	local g_yz = symmath.Constant(0)
-	local g = table{g_xx, g_xy, g_xz, g_yy, g_yz, g_zz}
-	self.calc_g = g:map(function(g_ij) return (g_ij:compile(vars)) end)
-	self.calc_diff_g = vars:map(function(x_i, i)
-		return g:map(function(g_ij,j)
-			return (g_ij:diff(x_i):simplify():compile(vars))
-		end)
-	end)
-	
-	local gU = inv3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz)
-	self.calc_gU = table.map(gU, function(gUij) return (gUij:compile(vars)) end)
-
 	local alpha = ((1 - rho_s/rho)/(1 + rho_s/rho))^2
-	self.calc_alpha = alpha:compile(vars)
+--]=]	
 
-	local diff_alpha = vars:map(function(var)
-		return alpha:diff(var):simplify()
-	end)
-	self.calc_diff_alpha = diff_alpha:map(function(eqn) return (eqn:compile(vars)) end)
 	
 	-- and for the graphs ...
 
@@ -220,153 +255,154 @@ function ADM3DSimulation:init(args, ...)
 		local x,y = unpack(info.viewport)
 		info.viewport = {x/xmax, y/ymax, 1/xmax, 1/ymax}
 	end
+end
 
-	self.fluxTransform = function(i, v)
-		local avgQ = {}
-		for j=1,self.numStates do 
-			avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
-		end
-
-		-- ... is the incoming vector
-		-- avgQ is the state used to make the eigenfield
-		return {
-			0,	--alpha
-			0,0,0,0,0,0,	--g_ij
-			0,0,0,		-- A_k
-			0,0,0,0,0,0,	-- D_xij
-			0,0,0,0,0,0,	-- D_yij
-			0,0,0,0,0,0,	-- D_zij
-			0,0,0,0,0,0,	-- K_ij
-			0,0,0			-- V_k
-		}
+function ADM3DSimulation:fluxTransform(i, v)
+	local avgQ = {}
+	for j=1,self.numStates do 
+		avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
 	end
-	self.eigenfields = function(i, v)
 
-		-- interface eigenfield varialbes
-		local avgQ = {}
-		for j=1,self.numStates do 
-			avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
-			assert(type(avgQ[j])=='number')
-		end
-		local alpha = avgQ[1]
-		local g_xx, g_xy, g_xz, g_yy, g_yz, g_zz = unpack(avgQ, 5, 10)
-		local g = det3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz)
-		local A_x, A_y, A_z = unpack(avgQ, 2, 4)
-		local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(avgQ, 11, 16)
-		local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(avgQ, 17, 22)
-		local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(avgQ, 23, 28)
-		local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = unpack(avgQ, 29, 34)
-		local V_x, V_y, V_z = unpack(avgQ, 35, 37)
-		local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = unpack(inv3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz))
-		local f = self.calc_f(alpha)
+	-- ... is the incoming vector
+	-- avgQ is the state used to make the eigenfield
+	return {
+		0,	--alpha
+		0,0,0,0,0,0,	--g_ij
+		0,0,0,		-- A_k
+		0,0,0,0,0,0,	-- D_xij
+		0,0,0,0,0,0,	-- D_yij
+		0,0,0,0,0,0,	-- D_zij
+		0,0,0,0,0,0,	-- K_ij
+		0,0,0			-- V_k
+	}
+end
 
-		-- cell variables
-		-- what if, for the ADM equations, there is no distinction?
-		-- they're used for Roe's scheme for computing deltas in eigenbasis coordinates by which to scale coordinates coinciding with the lambdas ...
-		-- what about creating them solely from 'v' rather than using the average whatsoever?
-		-- this would mean ensuring the inputs to the eigenfields() functions were always the state variables themselves (not differences or averages)
-		-- 	and deferring differences or averages til after eigenfields() is called (assuming it is a linear function)
-		-- this also has an issue with eigenfieldsInverse(), which is called on a flux vector, i.e. at cell interface, which would probably need the average of cells for that input
+function ADM3DSimulation:eigenfields(i, v)
 
-		return {
-			((((-(2 * gUxz * v[37])) - (gUxx * v[8])) + (math.sqrt(f) * (gUxx ^ (3 / 2)) * v[29]) + (math.sqrt(f) * gUxy * v[30] * math.sqrt(gUxx)) + (math.sqrt(f) * gUxz * v[31] * math.sqrt(gUxx)) + (math.sqrt(f) * gUyy * v[32] * math.sqrt(gUxx)) + (math.sqrt(f) * gUyz * v[33] * math.sqrt(gUxx)) + (((math.sqrt(f) * gUzz * v[34] * math.sqrt(gUxx)) - (2 * gUxx * v[35])) - (2 * gUxy * v[36]))) / math.sqrt(gUxx)),
-			(((-((gUxx ^ (3 / 2)) * v[12])) + ((v[30] * gUxx) - (v[36]))) / gUxx),
-			(((-((gUxx ^ (3 / 2)) * v[13])) + ((v[31] * gUxx) - (v[37]))) / gUxx),
-			((-(math.sqrt(gUxx) * v[14])) + v[32]),
-			((-(math.sqrt(gUxx) * v[15])) + v[33]),
-			((-(math.sqrt(gUxx) * v[16])) + v[34]),
-			v[1],
-			v[2],
-			v[3],
-			v[4],
-			v[5],
-			v[6],
-			v[7],
-			v[9],
-			v[10],
-			v[17],
-			v[18],
-			v[19],
-			v[20],
-			v[21],
-			v[22],
-			v[23],
-			v[24],
-			v[25],
-			v[26],
-			v[27],
-			v[28],
-			v[35],
-			v[36],
-			v[37],
-			(((((((v[8] - (f * gUxx * v[11])) - (f * gUxy * v[12])) - (f * gUxz * v[13])) - (f * gUyy * v[14])) - (f * gUyz * v[15])) - (f * gUzz * v[16]))),
-			((((gUxx ^ (3 / 2)) * v[12]) + (v[30] * gUxx) + v[36]) / gUxx),
-			((((gUxx ^ (3 / 2)) * v[13]) + (v[31] * gUxx) + v[37]) / gUxx),
-			((math.sqrt(gUxx) * v[14]) + v[32]),
-			((math.sqrt(gUxx) * v[15]) + v[33]),
-			((math.sqrt(gUxx) * v[16]) + v[34]),
-			((((gUxx ^ (3 / 2)) * v[8]) + (math.sqrt(f) * (gUxx ^ 2) * v[29]) + (math.sqrt(f) * gUxy * v[30] * gUxx) + (math.sqrt(f) * gUxz * v[31] * gUxx) + (math.sqrt(f) * gUyy * v[32] * gUxx) + (math.sqrt(f) * gUyz * v[33] * gUxx) + (math.sqrt(f) * gUzz * v[34] * gUxx) + (2 * v[35])) / gUxx)
-		}
+	-- interface eigenfield varialbes
+	local avgQ = {}
+	for j=1,self.numStates do 
+		avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
+		assert(type(avgQ[j])=='number')
 	end
-	self.eigenfieldsInverse = function(i, v)
-		
-		-- interface eigenfield varialbes
-		local avgQ = {}
-		for j=1,self.numStates do 
-			avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
-		end
-		local alpha = avgQ[1]
-		local g_xx, g_xy, g_xz, g_yy, g_yz, g_zz = unpack(avgQ, 5, 10)
-		local g = det3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz)
-		local A_x, A_y, A_z = unpack(avgQ, 2, 4)
-		local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(avgQ, 11, 16)
-		local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(avgQ, 17, 22)
-		local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(avgQ, 23, 28)
-		local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = unpack(avgQ, 29, 34)
-		local V_x, V_y, V_z = unpack(avgQ, 35, 37)
-		local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = unpack(inv3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz))
-		local f = self.calc_f(alpha)
+	local alpha = avgQ[1]
+	local g_xx, g_xy, g_xz, g_yy, g_yz, g_zz = unpack(avgQ, 5, 10)
+	local g = det3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz)
+	local A_x, A_y, A_z = unpack(avgQ, 2, 4)
+	local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(avgQ, 11, 16)
+	local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(avgQ, 17, 22)
+	local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(avgQ, 23, 28)
+	local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = unpack(avgQ, 29, 34)
+	local V_x, V_y, V_z = unpack(avgQ, 35, 37)
+	local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = inv3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz)
+	local f = self.calc.f(alpha)
 
-		return {
-			v[7],
-			v[8],
-			v[9],
-			v[10],
-			v[11],
-			v[12],
-			v[13],
-			(((-(v[37] * gUxx)) + (2 * gUxz * v[30] * math.sqrt(gUxx)) + (2 * gUxy * v[29] * math.sqrt(gUxx)) + (v[1] * gUxx) + (2 * v[28]) + (2 * (gUxx ^ (3 / 2)) * v[28])) / (-(2 * (gUxx ^ (3 / 2))))),
-			v[14],
-			v[15],
-			(((-(v[37] * gUxx)) + (gUzz * v[36] * gUxx * f) + (gUyz * v[35] * gUxx * f) + (gUyy * v[34] * gUxx * f) + (gUxz * v[33] * gUxx * f) + (gUxy * v[32] * gUxx * f) + (2 * v[31] * (gUxx ^ (3 / 2))) + ((2 * gUxz * math.sqrt(gUxx) * v[30]) - (2 * gUxz * f * v[30])) + (((((((2 * gUxy * math.sqrt(gUxx) * v[29]) - (2 * gUxy * f * v[29])) - (gUzz * v[6] * f * gUxx)) - (gUyz * v[5] * f * gUxx)) - (gUyy * v[4] * f * gUxx)) - (gUxz * v[3] * f * gUxx)) - (gUxy * v[2] * f * gUxx)) + (v[1] * gUxx) + (2 * v[28]) + (2 * (gUxx ^ (3 / 2)) * v[28])) / (-(2 * (gUxx ^ (5 / 2)) * f))),
-			(((-(v[32] * gUxx)) + (v[2] * gUxx) + (2 * v[29])) / (-(2 * (gUxx ^ (3 / 2))))),
-			(((-(v[33] * gUxx)) + (v[3] * gUxx) + (2 * v[30])) / (-(2 * (gUxx ^ (3 / 2))))),
-			(((-(v[34])) + v[4]) / (-(2 * math.sqrt(gUxx)))),
-			(((-(v[35])) + v[5]) / (-(2 * math.sqrt(gUxx)))),
-			(((-(v[36])) + v[6]) / (-(2 * math.sqrt(gUxx)))),
-			v[16],
-			v[17],
-			v[18],
-			v[19],
-			v[20],
-			v[21],
-			v[22],
-			v[23],
-			v[24],
-			v[25],
-			v[26],
-			v[27],
-			((((((((v[37] * gUxx) - (gUzz * v[36] * gUxx * math.sqrt(f))) - (gUyz * v[35] * gUxx * math.sqrt(f))) - (gUyy * v[34] * gUxx * math.sqrt(f))) - (gUxz * v[33] * gUxx * math.sqrt(f))) - (gUxy * v[32] * gUxx * math.sqrt(f))) + (2 * gUxz * v[30] * math.sqrt(gUxx)) + ((((((2 * gUxy * v[29] * math.sqrt(gUxx)) - (gUzz * v[6] * math.sqrt(f) * gUxx)) - (gUyz * v[5] * math.sqrt(f) * gUxx)) - (gUyy * v[4] * math.sqrt(f) * gUxx)) - (gUxz * v[3] * math.sqrt(f) * gUxx)) - (gUxy * v[2] * math.sqrt(f) * gUxx)) + ((v[1] * gUxx) - (2 * v[28])) + (2 * (gUxx ^ (3 / 2)) * v[28])) / (2 * (gUxx ^ 2) * math.sqrt(f))),
-			((v[32] + v[2]) / 2),
-			((v[33] + v[3]) / 2),
-			((v[34] + v[4]) / 2),
-			((v[35] + v[5]) / 2),
-			((v[36] + v[6]) / 2),
-			v[28],
-			v[29],
-			v[30]
-		}
+	-- cell variables
+	-- what if, for the ADM equations, there is no distinction?
+	-- they're used for Roe's scheme for computing deltas in eigenbasis coordinates by which to scale coordinates coinciding with the lambdas ...
+	-- what about creating them solely from 'v' rather than using the average whatsoever?
+	-- this would mean ensuring the inputs to the eigenfields() functions were always the state variables themselves (not differences or averages)
+	-- 	and deferring differences or averages til after eigenfields() is called (assuming it is a linear function)
+	-- this also has an issue with eigenfieldsInverse(), which is called on a flux vector, i.e. at cell interface, which would probably need the average of cells for that input
+
+	return {
+		((((-(2 * gUxz * v[37])) - (gUxx * v[8])) + (math.sqrt(f) * (gUxx ^ (3 / 2)) * v[29]) + (math.sqrt(f) * gUxy * v[30] * math.sqrt(gUxx)) + (math.sqrt(f) * gUxz * v[31] * math.sqrt(gUxx)) + (math.sqrt(f) * gUyy * v[32] * math.sqrt(gUxx)) + (math.sqrt(f) * gUyz * v[33] * math.sqrt(gUxx)) + (((math.sqrt(f) * gUzz * v[34] * math.sqrt(gUxx)) - (2 * gUxx * v[35])) - (2 * gUxy * v[36]))) / math.sqrt(gUxx)),
+		(((-((gUxx ^ (3 / 2)) * v[12])) + ((v[30] * gUxx) - (v[36]))) / gUxx),
+		(((-((gUxx ^ (3 / 2)) * v[13])) + ((v[31] * gUxx) - (v[37]))) / gUxx),
+		((-(math.sqrt(gUxx) * v[14])) + v[32]),
+		((-(math.sqrt(gUxx) * v[15])) + v[33]),
+		((-(math.sqrt(gUxx) * v[16])) + v[34]),
+		v[1],
+		v[2],
+		v[3],
+		v[4],
+		v[5],
+		v[6],
+		v[7],
+		v[9],
+		v[10],
+		v[17],
+		v[18],
+		v[19],
+		v[20],
+		v[21],
+		v[22],
+		v[23],
+		v[24],
+		v[25],
+		v[26],
+		v[27],
+		v[28],
+		v[35],
+		v[36],
+		v[37],
+		(((((((v[8] - (f * gUxx * v[11])) - (f * gUxy * v[12])) - (f * gUxz * v[13])) - (f * gUyy * v[14])) - (f * gUyz * v[15])) - (f * gUzz * v[16]))),
+		((((gUxx ^ (3 / 2)) * v[12]) + (v[30] * gUxx) + v[36]) / gUxx),
+		((((gUxx ^ (3 / 2)) * v[13]) + (v[31] * gUxx) + v[37]) / gUxx),
+		((math.sqrt(gUxx) * v[14]) + v[32]),
+		((math.sqrt(gUxx) * v[15]) + v[33]),
+		((math.sqrt(gUxx) * v[16]) + v[34]),
+		((((gUxx ^ (3 / 2)) * v[8]) + (math.sqrt(f) * (gUxx ^ 2) * v[29]) + (math.sqrt(f) * gUxy * v[30] * gUxx) + (math.sqrt(f) * gUxz * v[31] * gUxx) + (math.sqrt(f) * gUyy * v[32] * gUxx) + (math.sqrt(f) * gUyz * v[33] * gUxx) + (math.sqrt(f) * gUzz * v[34] * gUxx) + (2 * v[35])) / gUxx)
+	}
+end
+function ADM3DSimulation:eigenfieldsInverse(i, v)
+	
+	-- interface eigenfield varialbes
+	local avgQ = {}
+	for j=1,self.numStates do 
+		avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
 	end
+	local alpha = avgQ[1]
+	local g_xx, g_xy, g_xz, g_yy, g_yz, g_zz = unpack(avgQ, 5, 10)
+	local g = det3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz)
+	local A_x, A_y, A_z = unpack(avgQ, 2, 4)
+	local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(avgQ, 11, 16)
+	local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(avgQ, 17, 22)
+	local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(avgQ, 23, 28)
+	local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = unpack(avgQ, 29, 34)
+	local V_x, V_y, V_z = unpack(avgQ, 35, 37)
+	local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = inv3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz)
+	local f = self.calc.f(alpha)
+
+	return {
+		v[7],
+		v[8],
+		v[9],
+		v[10],
+		v[11],
+		v[12],
+		v[13],
+		(((-(v[37] * gUxx)) + (2 * gUxz * v[30] * math.sqrt(gUxx)) + (2 * gUxy * v[29] * math.sqrt(gUxx)) + (v[1] * gUxx) + (2 * v[28]) + (2 * (gUxx ^ (3 / 2)) * v[28])) / (-(2 * (gUxx ^ (3 / 2))))),
+		v[14],
+		v[15],
+		(((-(v[37] * gUxx)) + (gUzz * v[36] * gUxx * f) + (gUyz * v[35] * gUxx * f) + (gUyy * v[34] * gUxx * f) + (gUxz * v[33] * gUxx * f) + (gUxy * v[32] * gUxx * f) + (2 * v[31] * (gUxx ^ (3 / 2))) + ((2 * gUxz * math.sqrt(gUxx) * v[30]) - (2 * gUxz * f * v[30])) + (((((((2 * gUxy * math.sqrt(gUxx) * v[29]) - (2 * gUxy * f * v[29])) - (gUzz * v[6] * f * gUxx)) - (gUyz * v[5] * f * gUxx)) - (gUyy * v[4] * f * gUxx)) - (gUxz * v[3] * f * gUxx)) - (gUxy * v[2] * f * gUxx)) + (v[1] * gUxx) + (2 * v[28]) + (2 * (gUxx ^ (3 / 2)) * v[28])) / (-(2 * (gUxx ^ (5 / 2)) * f))),
+		(((-(v[32] * gUxx)) + (v[2] * gUxx) + (2 * v[29])) / (-(2 * (gUxx ^ (3 / 2))))),
+		(((-(v[33] * gUxx)) + (v[3] * gUxx) + (2 * v[30])) / (-(2 * (gUxx ^ (3 / 2))))),
+		(((-(v[34])) + v[4]) / (-(2 * math.sqrt(gUxx)))),
+		(((-(v[35])) + v[5]) / (-(2 * math.sqrt(gUxx)))),
+		(((-(v[36])) + v[6]) / (-(2 * math.sqrt(gUxx)))),
+		v[16],
+		v[17],
+		v[18],
+		v[19],
+		v[20],
+		v[21],
+		v[22],
+		v[23],
+		v[24],
+		v[25],
+		v[26],
+		v[27],
+		((((((((v[37] * gUxx) - (gUzz * v[36] * gUxx * math.sqrt(f))) - (gUyz * v[35] * gUxx * math.sqrt(f))) - (gUyy * v[34] * gUxx * math.sqrt(f))) - (gUxz * v[33] * gUxx * math.sqrt(f))) - (gUxy * v[32] * gUxx * math.sqrt(f))) + (2 * gUxz * v[30] * math.sqrt(gUxx)) + ((((((2 * gUxy * v[29] * math.sqrt(gUxx)) - (gUzz * v[6] * math.sqrt(f) * gUxx)) - (gUyz * v[5] * math.sqrt(f) * gUxx)) - (gUyy * v[4] * math.sqrt(f) * gUxx)) - (gUxz * v[3] * math.sqrt(f) * gUxx)) - (gUxy * v[2] * math.sqrt(f) * gUxx)) + ((v[1] * gUxx) - (2 * v[28])) + (2 * (gUxx ^ (3 / 2)) * v[28])) / (2 * (gUxx ^ 2) * math.sqrt(f))),
+		((v[32] + v[2]) / 2),
+		((v[33] + v[3]) / 2),
+		((v[34] + v[4]) / 2),
+		((v[35] + v[5]) / 2),
+		((v[36] + v[6]) / 2),
+		v[28],
+		v[29],
+		v[30]
+	}
 end
 
 function ADM3DSimulation:initCell(i)
@@ -374,15 +410,11 @@ function ADM3DSimulation:initCell(i)
 	local y = 0
 	local z = 0
 	local xs = table{x,y,z}
-	local alpha = self.calc_alpha(x,y,z)
-	local diff_alpha = self.calc_diff_alpha:map(function(f) return f(x,y,z) end)
-	local A = diff_alpha:map(function(diff_alpha_i) return diff_alpha_i / alpha end)
-	local g = self.calc_g:map(function(f) return f(x,y,z) end)
-	local D = self.calc_diff_g:map(function(fs)
-		return fs:map(function(f) return .5 * f(x,y,z) end)
-	end)
-
-	local gU = self.calc_gU:map(function(f) return f(x,y,z) end)
+	local alpha = self.calc.alpha(x,y,z)
+	local A = self.calc.A:map(function(A_i) return A_i(x,y,z) end)
+	local g = self.calc.g:map(function(g_ij) return g_ij(x,y,z) end)
+	local D = self.calc.D:map(function(D_i) return D_i:map(function(D_ijk) return D_ijk(x,y,z) end) end)
+	local gU = self.calc.gU:map(function(gUij) return gUij(x,y,z) end)
 
 	local function sym3x3(m,i,j)
 		local m_xx, m_xy, m_xz, m_yy, m_yz, m_zz = unpack(m)
@@ -409,7 +441,7 @@ function ADM3DSimulation:initCell(i)
 	-- hmm ... 
 	local K = {}
 	for i=1,6 do
-		K[i] = 0
+		K[i] = self.calc.K[i](x,y,z)
 	end
 
 	return {
@@ -438,8 +470,8 @@ function ADM3DSimulation:calcInterfaceEigenBasis(i)
 	local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(avgQ, 23, 28)
 	local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = unpack(avgQ, 29, 34)
 	local V_x, V_y, V_z = unpack(avgQ, 35, 37)
-	local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = unpack(inv3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz))
-	local f = self.calc_f(alpha)
+	local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = inv3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz)
+	local f = self.calc.f(alpha)
 
 	local lambdaLight = alpha * sqrt(gUxx)
 	local lambdaGauge = lambdaLight * sqrt(f)
