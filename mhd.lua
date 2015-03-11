@@ -4,39 +4,81 @@ local MHDSimulation = class(Simulation)
 
 MHDSimulation.numStates = 8
 MHDSimulation.gamma = 5/3	
+MHDSimulation.mu = 1
 
 function MHDSimulation:init(...)
 	Simulation.init(self, ...)
-	
+
+	local function initArray()
+		local t = {}
+		for i=1,self.gridsize do
+			t[i] = 0
+		end
+		return t
+	end
+	self.primOrthoError = initArray()	-- ortho error of dU/dW * dW/dU
+	self.consOrthoError = initArray()	-- ortho error of L_A * R_A
+
+	local mu = self.mu
+	local gamma = self.gamma
 	local getState = index:bind(self.qs)
+	local rho = getState:index(1)
+	local ux = getState:index(2) / rho
+	local uy = getState:index(3) / rho
+	local uz = getState:index(4) / rho
+	local Bx = getState:index(5) / mu
+	local By = getState:index(6) / mu
+	local Bz = getState:index(7) / mu
+	local ETotal = getState:index(8)
+	local eTotal = ETotal / rho
+	local EMag = .5*(Bx*Bx + By*By + Bz*Bz) / mu
+	local EHydro = ETotal - EMag
+	local eHydro = EHydro / rho
+	local eKin = .5*(ux*ux + uy*uy + uz*uz)
+	local eInt = eHydro - eKin
+	local p = eInt / (gamma - 1)
 	self.graphInfos = {
-		{viewport={0/3, 0/2, 1/3, 1/2}, getter=getState:index(1), name='rho', color={1,0,1}},
-		{viewport={1/3, 0/2, 1/3, 1/2}, getter=getState:index(2) / getState:index(1), name='u', color={0,1,0}},
-		{viewport={2/3, 0/2, 1/3, 1/2}, getter=getState:index(3) / getState:index(1), name='E', color={.5,.5,1}},
-		{viewport={0/3, 1/2, 1/3, 1/2}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
-		{viewport={1/3, 1/2, 1/3, 1/2}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='log reconstruction error', color={1,0,0}, range={-30, 30}},
+		{viewport={0/5, 0/4, 1/5, 1/4}, getter=(index:bind(self.eigenbasisErrors)), name='eigenbasis error', color={1,0,0}, range={-30, 30}},
+		{viewport={0/5, 1/4, 1/5, 1/4}, getter=(index:bind(self.fluxMatrixErrors)), name='reconstruction error', color={1,0,0}, range={-30, 30}},
+		{viewport={0/5, 2/4, 1/5, 1/4}, getter=(index:bind(self.primOrthoError)), name='dU/dW ortho error', color={1,0,0}, range={-30, 30}},
+		{viewport={0/5, 3/4, 1/5, 1/4}, getter=(index:bind(self.consOrthoError)), name='dF/dU eigenbasis error', color={1,0,0}, range={-30, 30}},
+		{viewport={1/5, 0/4, 1/5, 1/4}, getter=rho, name='rho', color={1,0,1}},
+		{viewport={1/5, 1/4, 1/5, 1/4}, getter=rho, name='p', color={1,0,1}},
+		{viewport={2/5, 0/4, 1/5, 1/4}, getter=ux, name='ux', color={0,1,0}},
+		{viewport={2/5, 1/4, 1/5, 1/4}, getter=uy, name='uy', color={0,1,0}},
+		{viewport={2/5, 2/4, 1/5, 1/4}, getter=uz, name='uz', color={0,1,0}},
+		{viewport={3/5, 0/4, 1/5, 1/4}, getter=Bx, name='Bx', color={.5,.5,1}},
+		{viewport={3/5, 1/4, 1/5, 1/4}, getter=By, name='By', color={.5,.5,1}},
+		{viewport={3/5, 2/4, 1/5, 1/4}, getter=Bz, name='Bz', color={.5,.5,1}},
+		{viewport={4/5, 0/4, 1/5, 1/4}, getter=eTotal, name='eTotal', color={1,1,0}},
+		{viewport={4/5, 1/4, 1/5, 1/4}, getter=eKin, name='eKin', color={1,1,0}},
+		{viewport={4/5, 2/4, 1/5, 1/4}, getter=eInt, name='eInt', color={1,1,0}},
+		{viewport={4/5, 3/4, 1/5, 1/4}, getter=eInt, name='eHydro', color={1,1,0}},
+		{viewport={3/5, 3/4, 1/5, 1/4}, getter=eInt, name='EMag', color={1,1,0}},
 	}
 end
 
-MHDSimulation.mu = 1
-
 function MHDSimulation:initCell(i)
-	local rho = self.xs[i] < 0 and .1 or 1
+	local x = self.xs[i]
+	local rho = x < 0 and .1 or 1
 	local ux, uy, uz = 0, 0, 0
-	local Bx, By, Bz = 0, 0, 0
-	local eInt = 1
-	local eKin = .5 * (ux^2 + uy^2 + uz^2)
-	local EMag = .5 * (Bx^2 + By^2 + Bz^2) / self.mu
-	local ETotal = rho * (eInt + eKin) + EMag 
-	return {rho, rho * ux, rho * uy, rho * uz, Bx, By, Bz, ETotal}
+	local Bx = 0	-- .75
+	local By = 0	-- x < 0 and 1 or -1
+	local Bz = 0
+	local p = 1		-- x < 0 and 1 or .1
+	local eInt = p / (self.gamma - 1)
+	local eKin = .5*(ux*ux + uy*uy + uz*uz)
+	local EMag = .5*(Bx*Bx + By*By + Bz*Bz) / self.mu
+	local ETotal = rho*(eInt + eKin) + EMag 
+	return {rho, rho*ux, rho*uy, rho*uz, Bx, By, Bz, ETotal}
 end
 
 function MHDSimulation:stateToPrims(rho, mx, my, mz, Bx, By, Bz, ETotal)
 	local ux, uy, uz = mx / rho, my / rho, mz / rho
-	local EMag = .5 * (Bx^2 + By^2 + Bz^2) / self.mu
+	local EMag = .5*(Bx*Bx + By*By + Bz*Bz) / self.mu
 	local EHydro = ETotal - EMag
 	local eHydro = EHydro / rho
-	local eKin = .5 * (ux^2 + uy^2 + uz^2)
+	local eKin = .5*(ux*ux + uy*uy + uz*uz)
 	local eInt = eHydro - eKin
 	local p = eInt / (self.gamma - 1)
 	return rho, ux, uy, uz, Bx, By, Bz, p
@@ -49,25 +91,25 @@ function MHDSimulation:calcInterfaceEigenBasis(i)
 	local rhoL, uxL, uyL, uzL, BxL, ByL, BzL, pL = self:stateToPrims(unpack(self.qs[i-1]))
 	local rhoR, uxR, uyR, uzR, BxR, ByR, BzR, pR = self:stateToPrims(unpack(self.qs[i]))
 
-	local rho = .5 * (rhoL + rhoR)
-	local ux = .5 * (uxL + uxR)
-	local uy = .5 * (uyL + uyR)
-	local uz = .5 * (uzL + uzR)
-	local Bx = .5 * (BxL + BxR)
-	local By = .5 * (ByL + ByR)
-	local Bz = .5 * (BzL + BzR)
-	local p = .5 * (pL + pR)
+	local rho = .5*(rhoL + rhoR)
+	local ux = .5*(uxL + uxR)
+	local uy = .5*(uyL + uyR)
+	local uz = .5*(uzL + uzR)
+	local Bx = .5*(BxL + BxR)
+	local By = .5*(ByL + ByR)
+	local Bz = .5*(BzL + BzR)
+	local p = .5*(pL + pR)
 
 	local mu = self.mu
 	local bSq = Bx*Bx + By*By + Bz*Bz
-	local vaxSq = Bx*Bx / (mu * rho)
+	local vaxSq = Bx*Bx / (mu*rho)
 	local vax = sqrt(vaxSq)
-	local CsSq = gamma * p / rho
+	local CsSq = gamma*p / rho
 	local Cs= sqrt(CsSq)
-	local vaSq = bSq / (mu * rho)
+	local vaSq = bSq / (mu*rho)
 	local va = sqrt(vaSq)
-	local cStarSq = .5 * (vaSq + CsSq)
-	local discr = sqrt(cStarSq * cStarSq - vaxSq * CsSq)
+	local cStarSq = .5*(vaSq + CsSq)
+	local discr = sqrt(cStarSq*cStarSq - vaxSq*CsSq)
 	local vfSq = cStarSq + discr
 	local vsSq = cStarSq - discr
 	local vf = sqrt(vfSq)
@@ -96,10 +138,11 @@ function MHDSimulation:calcInterfaceEigenBasis(i)
 	S[8] = ux + vf
 
 	local tau = 1 / rho
-	
+	local epsilon = 1e-20
+
 	local afSq = (vfSq - vaxSq) / (vfSq - vsSq)
 	local af
-	if afSq > 0 then
+	if afSq > epsilon then
 		af = sqrt(afSq)
 	else
 		af, afSq = 1, 1
@@ -107,57 +150,59 @@ function MHDSimulation:calcInterfaceEigenBasis(i)
 	
 	local asSq = (vfSq - CsSq) / (vfSq - vsSq)
 	local as
-	if asSq > 0 then
+	if asSq > epsilon then
 		as = sqrt(asSq)
 	else
 		as, asSq = 1, 1
 	end
 
-	local BTSq = By * By + Bz * Bz
-	local betay = 1
+	local BTSq = By*By + Bz*Bz
+	local betay = 0
 	local betaz = 0
-	if BTSq > 0 then
+	if BTSq > epsilon then
 		local BT = sqrt(BTSq)
 		betay = By / BT
 		betaz = Bz / BT
 	end
 		
-	local RFast = vf / sqrt(afSq * (vfSq + CsSq) + asSq * (vfSq + vaxSq))
-	local RSlow = vfSq / sqrt(afSq * CsSq * (vfSq + CsSq) + asSq * vfSq * (vsSq + CsSq))
+	local RFast = vf / sqrt(afSq*(vfSq + CsSq) + asSq*(vfSq + vaxSq))
+	local RSlow = vfSq / sqrt(afSq*CsSq*(vfSq + CsSq) + asSq*vfSq*(vsSq + CsSq))
+
+	local sqrt1_2 = sqrt(.5)
 
 	local R_A = {	--right eigenvectors
 	--fast -
 		{
-			af * tau * RFast,
-			af * vf * RFast,
-			-as * betay * vax * sgnBx * RFast,
-			-as * betaz * vax * sgnBx * RFast,
+			af*tau*RFast,
+			af*vf*RFast,
+			-as*betay*vax*sgnBx*RFast,
+			-as*betaz*vax*sgnBx*RFast,
 			0,
-			-as * betay * vf * sqrt(mu * rho) * RFast,
-			-as * betaz * vf * sqrt(mu * rho) * RFast,
-			-af * gamma * p * RFast
+			-as*betay*vf*sqrt(mu*rho)*RFast,
+			-as*betaz*vf*sqrt(mu*rho)*RFast,
+			-af*gamma*p*RFast
 		},
 	--alfven -
 		{
 			0,
 			0,
-			-betaz * vf / sqrt(2),
-			betay * vf / sqrt(2),
+			-betaz*vf*sqrt1_2,
+			betay*vf*sqrt1_2,
 			0,
-			-sgnBx * sqrt(mu * rho) * betaz * vf / sqrt(2),
-			sgnBx * sqrt(mu * rho) * betay * vf / sqrt(2),
+			-sgnBx*sqrt(mu*rho)*betaz*vf*sqrt1_2,
+			sgnBx*sqrt(mu*rho)*betay*vf*sqrt1_2,
 			0
 		},
 	--slow -
 		{
-			as * tau,
-			as * vs,
-			af * betay * Cs * sgnBx,
-			af * betaz * Cs * sgnBx,
+			as*tau,
+			as*vs,
+			af*betay*Cs*sgnBx,
+			af*betaz*Cs*sgnBx,
 			0,
-			af * betay * CsSq / vf * sqrt(mu * rho),
-			af * betaz * CsSq / vf * sqrt(mu * rho),
-			-as * gamma * p
+			af*betay*CsSq / vf*sqrt(mu*rho),
+			af*betaz*CsSq / vf*sqrt(mu*rho),
+			-as*gamma*p
 		},
 	--entropy
 		{tau, 0, 0, 0, 0, 0, 0, 0},
@@ -165,36 +210,36 @@ function MHDSimulation:calcInterfaceEigenBasis(i)
 	--zero
 	--slow +
 		{
-			-as * tau,
-			as * vs,
-			af * betay * Cs * sgnBx,
-			af * betaz * Cs * sgnBx,
+			-as*tau,
+			as*vs,
+			af*betay*Cs*sgnBx,
+			af*betaz*Cs*sgnBx,
 			0,
-			-af * betay * CsSq / vf * sqrt(mu * rho),
-			-af * betaz * CsSq / vf * sqrt(mu * rho),
-			as * gamma * p
+			-af*betay*CsSq / vf*sqrt(mu*rho),
+			-af*betaz*CsSq / vf*sqrt(mu*rho),
+			as*gamma*p
 		},
 	--alfven +
 		{
 			0,
 			0,
-			betaz * vf / sqrt(2),
-			-betay * vf / sqrt(2),
+			betaz*vf*sqrt1_2,
+			-betay*vf*sqrt1_2,
 			0,
-			-sgnBx * sqrt(mu * rho) * betaz * vf / sqrt(2),
-			sgnBx * sqrt(mu * rho) * betay * vf / sqrt(2),
+			-sgnBx*sqrt(mu*rho)*betaz*vf*sqrt1_2,
+			sgnBx*sqrt(mu*rho)*betay*vf*sqrt1_2,
 			0
 		},
 	--fast +
 		{
-			-af * tau * RFast,
-			af * vf * RFast,
-			-as * betay * vax * sgnBx * RFast,
-			-as * betaz * vax * sgnBx * RFast,
+			-af*tau*RFast,
+			af*vf*RFast,
+			-as*betay*vax*sgnBx*RFast,
+			-as*betaz*vax*sgnBx*RFast,
 			0,
-			as * betay * vf * sqrt(mu * rho) * RFast,
-			as * betaz * vf * sqrt(mu * rho) * RFast,
-			af * gamma * p * RFast
+			as*betay*vf*sqrt(mu*rho)*RFast,
+			as*betaz*vf*sqrt(mu*rho)*RFast,
+			af*gamma*p*RFast
 		}
 	}
 
@@ -204,77 +249,77 @@ function MHDSimulation:calcInterfaceEigenBasis(i)
 	--fast -
 		{
 			0,
-			 af * vf * RFast / vfSq,
-			 -as * betay * vax * sgnBx * RFast / vfSq,
-			 -as * betaz * vax * sgnBx * RFast / vfSq,
+			 af*vf*RFast / vfSq,
+			 -as*betay*vax*sgnBx*RFast / vfSq,
+			 -as*betaz*vax*sgnBx*RFast / vfSq,
 			 0,
-			 -as * betay * vf / sqrt(mu * rho) * RFast / vfSq,
-			 -as * betaz * vf / sqrt(mu * rho) * RFast / vfSq,
-			 -af * tau * RFast / vfSq
+			 -as*betay*vf / sqrt(mu*rho)*RFast / vfSq,
+			 -as*betaz*vf / sqrt(mu*rho)*RFast / vfSq,
+			 -af*tau*RFast / vfSq
 		},
 	--alfven -
 		{
 			0,
 			0,
-			-betaz / (vf * sqrt(2)),
-			betay / (vf * sqrt(2)),
+			-betaz*sqrt1_2 / vf,
+			betay*sqrt1_2 / vf,
 			0,
-			-sgnBx * betaz / sqrt(mu * rho) / (vf * sqrt(2)),
-			sgnBx * betay / sqrt(mu * rho) / (vf * sqrt(2)),
+			-sgnBx*betaz / sqrt(mu*rho)*sqrt1_2 / vf,
+			sgnBx*betay / sqrt(mu*rho)*sqrt1_2 / vf,
 			0
 		},
 	--slow -
 		{
 			0,
-			as * vs * RSlow / vfSq,
-			af * betay * Cs * sgnBx * RSlow / vfSq,
-			af * betaz * Cs * sgnBx * RSlow / vfSq,
+			as*vs*RSlow / vfSq,
+			af*betay*Cs*sgnBx*RSlow / vfSq,
+			af*betaz*Cs*sgnBx*RSlow / vfSq,
 			0,
-			af * betay * CsSq / (sqrt(mu * rho) * vf) * RSlow / vfSq,
-			af * betaz * CsSq / (sqrt(mu * rho) * vf) * RSlow / vfSq,
-			-as * gamma * p * RSlow / vfSq
+			af*betay*CsSq / (sqrt(mu*rho)*vf)*RSlow / vfSq,
+			af*betaz*CsSq / (sqrt(mu*rho)*vf)*RSlow / vfSq,
+			-as*gamma*p*RSlow / vfSq
 		},
 	--entropy
-		{rho, 0, 0, 0, 0, 0, 0, 1 / (gamma * p)},
+		{rho, 0, 0, 0, 0, 0, 0, 1 / (gamma*p)},
 	--zero
 		{0, 0, 0, 0, 1, 0, 0, 0},
 	--slow +
 		{
 			0,
-			as * vs * RSlow / vfSq,
-			af * betay * Cs * sgnBx * RSlow / vfSq,
-			af * betaz * Cs * sgnBx * RSlow / vfSq,
+			as*vs*RSlow / vfSq,
+			af*betay*Cs*sgnBx*RSlow / vfSq,
+			af*betaz*Cs*sgnBx*RSlow / vfSq,
 			0,
-			-af * betay * CsSq / (sqrt(mu * rho) * vf) * RSlow / vfSq,
-			-af * betaz * CsSq / (sqrt(mu * rho) * vf) * RSlow / vfSq,
-			as * gamma * p * RSlow / vfSq
+			-af*betay*CsSq / (sqrt(mu*rho)*vf)*RSlow / vfSq,
+			-af*betaz*CsSq / (sqrt(mu*rho)*vf)*RSlow / vfSq,
+			as*gamma*p*RSlow / vfSq
 		},
 	--alfven +
 		{
 			0,
 			0, 
-			betaz / (vf * sqrt(2)),
-			-betay / (vf * sqrt(2)),
+			betaz*sqrt1_2 / vf,
+			-betay*sqrt1_2 / vf,
 			0, 
-			-sgnBx * betaz / sqrt(mu * rho) / (vf * sqrt(2)),
-			sgnBx * betay / sqrt(mu * rho) / (vf * sqrt(2)),
+			-sgnBx*betaz / sqrt(mu*rho)*sqrt1_2 / vf,
+			sgnBx*betay / sqrt(mu*rho)*sqrt1_2 / vf,
 			0
 		},
 	--fast +
 		{
 			0,
-			 af * vf * RFast / vfSq,
-			 -as * betay * vax * sgnBx * RFast / vfSq,
-			 -as * betaz * vax * sgnBx * RFast / vfSq,
+			 af*vf*RFast / vfSq,
+			 -as*betay*vax*sgnBx*RFast / vfSq,
+			 -as*betaz*vax*sgnBx*RFast / vfSq,
 			 0,
-			 as * betay * vf / sqrt(mu * rho) * RFast / vfSq,
-			 as * betaz * vf / sqrt(mu * rho) * RFast / vfSq,
-			 af * tau * RFast / vfSq
+			 as*betay*vf / sqrt(mu*rho)*RFast / vfSq,
+			 as*betaz*vf / sqrt(mu*rho)*RFast / vfSq,
+			 af*tau*RFast / vfSq
 		}
 	}
 
-	local tauSq = tau * tau
-	local uSq = ux * ux + uy * uy + uz * uz
+	local tauSq = tau*tau
+	local uSq = ux*ux + uy*uy + uz*uz
 
 	--specified by row, so dU_dW[i][j] == (dU/dW)_ij
 	local dU_dW = {
@@ -297,28 +342,56 @@ function MHDSimulation:calcInterfaceEigenBasis(i)
 		{0,	0,	0,	0,	1,	0,	0,	0},
 		{0,	0,	0,	0,	0,	1,	0,	0},
 		{0,	0,	0,	0,	0,	0,	1,	0},
-		{.5*uSq * gammaMinusOne,	ux * gammaMinusOne,	uy * gammaMinusOne,	uz * gammaMinusOne,	-Bx/mu * gammaMinusOne,	-By/mu * gammaMinusOne,	-Bz/mu * gammaMinusOne,	gammaMinusOne}
+		{.5*uSq*gammaMinusOne,	ux*gammaMinusOne,	uy*gammaMinusOne,	uz*gammaMinusOne,	-Bx/mu*gammaMinusOne,	-By/mu*gammaMinusOne,	-Bz/mu*gammaMinusOne,	gammaMinusOne}
 	}
 
 	--now transform these to the left and right eigenvectors of the flux ...
-	--with transformations: R_U = dU/dW * R_A and L_U = L_A * dW/dU
+	--with transformations: R_U = dU/dW*R_A and L_U = L_A*dW/dU
 	--don't forget indexing is A_ij == A[i][j] except R_A is transposed
 	for j=1,8 do
 		for k=1,8 do
 			local sum = 0
 			for m=1,8 do
-				sum = sum + dU_dW[j][m] * R_A[k][m]
+				sum = sum + dU_dW[j][m]*R_A[k][m]
 			end
 			self.eigenvectors[i][j][k] = sum
 		end
+	end
+	for j=1,8 do
 		for k=1,8 do
 			local sum = 0
 			for m=1,8 do
-				sum = sum + L_A[j][m] * dW_dU[m][k]
+				sum = sum + L_A[j][m]*dW_dU[m][k]
 			end
 			self.eigenvectorsInverse[i][j][k] = sum
 		end
 	end
+	do
+		local totalError = 0
+		for j=1,8 do
+			for k=1,8 do
+				local sum = 0
+				for m=1,8 do
+					sum = sum + dU_dW[j][m] * dW_dU[m][k]
+				end
+				totalError = totalError + abs((j==k and 1 or 0) - sum)
+			end
+		end
+		self.primOrthoError[i] = totalError
+	end
+	do
+		local totalError = 0
+		for j=1,8 do
+			for k=1,8 do
+				local sum = 0
+				for m=1,8 do
+					sum = sum + L_A[j][m] * R_A[k][m]
+				end
+				totalError = totalError + abs((j==k and 1 or 0) - sum)
+			end
+		end
+		self.consOrthoError[i] = totalError
+	end	
 end
 
 return MHDSimulation

@@ -122,9 +122,8 @@ end
 --]]
 
 -- [[
-local sim = 
---require'euler1d'
-require'mhd'
+--local sim = require'euler1d'
+local sim = require'mhd'
 {
 	gridsize = 200,
 	domain = {xmin=-1, xmax=1},
