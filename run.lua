@@ -17,7 +17,7 @@ local symmath = require 'symmath'
 
 -- setup
 
--- [[
+--[[
 local sim
 do
 	local x = symmath.var'x'
@@ -86,7 +86,7 @@ do
 end
 --]]
 
---[[
+-- [[
 local sim
 do
 	local x = symmath.var'x'
@@ -98,8 +98,18 @@ do
 	local alpha = symmath.var'alpha'
 	local sigma = 10
 	local h = 5 * symmath.exp(-((x - xc)^2 + (y - yc)^2 + (z - zc)^2) / sigma^2)
+	local hx = h:diff(x)
+	local hy = h:diff(y)
+	local hz = h:diff(z)
+	local det_g = symmath.sqrt(1 - hx*hx - hy*hy - hz*hz)
+	local hxx = hx:diff(x)
+	local hxy = hx:diff(y)
+	local hxz = hx:diff(z)
+	local hyy = hy:diff(y)
+	local hyz = hy:diff(z)
+	local hzz = hz:diff(z)
 	sim = require'adm3d'{
-		gridsize = 10,
+		gridsize = 100,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
 		slopeLimiter = slopeLimiters.donorCell,
@@ -108,8 +118,19 @@ do
 		y = y,
 		z = z,
 		h = h,
-		g = 1 - h:diff(x)^2,
-		rs = 10,
+		alpha = 1,
+		g_xx = 1 - hx * hx,
+		g_xy = -hx * hy,
+		g_xz = -hx * hz,
+		g_yy = 1 - hy * hy,
+		g_yz = -hy * hz,
+		g_zz = 1 - hz * hz,
+		K_xx = -hxx / det_g,
+		K_xy = -hxy / det_g,
+		K_xz = -hxz / det_g,
+		K_yy = -hyy / det_g,
+		K_yz = -hyz / det_g,
+		K_zz = -hzz / det_g,
 		-- Bona-Masso slicing conditions:
 		f_param = alpha,	
 		--f = 1,

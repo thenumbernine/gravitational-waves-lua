@@ -73,7 +73,9 @@ function ADM3DSimulation:init(args, ...)
 
 	local symmath = require 'symmath'
 	local function makesym(field)
-		return symmath.clone(assert(args[field], "expected to find field "..field)):simplify() 
+		local v = args[field]
+		if not v then return end
+		return symmath.clone(v):simplify() 
 	end
 
 	-- parameters that are variables of symbolic functions
@@ -84,18 +86,16 @@ function ADM3DSimulation:init(args, ...)
 	local symvars = {'xx', 'xy', 'xz', 'yy', 'yz', 'zz'}
 
 	-- parameters that are symbolic functions -- based on coordinates 
-	local exprs = table{'alpha', 'g_xx', 'K_xx'}:map(function(name)
-		return makesym(name), name
-	end)
+	local exprs = table()
+	exprs.alpha = assert(makesym'alpha')
 	exprs.g = table{
-		exprs.g_xx,				--xx
-		symmath.Constant(0),	--xy
-		symmath.Constant(0),	--xz
-		symmath.Constant(1),	--yy
-		symmath.Constant(0),	--yz
-		symmath.Constant(1),	--zz
+		assert(makesym'g_xx'),	--xx
+		makesym'g_xy' or symmath.Constant(0),	--xy
+		makesym'g_xz' or symmath.Constant(0),	--xz
+		makesym'g_yy' or symmath.Constant(1),	--yy
+		makesym'g_yz' or symmath.Constant(0),	--yz
+		makesym'g_zz' or symmath.Constant(1),	--zz
 	}
-	exprs.g_xx = nil
 
 	-- ... fill in the rest ...
 
@@ -104,24 +104,27 @@ function ADM3DSimulation:init(args, ...)
 		return (exprs.alpha:diff(var) / exprs.alpha):simplify()
 	end)
 	exprs.K = table{
-		exprs.K_xx,
-		symmath.Constant(0),	--xy
-		symmath.Constant(0),	--xz
-		symmath.Constant(0),	--yy
-		symmath.Constant(0),	--yz
-		symmath.Constant(0),	--zz
+		assert(makesym'K_xx'),	--xx
+		makesym'K_xy' or symmath.Constant(0),	--xy
+		makesym'K_xz' or symmath.Constant(0),	--xz
+		makesym'K_yy' or symmath.Constant(0),	--yy
+		makesym'K_yz' or symmath.Constant(0),	--yz
+		makesym'K_zz' or symmath.Constant(0),	--zz
 	}
-	exprs.K_xx = nil
 	
 	local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = inv3x3sym(unpack(exprs.g))
 	exprs.gU = table{gUxx, gUxy, gUxz, gUyy, gUyz, gUzz}
-	exprs.D = vars:map(function(x) return exprs.g:map(function(g_ij) return (g_ij:diff(x)/2):simplify() end) end)
+	exprs.D = vars:map(function(x_k)
+		return exprs.g:map(function(g_ij)
+			return (g_ij:diff(x_k)/2):simplify()
+		end)
+	end)
 
 	-- convert from symbolic functions to Lua functions
 	local function buildCalc(expr, name)
 		assert(type(expr) == 'table')
 		if expr.isa and expr:isa(symmath.Expression) then
-			return expr:compile{x}, name
+			return expr:compile{x,y,z}, name
 		else
 			return table.map(expr, buildCalc), name
 		end
