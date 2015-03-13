@@ -17,7 +17,7 @@ local symmath = require 'symmath'
 
 -- setup
 
---[[
+--[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 local sim
 do
 	local x = symmath.var'x'
@@ -56,7 +56,7 @@ do
 end
 --]]
 
---[[
+--[[	1D profile of 2D spherical Gaussian curve perturbation / coordinate shock wave
 local sim
 do
 	-- r - eta(rs) = M ln(((rs + eta(r)) / (rs - eta(rs)))
@@ -86,7 +86,7 @@ do
 end
 --]]
 
--- [[
+--[[	-- 1D profile of 3D Gaussian curve perturbation / coordinate shock wave in 3 directions
 local sim
 do
 	local x = symmath.var'x'
@@ -98,10 +98,16 @@ do
 	local alpha = symmath.var'alpha'
 	local sigma = 10
 	local h = 5 * symmath.exp(-((x - xc)^2 + (y - yc)^2 + (z - zc)^2) / sigma^2)
+	-- simplifying the math:
+	-- dh = h',i'	<- convert expression to rank-1 covariant tensor
+	--  this means overriding __newindex for handling tensor derivatives for *all* Expressions
+	--  it also means specifying a default coordinate basis
 	local hx = h:diff(x)
 	local hy = h:diff(y)
 	local hz = h:diff(z)
+	-- det_g = symmath.sqrt(1 - dh'^k' * dh'_k')
 	local det_g = symmath.sqrt(1 - hx*hx - hy*hy - hz*hz)
+	-- d2h = dh',i'	<- convert rank-1 covariant to rank-1 covariant
 	local hxx = hx:diff(x)
 	local hxy = hx:diff(y)
 	local hxz = hx:diff(z)
@@ -117,14 +123,15 @@ do
 		x = x,
 		y = y,
 		z = z,
-		h = h,
 		alpha = 1,
+		-- g = delta'_ij' - h',i' * h',j',
 		g_xx = 1 - hx * hx,
 		g_xy = -hx * hy,
 		g_xz = -hx * hz,
 		g_yy = 1 - hy * hy,
 		g_yz = -hy * hz,
 		g_zz = 1 - hz * hz,
+		-- K = -h',ij' / det_g,
 		K_xx = -hxx / det_g,
 		K_xy = -hxy / det_g,
 		K_xz = -hxz / det_g,
@@ -142,7 +149,58 @@ do
 end
 --]]
 
---[[
+-- [[	-- Alcubierre warp drive
+local sim
+do
+	local x = symmath.var'x'
+	local y = symmath.var'y'
+	local z = symmath.var'z'
+	local alpha = symmath.var'alpha'
+	local xs = 1	-- bubble location?
+	local vs = symmath.Constant(1)	-- bubble speed = d/dt xs
+	local rs = symmath.sqrt((x - xs)^2 + y^2 + z^2)
+	local R = 1	-- parameter
+	local sigma = 1 -- parameter
+	local f = (symmath.tanh(sigma * (rs + R)) - symmath.tanh(sigma * (rs - R))) / (2 * symmath.tanh(sigma * R))
+	sim = require'adm3d'{
+		gridsize = 100,
+		domain = {xmin=-10, xmax=10},
+		boundaryMethod = boundaryMethods.freeFlow,
+		slopeLimiter = slopeLimiters.donorCell,
+		-- the symbolic math driving it:
+		x = x,
+		y = y,
+		z = z,
+		alpha = 1,
+		-- hmm... beta is important ... so I need to incorporate lapse into my 3D ADM
+		-- beta^x = -vs * f(rs(t))
+		-- g = delta'_ij'
+		g_xx = 1,
+		g_xy = 0,
+		g_xz = 0,
+		g_yy = 1,
+		g_yz = 0,
+		g_zz = 1,
+		-- K_ij = -alpha Gamma^t_ij, which I have precomputed for the Alcubierre warp bubble
+		K_xx = -(vs * f:diff(x) + vs:diff(x) * f),
+		K_xy = -(vs * f:diff(y) + vs:diff(y) * f) / 2,
+		K_xz = -(vs * f:diff(z) + vs:diff(z) * f) / 2,
+		K_yy = 0,
+		K_yz = 0,
+		K_zz = 0,
+		-- Bona-Masso slicing conditions:
+		f_param = alpha,	
+		--f = 1,
+		--f = 1.69,
+		--f = .49,
+		--f = 1/3,
+		f = 1 + 1/alpha^2,
+	}
+end
+--]]
+
+
+--[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 --local sim = require'euler1d'
 local sim = require'mhd'
 {
