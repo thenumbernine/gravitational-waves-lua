@@ -88,7 +88,7 @@ function ADM3DSimulation:init(args, ...)
 		return makesym(name), name
 	end)
 	exprs.g = table{
-		exprs.g_xx,	--xx
+		exprs.g_xx,				--xx
 		symmath.Constant(0),	--xy
 		symmath.Constant(0),	--xz
 		symmath.Constant(1),	--yy
@@ -286,9 +286,9 @@ function ADM3DSimulation:eigenfields(i, v)
 		assert(type(avgQ[j])=='number')
 	end
 	local alpha = avgQ[1]
-	local g_xx, g_xy, g_xz, g_yy, g_yz, g_zz = unpack(avgQ, 5, 10)
+	local g_xx, g_xy, g_xz, g_yy, g_yz, g_zz = unpack(avgQ, 2, 7)
 	local g = det3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz)
-	local A_x, A_y, A_z = unpack(avgQ, 2, 4)
+	local A_x, A_y, A_z = unpack(avgQ, 8, 10)
 	local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(avgQ, 11, 16)
 	local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(avgQ, 17, 22)
 	local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(avgQ, 23, 28)
@@ -353,9 +353,9 @@ function ADM3DSimulation:eigenfieldsInverse(i, v)
 		avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
 	end
 	local alpha = avgQ[1]
-	local g_xx, g_xy, g_xz, g_yy, g_yz, g_zz = unpack(avgQ, 5, 10)
+	local g_xx, g_xy, g_xz, g_yy, g_yz, g_zz = unpack(avgQ, 2, 7)
 	local g = det3x3sym(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz)
-	local A_x, A_y, A_z = unpack(avgQ, 2, 4)
+	local A_x, A_y, A_z = unpack(avgQ, 8, 10)
 	local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(avgQ, 11, 16)
 	local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(avgQ, 17, 22)
 	local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(avgQ, 23, 28)
@@ -463,8 +463,8 @@ function ADM3DSimulation:calcInterfaceEigenBasis(i)
 	end
 
 	local alpha = avgQ[1]
-	local g_xx, g_xy, g_xz, g_yy, g_yz, g_zz = unpack(avgQ, 5, 10)
-	local A_x, A_y, A_z = unpack(avgQ, 2, 4)
+	local g_xx, g_xy, g_xz, g_yy, g_yz, g_zz = unpack(avgQ, 2, 7)
+	local A_x, A_y, A_z = unpack(avgQ, 8, 10)
 	local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(avgQ, 11, 16)
 	local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(avgQ, 17, 22)
 	local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(avgQ, 23, 28)
@@ -475,7 +475,6 @@ function ADM3DSimulation:calcInterfaceEigenBasis(i)
 
 	local lambdaLight = alpha * sqrt(gUxx)
 	local lambdaGauge = lambdaLight * sqrt(f)
-	
 	self.eigenvalues[i] = {
 		-- gauge field
 		-lambdaGauge,

@@ -17,7 +17,7 @@ local symmath = require 'symmath'
 
 -- setup
 
---[[
+-- [[
 local sim
 do
 	local x = symmath.var'x'
@@ -121,7 +121,7 @@ do
 end
 --]]
 
--- [[
+--[[
 --local sim = require'euler1d'
 local sim = require'mhd'
 {
@@ -157,7 +157,7 @@ local printState = function()
 	end
 end
 printState()
-for iter=1,0 do
+for iter=1,1 do
 	sim:iterate()
 	printState()
 end
