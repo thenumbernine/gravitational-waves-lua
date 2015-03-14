@@ -17,7 +17,7 @@ local symmath = require 'symmath'
 
 -- setup
 
---[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+-- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 local sim
 do
 	local x = symmath.var'x'
@@ -149,7 +149,7 @@ do
 end
 --]]
 
--- [[	-- Alcubierre warp drive
+--[[	-- Alcubierre warp drive
 local sim
 do
 	local x = symmath.var'x'
