@@ -28,11 +28,11 @@ do
 	local h = H * symmath.exp(-(x - xc)^2 / sigma^2)
 	local g_xx = 1 - h:diff(x)^2
 	local K_xx = -h:diff(x,x) / g_xx^.5
-	--sim = require'adm1d3var'{
+	sim = require'adm1d3var'{
 	--sim = require'adm1d3to5var'{
 	--sim = require'adm1d5var'{
 	--sim = require'bssnok1d'{
-	sim = require'adm3d'{
+	--sim = require'adm3d'{
 		gridsize = 200,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
@@ -105,8 +105,8 @@ do
 	local hx = h:diff(x)
 	local hy = h:diff(y)
 	local hz = h:diff(z)
-	-- det_g = symmath.sqrt(1 - dh'^k' * dh'_k')
-	local det_g = symmath.sqrt(1 - hx*hx - hy*hy - hz*hz)
+	-- sqrt_det_g = symmath.sqrt(1 - dh'^k' * dh'_k')
+	local sqrt_det_g = symmath.sqrt(1 - hx*hx - hy*hy - hz*hz)
 	-- d2h = dh',i'	<- convert rank-1 covariant to rank-1 covariant
 	local hxx = hx:diff(x)
 	local hxy = hx:diff(y)
@@ -131,13 +131,13 @@ do
 		g_yy = 1 - hy * hy,
 		g_yz = -hy * hz,
 		g_zz = 1 - hz * hz,
-		-- K = -h',ij' / det_g,
-		K_xx = -hxx / det_g,
-		K_xy = -hxy / det_g,
-		K_xz = -hxz / det_g,
-		K_yy = -hyy / det_g,
-		K_yz = -hyz / det_g,
-		K_zz = -hzz / det_g,
+		-- K = -h',ij' / sqrt_det_g,
+		K_xx = -hxx / sqrt_det_g,
+		K_xy = -hxy / sqrt_det_g,
+		K_xz = -hxz / sqrt_det_g,
+		K_yy = -hyy / sqrt_det_g,
+		K_yz = -hyz / sqrt_det_g,
+		K_zz = -hzz / sqrt_det_g,
 		-- Bona-Masso slicing conditions:
 		f_param = alpha,	
 		--f = 1,
@@ -201,17 +201,18 @@ end
 
 
 --[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
---local sim = require'euler1d'
-local sim = require'mhd'
+local sim = require'euler1d'
+--local sim = require'mhd'
 {
 	gridsize = 200,
 	domain = {xmin=-1, xmax=1},
 	boundaryMethod = boundaryMethods.mirror,
 	slopeLimiter = slopeLimiters.superbee,
+	--scheme = require 'scheme'.EulerBurgers,	-- <- needs to be a Simulation of its own
 }
 --]]
 
---[[
+--[[ TODO fixme
 local sim = require'maxwell'{
 	gridsize = 200,
 	domain = {xmin=-1, xmax=1},

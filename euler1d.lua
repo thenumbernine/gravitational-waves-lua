@@ -7,20 +7,20 @@ Euler1DSimulation.gamma = 5/3
 
 function Euler1DSimulation:init(...)
 	Simulation.init(self, ...)
-	
+
 	--index:bind(qs) => f(k) = qs[k] takes 1 arg and returns an array of 3 elements
 	--index:bind(qs)[1] => f(k) = qs[k][1] takes 1 arg and returns the 1st element of the 3
 	self.graphInfos = {
-		{viewport={0/3, 0/2, 1/3, 1/2}, getter=index:bind(self.qs):index(1), name='rho', color={1,0,1}},
-		{viewport={1/3, 0/2, 1/3, 1/2}, getter=index:bind(self.qs):index(2) / index:bind(self.qs):index(1), name='u', color={0,1,0}},
-		{viewport={2/3, 0/2, 1/3, 1/2}, getter=index:bind(self.qs):index(3) / index:bind(self.qs):index(1), name='E', color={.5,.5,1}},
+		{viewport={0/3, 0/2, 1/3, 1/2}, getter=function(i) return self.qs[i][1] end, name='rho', color={1,0,1}},
+		{viewport={1/3, 0/2, 1/3, 1/2}, getter=function(i) return self.qs[i][2] / self.qs[i][1] end, name='u', color={0,1,0}},
+		{viewport={2/3, 0/2, 1/3, 1/2}, getter=function(i) return self.qs[i][3] / self.qs[i][1] end, name='E', color={.5,.5,1}},
 		{viewport={0/3, 1/2, 1/3, 1/2}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
 		{viewport={1/3, 1/2, 1/3, 1/2}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='log reconstruction error', color={1,0,0}, range={-30, 30}},
 	}
 end
 
 function Euler1DSimulation:initCell(i)
-	local rho = self.xs[i] < 0 and .1 or 1
+	local rho = self.xs[i] < 0 and 1 or .1
 	local u = 0
 	local E = 1	+ .5 * u * u	-- internal + kinetic
 	return {rho, rho * u, rho * E}

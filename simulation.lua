@@ -1,5 +1,41 @@
 require 'ext'
-local calcFluxSchemes = require 'scheme'
+local schemes = require 'scheme'
+
+
+local State = class()
+
+function State:init(h, w)
+	for i=1,h do
+		self[i] = {}
+		for j=1,w do
+			self[i][j] = 0
+		end
+	end
+end
+
+function State.__add(a,b)
+	local c = State(#a, #a[1])
+	for i=1,#a do
+		for j=1,#a[1] do
+			c[i][j] = a[i][j] + b[i][j]
+		end
+	end
+	return c
+end
+
+function State.__mul(a,b)
+	local function is(x) return type(x) == 'table' and x.isa and x:isa(State) end
+	local src = is(a) and a or b
+	local c = State(#src, #src[1])
+	for i=1,#src do
+		for j=1,#src[1] do
+			local aij = type(a) == 'number' and a or a[i][j]
+			local bij = type(b) == 'number' and b or b[i][j]
+			c[i][j] = aij * bij
+		end
+	end
+	return c
+end
 
 -- base functions
 local Simulation = class()
@@ -11,12 +47,12 @@ function Simulation:init(args)
 	self.boundaryMethod = assert(args.boundaryMethod)
 	self.slopeLimiter = assert(args.slopeLimiter)
 
-	self.calcFlux = calcFluxSchemes.Roe 
+	self.scheme = args.scheme or schemes.Roe 
 	self.t = 0
 	self.cfl = .5
 	self.xs = {}
 	self.ixs = {}
-	self.qs = {}
+	self.qs = self:newState()
 	self.deltaQTildes = {}
 	self.fluxes = {}
 	self.dq_dts = {}
@@ -27,6 +63,12 @@ function Simulation:init(args)
 	self.eigenvectorsInverse = {}
 	self.eigenbasisErrors = {}
 	self.fluxMatrixErrors = {}
+end
+
+Simulation.State = State
+
+function Simulation:newState()
+	return self.State(self.gridsize, self.numStates)
 end
 
 local function buildField(matrixField)
@@ -66,7 +108,7 @@ function Simulation:reset()
 
 	-- state at cell centers
 	for i=1,self.gridsize do
-		self.qs[i] = self:initCell(i)
+		self.qs[i] = self:initCell(i) -- adm1d3var requires direct assignment here
 	end
 
 	-- state interfaces
@@ -106,54 +148,54 @@ function Simulation:zeroDeriv(dq_dts)
 	-- zero deriv
 	for i=1,self.gridsize do
 		for j=1,self.numStates do
-			dq_dts[i][j] = 0
+			dq_dts[i][j] = dq_dts[i][j] or 0
 		end
 	end
 end
 
-function Simulation:addSourceToDeriv(dq_dts)
+function Simulation:addSourceToDeriv()
+	local dq_dts = self:newState()
+	if self.scheme.addSourceToDeriv then
+		self.scheme.addSourceToDeriv(self, dq_dts)
+	end
 	for i=1,self.gridsize do
 		self:addSourceToDerivCell(dq_dts, i)
 	end
+	return dq_dts
 end
 
-function Simulation:addFluxToDeriv(dq_dts)
-	-- 5) integrate
-	for i=1,self.gridsize do
-		local dx = self.ixs[i+1] - self.ixs[i]
-		for j=1,self.numStates do
-			dq_dts[i][j] = dq_dts[i][j] - (self.fluxes[i+1][j] - self.fluxes[i][j]) / dx
-		end
-	end
-end
+function Simulation:integrate(dt, dq_dts)
+	-- [[ Euler
+	self.qs = self.qs + dt * dq_dts()
+	--]]
 
-function Simulation:integrateDeriv(dq_dts, dt)
-	for i=1,self.gridsize do
-		for j=1,self.numStates do
-			self.qs[i][j] = self.qs[i][j] + dt * dq_dts[i][j]	
-		end
-	end
-	self.t = self.t + dt
+	--[[ RK4
+	local k1 = dq_dts(self.qs)
+	local k2 = dq_dts(self.qs + .5 * k1)
+	local k3 = dq_dts(self.qs + .5 * k2)
+	local k4 = dq_dts(self.qs + k3)
+	self.qs = self.qs + dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+	--]]
 end
 
 function Simulation:iterate()
 	self:boundaryMethod()
 	
-	local dt = self:calcFlux()
+	local dt = self.scheme.calcDT(self)
 
-	-- TODO create this up front, and create as many as needed for a particular integrator
-	local dq_dts = {}
-	for i=1,self.gridsize do
-		dq_dts[i] = {}
-		for j=1,self.numStates do
-			dq_dts[i][j] = 0
-		end
+	self:integrate(dt, function()
+		return self.scheme.calcFlux(self, dt)
+	end)
+
+	self:integrate(dt, function()
+		return self:addSourceToDeriv()
+	end)
+	
+	if self.scheme.postIterate then
+		self.scheme.postIterate(self, dt)
 	end
-
-	self:zeroDeriv(dq_dts)
-	self:addSourceToDeriv(dq_dts)
-	self:addFluxToDeriv(dq_dts)
-	self:integrateDeriv(dq_dts, dt)
+	
+	self.t = self.t + dt
 end
 
 function Simulation:addSourceToDerivCell() end

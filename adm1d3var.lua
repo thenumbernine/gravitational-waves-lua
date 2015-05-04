@@ -102,12 +102,12 @@ function ADM1D3VarSim:init(args, ...)
 	local dalpha_f = exprs.f:diff(f_param):simplify()
 	self.calc.dalpha_f = dalpha_f:compile{f_param}
 
-	local get_state = index:bind(self.qs)
-	local get_alpha = get_state:index'alpha'
-	local get_g_xx = get_state:index'g_xx'
-	local get_A_x = get_state:index(1)
-	local get_D_xxx = get_state:index(2)
-	local get_KTilde_xx = get_state:index(3)
+	local get_state = function(j) return function(i) return self.qs[i][j] end end
+	local get_alpha = get_state'alpha'
+	local get_g_xx = get_state'g_xx'
+	local get_A_x = get_state(1)
+	local get_D_xxx = get_state(2)
+	local get_KTilde_xx = get_state(3)
 	local get_K_xx = get_KTilde_xx / sqrt:compose(get_g_xx)
 	self.graphInfos = {
 		{viewport={0/3, 0/3, 1/3, 1/3}, getter=get_alpha, name='alpha', color={1,0,1}},
@@ -119,8 +119,48 @@ function ADM1D3VarSim:init(args, ...)
 		{viewport={0/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
 		{viewport={1/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='log reconstuction error', color={1,0,0}, range={-30, 30}},
 	}
-
 end
+
+local State = class(Simulation.State)
+
+function State:init(...)
+	State.super.init(self, ...)
+	for i=1,#self do
+		self[i].alpha = 0
+		self[i].g_xx = 0
+	end
+end
+
+function State.__add(a,b)
+	local c = State(#a, #a[1])
+	for i=1,#a do
+		for j=1,#a[1] do
+			c[i][j] = a[i][j] + b[i][j]
+		end
+		c[i].alpha = a[i].alpha + b[i].alpha
+		c[i].g_xx = a[i].g_xx + b[i].g_xx
+	end
+	return c
+end
+
+function State.__mul(a,b)
+	local function is(x) return type(x) == 'table' and x.isa and x:isa(State) end
+	local src = is(a) and a or b
+	local c = State(#src, #src[1])
+	for i=1,#src do
+		for j=1,#src[1] do
+			local aij = type(a) == 'number' and a or a[i][j]
+			local bij = type(b) == 'number' and b or b[i][j]
+			c[i][j] = aij * bij
+		end
+		c[i].alpha = (type(a) == 'number' and a or a[i].alpha) * (type(b) == 'number' and b or b[i].alpha)
+		c[i].g_xx = (type(a) == 'number' and a or a[i].g_xx) * (type(b) == 'number' and b or b[i].g_xx)
+	end
+	return c
+end
+
+
+ADM1D3VarSim.State = State
 
 local function buildField(call)
 	return function(self, i, v)

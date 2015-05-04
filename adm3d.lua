@@ -60,12 +60,12 @@ end
 local function inv3x3sym(xx, xy, xz, yy, yz, zz, det)
 	if not det then det = det3x3sym(xx, xy, xz, yy, yz, zz) end
 	return 
-		(yy * zz - yz^2) / det,		-- xx
-		(xz * yz - xy * zz)  / det,	-- xy
+		(yy * zz - yz * yz) / det,	-- xx
+		(xz * yz - xy * zz) / det,	-- xy
 		(xy * yz - xz * yy) / det,	-- xz
-		(xx * zz - xz^2) / det,		-- yy
+		(xx * zz - xz * xz) / det,	-- yy
 		(xz * xy - xx * yz) / det,	-- yz
-		(xx * yy - xy^2) / det		-- zz
+		(xx * yy - xy * xy) / det	-- zz
 end
 
 function ADM3DSimulation:init(args, ...)
@@ -174,18 +174,38 @@ function ADM3DSimulation:init(args, ...)
 	
 	-- and for the graphs ...
 
+	--[[ match 1D-3Var ...
+	local get_state = index:bind(self.qs)
+	local get_alpha = get_state(1)
+	local get_g_xx = get_state(2)
+	local get_A_x = get_state(8)
+	local get_D_xxx = get_state(11)
+	local get_K_xx = get_state(29)
+	self.graphInfos = {
+		{viewport={0/3, 0/3, 1/3, 1/3}, getter=get_alpha, name='alpha', color={1,0,1}},
+		{viewport={0/3, 1/3, 1/3, 1/3}, getter=get_A_x, name='A_x', color={0,1,0}},
+		{viewport={1/3, 0/3, 1/3, 1/3}, getter=get_g_xx, name='g_xx', color={.5,.5,1}},
+		{viewport={1/3, 1/3, 1/3, 1/3}, getter=get_D_xxx, name='D_xxx', color={1,1,0}},
+		{viewport={2/3, 0/3, 1/3, 1/3}, getter=get_K_xx, name='K_xx', color={0,1,1}},
+		{viewport={2/3, 1/3, 1/3, 1/3}, getter=get_alpha * sqrt:compose(get_g_xx), name='volume', color={0,1,1}},
+		{viewport={0/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
+		{viewport={1/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='log reconstuction error', color={1,0,0}, range={-30, 30}},
+	}
+	do return end
+	--]]
+
 	local i=0
 	local j=0
 	local function col() i=i+1 j=0 end
 	self.graphInfos = table()
 
-	local get_state = index:bind(self.qs)
+	local get_state = function(j) return function(i) return self.qs[i][j] end end
 	local function add(args)
 		local index = args.index
 		for _,suffix in ipairs(args.suffix or {''}) do
 			self.graphInfos:insert{
 				viewport = {i,j},
-				getter = get_state:index(index),
+				getter = get_state(index),
 				name = args.name..suffix,
 				color = {0,1,1},
 			}
@@ -440,7 +460,6 @@ function ADM3DSimulation:initCell(i)
 		return s
 	end)
 
-	-- hmm ... 
 	local K = {}
 	for i=1,6 do
 		K[i] = self.calc.K[i](x,y,z)

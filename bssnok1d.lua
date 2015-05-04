@@ -189,13 +189,13 @@ function BSSNOK1DSim:init(args, ...)
 	local dalpha_f = f:diff(args.f_param):simplify()
 	self.calc.dalpha_f = dalpha_f:compile{args.f_param}
 
-	local get_state = index:bind(self.qs)
-	local get_alpha = get_state:index(1)
-	local get_phi = get_state:index(2)
-	local get_A_x = get_state:index(3)
-	local get_Phi_x = get_state:index(4)
-	local get_K = get_state:index(5)
-	local get_ATilde_xx = get_state:index(6)
+	local get_state = function(j) return function(i) return self.qs[i][j] end end
+	local get_alpha = get_state(1)
+	local get_phi = get_state(2)
+	local get_A_x = get_state(3)
+	local get_Phi_x = get_state(4)
+	local get_K = get_state(5)
+	local get_ATilde_xx = get_state(6)
 	--phi = -1/(4*n) ln g_xx
 	-- exp(-4n phi) = g_xx for n=1
 	-- volume = sqrt(g_xx) = sqrt(exp(-4n phi)) = exp(-2n phi)

@@ -44,20 +44,13 @@ function ADM1D3to5VarSim:init(args, ...)
 	local dalpha_f = f:diff(f_param):simplify()
 	self.calc.dalpha_f = dalpha_f:compile{f_param}
 
-	local get_state = index:bind(self.qs)
-	local get_alpha = get_state:index(1)
-	local get_g_xx = get_state:index(2)
-	local get_A_x = get_state:index(3)
-	local get_D_xxx = get_state:index(4)
-	local get_KTilde_xx = get_state:index(5)
-	local get_K = get_KTilde_xx / sqrt:compose(get_g_xx)
 	self.graphInfos = {
-		{viewport={0/3, 0/3, 1/3, 1/3}, getter=get_alpha, name='alpha', color={1,0,1}},
-		{viewport={0/3, 1/3, 1/3, 1/3}, getter=get_A_x, name='A_x', color={0,1,0}},
-		{viewport={1/3, 0/3, 1/3, 1/3}, getter=get_g_xx, name='g_xx', color={.5,.5,1}},
-		{viewport={1/3, 1/3, 1/3, 1/3}, getter=get_D_xxx, name='D_xxx', color={1,1,0}},
-		{viewport={2/3, 0/3, 1/3, 1/3}, getter=get_K, name='K', color={0,1,1}},
-		{viewport={2/3, 1/3, 1/3, 1/3}, getter=get_alpha * sqrt:compose(get_g_xx), name='volume', color={0,1,1}},
+		{viewport={0/3, 0/3, 1/3, 1/3}, getter=function(i) return self.qs[i][1] end, name='alpha', color={1,0,1}},
+		{viewport={0/3, 1/3, 1/3, 1/3}, getter=function(i) return self.qs[i][3] end, name='A_x', color={0,1,0}},
+		{viewport={1/3, 0/3, 1/3, 1/3}, getter=function(i) return self.qs[i][2] end, name='g_xx', color={.5,.5,1}},
+		{viewport={1/3, 1/3, 1/3, 1/3}, getter=function(i) return self.qs[i][4] end, name='D_xxx', color={1,1,0}},
+		{viewport={2/3, 0/3, 1/3, 1/3}, getter=function(i) return self.qs[i][5] / sqrt(self.qs[i][2]) end, name='K', color={0,1,1}},
+		{viewport={2/3, 1/3, 1/3, 1/3}, getter=function(i) return self.qs[i][1] * sqrt(self.qs[i][2]) end, name='volume', color={0,1,1}},
 		{viewport={0/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
 		{viewport={1/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='log reconstuction error', color={1,0,0}, range={-30, 30}},
 	}
