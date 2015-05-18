@@ -45,7 +45,7 @@ function Simulation:init(args)
 	self.gridsize = assert(args.gridsize)
 	self.domain = assert(args.domain)
 	self.boundaryMethod = assert(args.boundaryMethod)
-	self.slopeLimiter = assert(args.slopeLimiter)
+	self.fluxLimiter = assert(args.fluxLimiter)
 
 	self.scheme = args.scheme or schemes.Roe 
 	self.t = 0

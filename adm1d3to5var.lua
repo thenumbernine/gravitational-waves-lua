@@ -108,10 +108,10 @@ function ADM1D3to5VarSim:initCell(i)
 	return {alpha, g_xx, A_x, D_xxx, KTilde_xx}
 end
 
-function ADM1D3to5VarSim:calcInterfaceEigenBasis(i)
+function ADM1D3to5VarSim:calcInterfaceEigenBasis(i,qL,qR)
 	local avgQ = {}
 	for j=1,self.numStates do 
-		avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
+		avgQ[j] = (qL[j] + qR[j]) / 2
 	end
 	local alpha, g_xx, A_x, D_xxx, KTilde_xx = unpack(avgQ)
 	local f = self.calc.f(alpha)

@@ -215,9 +215,9 @@ function ADM1D3VarSim:initCell(i)
 	return {alpha=alpha, g_xx=g_xx, A_x, D_xxx, KTilde_xx}
 end
 
-function ADM1D3VarSim:calcInterfaceEigenBasis(i)
-	local alpha = (self.qs[i-1].alpha + self.qs[i].alpha) / 2
-	local g_xx = (self.qs[i-1].g_xx + self.qs[i].g_xx) / 2
+function ADM1D3VarSim:calcInterfaceEigenBasis(i,qL,qR)
+	local alpha = (qL.alpha + qR.alpha) / 2
+	local g_xx = (qL.g_xx + qR.g_xx) / 2
 	local f = self.calc.f(alpha)
 	local lambda = alpha * sqrt(f / g_xx)		
 	self.eigenvalues[i] = {-lambda, 0, lambda}

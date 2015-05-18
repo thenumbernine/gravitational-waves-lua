@@ -1,7 +1,7 @@
 #!/usr/bin/env luajit
 
 require 'ext'
-local slopeLimiters = require 'limiter' 
+local fluxLimiters = require 'limiter' 
 local boundaryMethods = require 'boundary'
 
 -- here's some globals I have to get rid of
@@ -36,7 +36,7 @@ do
 		gridsize = 200,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
-		slopeLimiter = slopeLimiters.donorCell,
+		fluxLimiter = fluxLimiters.donorCell,
 		-- the symbolic math driving it:
 		x = x,	-- variable
 		alpha = 1,
@@ -69,7 +69,7 @@ do
 		gridsize = 200,
 		domain = {xmin=100, xmax=500},
 		boundaryMethod = boundaryMethods.freeFlow,
-		slopeLimiter = slopeLimiters.donorCell,
+		fluxLimiter = fluxLimiters.donorCell,
 		-- the symbolic math driving it:
 		r = r,
 		h = h,
@@ -118,7 +118,7 @@ do
 		gridsize = 100,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
-		slopeLimiter = slopeLimiters.donorCell,
+		fluxLimiter = fluxLimiters.donorCell,
 		-- the symbolic math driving it:
 		x = x,
 		y = y,
@@ -166,7 +166,7 @@ do
 		gridsize = 100,
 		domain = {xmin=-10, xmax=10},
 		boundaryMethod = boundaryMethods.freeFlow,
-		slopeLimiter = slopeLimiters.donorCell,
+		fluxLimiter = fluxLimiters.donorCell,
 		-- the symbolic math driving it:
 		x = x,
 		y = y,
@@ -207,17 +207,18 @@ local sim = require'euler1d'
 	gridsize = 200,
 	domain = {xmin=-1, xmax=1},
 	boundaryMethod = boundaryMethods.mirror,
-	slopeLimiter = slopeLimiters.superbee,
-	--scheme = require 'scheme'.EulerBurgers,	-- <- needs to be a Simulation of its own
+	fluxLimiter = fluxLimiters.superbee,
+	--scheme = require 'scheme'.EulerBurgers,
+	--scheme = require 'scheme'.EulerMUSCL,
 }
 --]]
 
---[[ TODO fixme
+--[[
 local sim = require'maxwell'{
 	gridsize = 200,
 	domain = {xmin=-1, xmax=1},
 	boundaryMethod = boundaryMethods.freeFlow,
-	slopeLimiter = slopeLimiters.donorCell,
+	fluxLimiter = fluxLimiters.donorCell,
 }
 --]]
 

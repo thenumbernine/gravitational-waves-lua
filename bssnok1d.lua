@@ -223,10 +223,10 @@ function BSSNOK1DSim:initCell(i)
 	return {alpha, phi, A_x, Phi_x, K, ATilde_xx}
 end
 
-function BSSNOK1DSim:calcInterfaceEigenBasis(i)
+function BSSNOK1DSim:calcInterfaceEigenBasis(i,qL,qR)
 	local avgQ = {}
 	for j=1,self.numStates do
-		avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
+		avgQ[j] = (qL[j] + qR[j]) / 2
 	end
 	
 	local alpha, phi, A_x, Phi_x, K, ATilde_xx = unpack(avgQ)

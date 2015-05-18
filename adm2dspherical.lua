@@ -138,7 +138,7 @@ function ADM2DSphericalSimulation:init(args, ...)
 	-- A_r, D_rrr, D_rhh/r
 	-- K_rr, K_hh, r V_r
 	local get_r = index:bind(self.xs)
-	local get_state = index:bind(self.qs)
+	local get_state = function(i) return self.qs[i] end
 	local get_alpha = get_state:index(1)
 	local get_g_rr = get_state:index(2)
 	local get_g_hh = get_state:index(3)
@@ -178,10 +178,10 @@ function ADM2DSphericalSimulation:initCell(i)
 	return {alpha, g_rr, g_hh, A_r, D_rrr, D_rhh, K_rr, K_hh, V_r}
 end
 
-function ADM2DSphericalSimulation:calcInterfaceEigenBasis(i)
+function ADM2DSphericalSimulation:calcInterfaceEigenBasis(i,qL,qR)
 	local avgQ = {}
 	for j=1,self.numStates do
-		avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
+		avgQ[j] = (qL[j] + qR[j]) / 2
 	end
 	
 	local alpha, g_rr, g_hh, A_r, D_rrr, D_rhh, K_rr, K_hh, V_r = unpack(avgQ)

@@ -26,39 +26,43 @@ function Euler1DSimulation:initCell(i)
 	return {rho, rho * u, rho * E}
 end
 
-function Euler1DSimulation:calcInterfaceEigenBasis(i)
-	local rhoL = self.qs[i-1][1]
-	local uL = self.qs[i-1][2] / rhoL 
-	local EL = self.qs[i-1][3] / rhoL
+-- TODO fluxMatrix and reconstruction error is broken
+function Euler1DSimulation:calcInterfaceEigenBasis(i,qL,qR)
+	local gamma = self.gamma
+
+	local rhoL = qL[1]
+	local uL = qL[2] / rhoL 
+	local EL = qL[3] / rhoL
 	local eIntL = EL - .5 * uL^2
-	local PL = (self.gamma - 1) * rhoL * eIntL
+	local PL = (gamma - 1) * rhoL * eIntL
 	local HL = EL + PL / rhoL
 	local weightL = sqrt(rhoL)
 
-	local rhoR = self.qs[i-1][1]
-	local uR = self.qs[i-1][2] / rhoR 
-	local ER = self.qs[i-1][3] / rhoR
+	local rhoR = qR[1]
+	local uR = qR[2] / rhoR 
+	local ER = qR[3] / rhoR
 	local eIntR = ER - .5 * uR^2
-	local PR = (self.gamma - 1) * rhoR * eIntR
+	local PR = (gamma - 1) * rhoR * eIntR
 	local HR = ER + PR / rhoR
 	local weightR = sqrt(rhoR)
 
+	local rho = sqrt(weightL * weightR)
 	local u = (weightL * uL + weightR * uR) / (weightL + weightR)
 	local H = (weightL * HL + weightR * HR) / (weightL + weightR)
 	local E = (weightL * EL + weightR * ER) / (weightL + weightR)
 	
-	local Cs = sqrt((self.gamma - 1) * (H - .5 * u^2))
-	
+	local Cs = sqrt((gamma - 1) * (H - .5 * u^2))
+
 	local F = self.fluxMatrix[i]
 	F[1][1] = 0
 	F[1][2] = 1
 	F[1][3] = 0
-	F[2][1] = (self.gamma-3)/2*u*u
-	F[2][2] = (3-self.gamma)*u
-	F[2][3] = self.gamma-1
-	F[3][1] = -u*(self.gamma*E + (1-self.gamma)*u*u)
-	F[3][2] = H + (1-self.gamma) * u*u
-	F[3][3] = self.gamma * u
+	F[2][1] = (gamma-3)/2*u*u
+	F[2][2] = (3-gamma)*u
+	F[2][3] = gamma-1
+	F[3][1] = -u*(gamma*E + (1-gamma)*u*u)
+	F[3][2] = H + (1-gamma) * u*u
+	F[3][3] = gamma * u
 	
 	local S = self.eigenvalues[i]
 	S[1] = u - Cs
@@ -78,15 +82,15 @@ function Euler1DSimulation:calcInterfaceEigenBasis(i)
 	
 	-- [[ symbolically
 	local V = self.eigenvectorsInverse[i]
-	V[1][1] = (.5 * (self.gamma - 1) * u^2 + Cs * u) / (2 * Cs^2)
-	V[1][2] = -(Cs + (self.gamma - 1) * u) / (2 * Cs^2)
-	V[1][3] = (self.gamma - 1) / (2 * Cs^2)
-	V[2][1] = 1 - (self.gamma - 1) * u^2 / (2 * Cs^2)
-	V[2][2] = (self.gamma - 1) * u / Cs^2
-	V[2][3] = -(self.gamma - 1) / Cs^2
-	V[3][1] = (.5 * (self.gamma - 1) * u^2 - Cs * u) / (2 * Cs^2)
-	V[3][2] = (Cs - (self.gamma - 1) * u) / (2 * Cs^2)
-	V[3][3] = (self.gamma - 1) / (2 * Cs^2)
+	V[1][1] = (.5 * (gamma - 1) * u^2 + Cs * u) / (2 * Cs^2)
+	V[1][2] = -(Cs + (gamma - 1) * u) / (2 * Cs^2)
+	V[1][3] = (gamma - 1) / (2 * Cs^2)
+	V[2][1] = 1 - (gamma - 1) * u^2 / (2 * Cs^2)
+	V[2][2] = (gamma - 1) * u / Cs^2
+	V[2][3] = -(gamma - 1) / Cs^2
+	V[3][1] = (.5 * (gamma - 1) * u^2 - Cs * u) / (2 * Cs^2)
+	V[3][2] = (Cs - (gamma - 1) * u) / (2 * Cs^2)
+	V[3][3] = (gamma - 1) / (2 * Cs^2)
 	--]]
 	--[[ numerically via cramers rule
 	local det = U[1][1] * U[2][2] * U[3][3]

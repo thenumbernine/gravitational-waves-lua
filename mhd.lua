@@ -84,12 +84,12 @@ function MHDSimulation:stateToPrims(rho, mx, my, mz, Bx, By, Bz, ETotal)
 	return rho, ux, uy, uz, Bx, By, Bz, p
 end
 
-function MHDSimulation:calcInterfaceEigenBasis(i)
-	local gamma = self.gamma
+function MHDSimulation:calcInterfaceEigenBasis(i,qL,qR)
+	local gamma = self.gamma	
 	local gammaMinusOne = gamma - 1
 
-	local rhoL, uxL, uyL, uzL, BxL, ByL, BzL, pL = self:stateToPrims(unpack(self.qs[i-1]))
-	local rhoR, uxR, uyR, uzR, BxR, ByR, BzR, pR = self:stateToPrims(unpack(self.qs[i]))
+	local rhoL, uxL, uyL, uzL, BxL, ByL, BzL, pL = self:stateToPrims(unpack(qL))
+	local rhoR, uxR, uyR, uzR, BxR, ByR, BzR, pR = self:stateToPrims(unpack(qR))
 
 	local rho = .5*(rhoL + rhoR)
 	local ux = .5*(uxL + uxR)

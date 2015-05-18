@@ -10,13 +10,14 @@ local u0 = 1	-- permissivity
 
 function MaxwellSimulation:init(...)
 	MaxwellSimulation.super.init(self, ...)
-	local Ex = index:bind(self.qs):index(1) / e0
-	local Ey = index:bind(self.qs):index(2) / e0
-	local Ez = index:bind(self.qs):index(3) / e0
+	local get_state = function(i) return self.qs[i] end
+	local Ex = get_state:index(1) / e0
+	local Ey = get_state:index(2) / e0
+	local Ez = get_state:index(3) / e0
 	local ESq = Ex^2 + Ey^2 + Ez^2
-	local Bx = index:bind(self.qs):index(4)
-	local By = index:bind(self.qs):index(5)
-	local Bz = index:bind(self.qs):index(6)
+	local Bx = get_state:index(4)
+	local By = get_state:index(5)
+	local Bz = get_state:index(6)
 	local BSq = Bx^2 + By^2 + Bz^2
 	self.graphInfos = {
 		{viewport={0/4, 0/3, 1/4, 1/3}, getter=Ex, name='Ex', color={1,0,0}},
@@ -44,10 +45,10 @@ function MaxwellSimulation:initCell(i)
 	return {Ex * e0, Ey * e0, Ez * e0, Bx, By, Bz}
 end
 
-function MaxwellSimulation:calcInterfaceEigenBasis(i)
+function MaxwellSimulation:calcInterfaceEigenBasis(i,qL,qR)
 	local avgQ = {}
 	for j=1,self.numStates do
-		avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
+		avgQ[j] = (qL[j] + qR[j]) / 2
 	end
 	local lambda = 1/sqrt(e0 * u0)
 	self.eigenvalues[i] = {-lambda, -lambda, 0, 0, lambda, lambda}
@@ -56,7 +57,7 @@ function MaxwellSimulation:calcInterfaceEigenBasis(i)
 	local seu = sqrt(e0/u0)/u0
 	local ise = 1/se
 	local isu = 1/su
-	self.fluxTransform = function(i, v)
+	self.fluxTransform = function(self, i, v)
 		return {
 			0,
 			seu * v[6],
@@ -66,7 +67,7 @@ function MaxwellSimulation:calcInterfaceEigenBasis(i)
 			v[2]/seu
 		}
 	end
-	self.eigenfields = function(i, v)
+	self.eigenfields = function(self, i, v)
 		return {
 			ise * v[3] + isu * v[5],
 			-ise * v[2] + isu * v[6],
@@ -76,7 +77,7 @@ function MaxwellSimulation:calcInterfaceEigenBasis(i)
 			-ise * v[3] + isu * v[5]
 		}
 	end
-	self.eigenfieldsInverse = function(i, v)
+	self.eigenfieldsInverse = function(self, i, v)
 		return {
 			-se * v[3] + se * v[4],
 			-se * v[2] + se * v[5],

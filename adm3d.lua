@@ -477,10 +477,10 @@ function ADM3DSimulation:initCell(i)
 	}
 end
 
-function ADM3DSimulation:calcInterfaceEigenBasis(i)
+function ADM3DSimulation:calcInterfaceEigenBasis(i,qL,qR)
 	local avgQ = {}
 	for j=1,self.numStates do
-		avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
+		avgQ[j] = (qL[j] + qR[j]) / 2
 	end
 
 	local alpha = avgQ[1]
