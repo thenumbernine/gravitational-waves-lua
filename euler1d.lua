@@ -26,9 +26,22 @@ function Euler1DSimulation:initCell(i)
 	return {rho, rho * u, rho * E}
 end
 
-function Euler1DSimulation:calcInterfaceEigenvalues(i, qL, qR)
+-- used by HLL
+function Euler1DSimulation:calcFluxForState(q, flux)
+	flux = flux or {}
 	local gamma = self.gamma
+	flux[1] = q[2]
+	flux[2] = (gamma - 1) * q[3] + (3 - gamma) / 2 * q[2] * q[2] / q[1]
+	flux[3] = gamma * q[2] * q[3] / q[1] + (1 - gamma) / 2 * q[2] * q[2] * q[2] / (q[1] * q[1])
+	return flux
+end
 
+-- used by HLL
+function Euler1DSimulation:calcInterfaceEigenvalues(qL, qR, S)
+	S = S or {}
+	
+	local gamma = self.gamma
+	
 	local rhoL = qL[1]
 	local uL = qL[2] / rhoL 
 	local EL = qL[3] / rhoL
@@ -36,7 +49,7 @@ function Euler1DSimulation:calcInterfaceEigenvalues(i, qL, qR)
 	local PL = (gamma - 1) * rhoL * eIntL
 	local HL = EL + PL / rhoL
 	local weightL = sqrt(rhoL)
-
+	
 	local rhoR = qR[1]
 	local uR = qR[2] / rhoR 
 	local ER = qR[3] / rhoR
@@ -44,15 +57,12 @@ function Euler1DSimulation:calcInterfaceEigenvalues(i, qL, qR)
 	local PR = (gamma - 1) * rhoR * eIntR
 	local HR = ER + PR / rhoR
 	local weightR = sqrt(rhoR)
-
-	local rho = sqrt(weightL * weightR)
+	
 	local u = (weightL * uL + weightR * uR) / (weightL + weightR)
 	local H = (weightL * HL + weightR * HR) / (weightL + weightR)
-	local E = (weightL * EL + weightR * ER) / (weightL + weightR)
 	
 	local Cs = sqrt((gamma - 1) * (H - .5 * u^2))
 	
-	local S = self.eigenvalues[i]
 	S[1] = u - Cs
 	S[2] = u
 	S[3] = u + Cs
@@ -60,10 +70,11 @@ function Euler1DSimulation:calcInterfaceEigenvalues(i, qL, qR)
 	return S
 end
 
+-- used by Roe
 -- TODO fluxMatrix and reconstruction error is broken
 function Euler1DSimulation:calcInterfaceEigenBasis(i,qL,qR)
 	local gamma = self.gamma
-
+	
 	local rhoL = qL[1]
 	local uL = qL[2] / rhoL 
 	local EL = qL[3] / rhoL
@@ -71,7 +82,7 @@ function Euler1DSimulation:calcInterfaceEigenBasis(i,qL,qR)
 	local PL = (gamma - 1) * rhoL * eIntL
 	local HL = EL + PL / rhoL
 	local weightL = sqrt(rhoL)
-
+	
 	local rhoR = qR[1]
 	local uR = qR[2] / rhoR 
 	local ER = qR[3] / rhoR
@@ -79,14 +90,14 @@ function Euler1DSimulation:calcInterfaceEigenBasis(i,qL,qR)
 	local PR = (gamma - 1) * rhoR * eIntR
 	local HR = ER + PR / rhoR
 	local weightR = sqrt(rhoR)
-
+	
 	local rho = sqrt(weightL * weightR)
 	local u = (weightL * uL + weightR * uR) / (weightL + weightR)
 	local H = (weightL * HL + weightR * HR) / (weightL + weightR)
 	local E = (weightL * EL + weightR * ER) / (weightL + weightR)
 	
 	local Cs = sqrt((gamma - 1) * (H - .5 * u^2))
-
+	
 	local F = self.fluxMatrix[i]
 	F[1][1] = 0
 	F[1][2] = 1

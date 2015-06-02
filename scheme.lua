@@ -1,3 +1,22 @@
+-- determine timestep based on eigenvalue interfaces
+local function calcDtWithEigenvalues(self)
+	if self.fixed_dt then
+		return self.fixed_dt
+	else
+		local result = huge
+		for i=1,self.gridsize do
+			local eigenvaluesL = self.eigenvalues[i]
+			local eigenvaluesR = self.eigenvalues[i+1]
+			local maxLambda = max(0, unpack(eigenvaluesL))
+			local minLambda = min(0, unpack(eigenvaluesR))
+			local dx = self.ixs[i+1] - self.ixs[i]
+			local dum = dx / (abs(maxLambda - minLambda) + 1e-9)
+			result = min(result, dum)
+		end
+		return result * self.cfl
+	end
+end
+
 local Roe = {
 	-- calculates timestep and eigenbasis
 	calcDT = function(self, getLeft, getRight)
@@ -63,24 +82,7 @@ local Roe = {
 			self.fluxMatrixErrors[i] = fluxMatrixError
 		end
 
-		-- determine timestep based on eigenvalue interfaces
-		local dt
-		if self.fixed_dt then
-			dt = self.fixed_dt
-		else
-			local result = huge
-			for i=1,self.gridsize do
-				local eigenvaluesL = self.eigenvalues[i]
-				local eigenvaluesR = self.eigenvalues[i+1]
-				local maxLambda = max(0, unpack(eigenvaluesL))
-				local minLambda = min(0, unpack(eigenvaluesR))
-				local dx = self.ixs[i+1] - self.ixs[i]
-				local dum = dx / (abs(maxLambda - minLambda) + 1e-9)
-				result = min(result, dum)
-			end
-			dt = result * self.cfl
-		end
-		return dt
+		return calcDtWithEigenvalues(self)
 	end,
 	calcFlux = function(self, dt)
 		
@@ -267,41 +269,16 @@ local EulerBurgers = {
 	end,
 }
 	
-local function calcEulerStateFlux(q, gamma)
-	return {
-		q[2],
-		(gamma - 1) * q[3] + (3 - gamma) / 2 * q[2] * q[2] / q[1],
-		gamma * q[2] * q[3] / q[1] + (1 - gamma) / 2 * q[2] * q[2] * q[2] / (q[1] * q[1]),
-	}
-end
-
-local EulerHLL = {
+local HLL = {
 	calcDT = function(self, getLeft, getRight)
 		-- matches Roe, except without eigenvectors
 		for i=2,self.gridsize do
 			local qL = getLeft and getLeft(i) or self.qs[i-1]
 			local qR = getRight and getRight(i) or self.qs[i]
-			self:calcInterfaceEigenvalues(i, qL, qR)
+			self:calcInterfaceEigenvalues(qL, qR, self.eigenvalues[i])
 		end
-	
-		-- matches Roe
-		local dt
-		if self.fixed_dt then
-			dt = self.fixed_dt
-		else
-			local result = huge
-			for i=1,self.gridsize do
-				local eigenvaluesL = self.eigenvalues[i]
-				local eigenvaluesR = self.eigenvalues[i+1]
-				local maxLambda = max(0, unpack(eigenvaluesL))
-				local minLambda = min(0, unpack(eigenvaluesR))
-				local dx = self.ixs[i+1] - self.ixs[i]
-				local dum = dx / (abs(maxLambda - minLambda) + 1e-9)
-				result = min(result, dum)
-			end
-			dt = result * self.cfl
-		end
-		return dt
+
+		return calcDtWithEigenvalues(self)
 	end,
 	calcFlux = function(self, dt)
 		local gamma = self.gamma
@@ -313,37 +290,11 @@ local EulerHLL = {
 			local qL = self.qs[i-1]
 			local qR = self.qs[i]
 			
-			local rhoL = qL[1]
-			local invRhoL = 1 / rhoL
-			local uL = qL[2] / rhoL
-			local eKinL = .5 * uL * uL
-			local eTotalL = qL[3] / rhoL
-			local eIntL = eTotalL - eKinL
-			local pL = (gamma - 1) * rhoL * eIntL
-			local hTotalL = eTotalL + pL * invRhoL
-
-			local rhoR = qR[1]
-			local invRhoR = 1 / rhoR
-			local uR = qR[2] / rhoR
-			local eKinR = .5 * uR * uR
-			local eTotalR = qR[3] / rhoR
-			local eIntR = eTotalR - eKinR
-			local pR = (gamma - 1) * rhoR * eIntR
-			local hTotalR = eTotalR + pR * invRhoR
-
 			local sL = self.eigenvalues[i][1]
 			local sR = self.eigenvalues[i][self.numStates]
 
-			local fluxL = {
-				rhoL * uL,
-				rhoL * uL * uL + pL,
-				rhoL * hTotalL * uL
-			}
-			local fluxR = {
-				rhoR * uR,
-				rhoR * uR * uR + pR,
-				rhoR * hTotalR * uR
-			}
+			local fluxL = self:calcFluxForState(qL)
+			local fluxR = self:calcFluxForState(qR)
 
 			local flux = self.fluxes[i]
 			for i=1,self.numStates do
@@ -431,8 +382,8 @@ print('iqRs['..i..'] =',unpack(iqRs[i]))
 		local ifLs = self:newState()
 		local ifRs = self:newState()
 		for i=1,self.gridsize do
-			ifLs[i] = calcEulerStateFlux(iqLs[i], self.gamma)
-			ifRs[i] = calcEulerStateFlux(iqRs[i], self.gamma)
+			ifLs[i] = self:calcFluxForState(iqLs[i])
+			ifRs[i] = self:calcFluxForState(iqRs[i])
 print('ifLs['..i..'] =',unpack(ifLs[i]))
 print('ifRs['..i..'] =',unpack(ifRs[i]))
 		end
@@ -483,7 +434,7 @@ return {
 	Roe = Roe,
 	-- only works for Eulers
 	EulerBurgers = EulerBurgers,
-	EulerHLL = EulerHLL,
+	HLL = HLL,
 	EulerMUSCL = EulerMUSCL,
 }
 
