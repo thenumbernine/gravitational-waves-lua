@@ -26,6 +26,40 @@ function Euler1DSimulation:initCell(i)
 	return {rho, rho * u, rho * E}
 end
 
+function Euler1DSimulation:calcInterfaceEigenvalues(i, qL, qR)
+	local gamma = self.gamma
+
+	local rhoL = qL[1]
+	local uL = qL[2] / rhoL 
+	local EL = qL[3] / rhoL
+	local eIntL = EL - .5 * uL^2
+	local PL = (gamma - 1) * rhoL * eIntL
+	local HL = EL + PL / rhoL
+	local weightL = sqrt(rhoL)
+
+	local rhoR = qR[1]
+	local uR = qR[2] / rhoR 
+	local ER = qR[3] / rhoR
+	local eIntR = ER - .5 * uR^2
+	local PR = (gamma - 1) * rhoR * eIntR
+	local HR = ER + PR / rhoR
+	local weightR = sqrt(rhoR)
+
+	local rho = sqrt(weightL * weightR)
+	local u = (weightL * uL + weightR * uR) / (weightL + weightR)
+	local H = (weightL * HL + weightR * HR) / (weightL + weightR)
+	local E = (weightL * EL + weightR * ER) / (weightL + weightR)
+	
+	local Cs = sqrt((gamma - 1) * (H - .5 * u^2))
+	
+	local S = self.eigenvalues[i]
+	S[1] = u - Cs
+	S[2] = u
+	S[3] = u + Cs
+	
+	return S
+end
+
 -- TODO fluxMatrix and reconstruction error is broken
 function Euler1DSimulation:calcInterfaceEigenBasis(i,qL,qR)
 	local gamma = self.gamma

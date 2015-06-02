@@ -207,8 +207,11 @@ local sim = require'euler1d'
 	gridsize = 200,
 	domain = {xmin=-1, xmax=1},
 	boundaryMethod = boundaryMethods.mirror,
+	--fluxLimiter = fluxLimiters.donorCell,
 	fluxLimiter = fluxLimiters.superbee,
+	-- default is Roe
 	--scheme = require 'scheme'.EulerBurgers,
+	scheme = require 'scheme'.EulerHLL,
 	--scheme = require 'scheme'.EulerMUSCL,
 }
 --]]

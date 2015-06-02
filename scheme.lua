@@ -1,10 +1,13 @@
 local Roe = {
 	-- calculates timestep and eigenbasis
-	calcDT = function(self)
+	calcDT = function(self, getLeft, getRight)
 		-- Roe solver:
 		-- 1) calculate eigenbasis at interface with Roe-weighted average of states
 		for i=2,self.gridsize do
-			self:calcInterfaceEigenBasis(i, self.qs[i-1], self.qs[i])
+			local qL = getLeft and getLeft(i) or self.qs[i-1]
+			local qR = getRight and getRight(i) or self.qs[i]
+			
+			self:calcInterfaceEigenBasis(i,qL,qR)
 
 			-- collect error for reporting
 			local eigenbasisError = 0
@@ -80,7 +83,6 @@ local Roe = {
 		return dt
 	end,
 	calcFlux = function(self, dt)
-		local dq_dts = self:newState()
 		
 		-- 2) calculate interface state difference in eigenbasis coordinates
 		for i=2,self.gridsize do
@@ -143,13 +145,13 @@ local Roe = {
 			end
 		end
 
+		local dq_dts = self:newState()
 		for i=1,self.gridsize do
 			local dx = self.ixs[i+1] - self.ixs[i]
 			for j=1,self.numStates do
 				dq_dts[i][j] = dq_dts[i][j] - (self.fluxes[i+1][j] - self.fluxes[i][j]) / dx
 			end
 		end
-	
 		return dq_dts
 	end,
 }
@@ -265,7 +267,7 @@ local EulerBurgers = {
 	end,
 }
 	
-local function calcStateFlux(q, gamma)
+local function calcEulerStateFlux(q, gamma)
 	return {
 		q[2],
 		(gamma - 1) * q[3] + (3 - gamma) / 2 * q[2] * q[2] / q[1],
@@ -273,11 +275,110 @@ local function calcStateFlux(q, gamma)
 	}
 end
 
-local EulerMUSCL = {
-	calcDT = Burgers.calcDT,
-
+local EulerHLL = {
+	calcDT = function(self, getLeft, getRight)
+		-- matches Roe, except without eigenvectors
+		for i=2,self.gridsize do
+			local qL = getLeft and getLeft(i) or self.qs[i-1]
+			local qR = getRight and getRight(i) or self.qs[i]
+			self:calcInterfaceEigenvalues(i, qL, qR)
+		end
+	
+		-- matches Roe
+		local dt
+		if self.fixed_dt then
+			dt = self.fixed_dt
+		else
+			local result = huge
+			for i=1,self.gridsize do
+				local eigenvaluesL = self.eigenvalues[i]
+				local eigenvaluesR = self.eigenvalues[i+1]
+				local maxLambda = max(0, unpack(eigenvaluesL))
+				local minLambda = min(0, unpack(eigenvaluesR))
+				local dx = self.ixs[i+1] - self.ixs[i]
+				local dum = dx / (abs(maxLambda - minLambda) + 1e-9)
+				result = min(result, dum)
+			end
+			dt = result * self.cfl
+		end
+		return dt
+	end,
 	calcFlux = function(self, dt)
+		local gamma = self.gamma
 		
+		local iqs = self:newState()
+		
+		for i=2,self.gridsize do
+			-- TODO use qL and qR to allow compatability with MUSCL
+			local qL = self.qs[i-1]
+			local qR = self.qs[i]
+			
+			local rhoL = qL[1]
+			local invRhoL = 1 / rhoL
+			local uL = qL[2] / rhoL
+			local eKinL = .5 * uL * uL
+			local eTotalL = qL[3] / rhoL
+			local eIntL = eTotalL - eKinL
+			local pL = (gamma - 1) * rhoL * eIntL
+			local hTotalL = eTotalL + pL * invRhoL
+
+			local rhoR = qR[1]
+			local invRhoR = 1 / rhoR
+			local uR = qR[2] / rhoR
+			local eKinR = .5 * uR * uR
+			local eTotalR = qR[3] / rhoR
+			local eIntR = eTotalR - eKinR
+			local pR = (gamma - 1) * rhoR * eIntR
+			local hTotalR = eTotalR + pR * invRhoR
+
+			local sL = self.eigenvalues[i][1]
+			local sR = self.eigenvalues[i][self.numStates]
+
+			local fluxL = {
+				rhoL * uL,
+				rhoL * uL * uL + pL,
+				rhoL * hTotalL * uL
+			}
+			local fluxR = {
+				rhoR * uR,
+				rhoR * uR * uR + pR,
+				rhoR * hTotalR * uR
+			}
+
+			local flux = self.fluxes[i]
+			for i=1,self.numStates do
+				if 0 <= sL then
+					flux[i] = fluxL[i]
+				elseif sL <= 0 and 0 <= sR then
+					flux[i] = (sR * fluxL[i] - sL * fluxR[i] + sL * sR * (qR[i] - qL[i])) / (sR - sL)
+				elseif sR <= 0 then
+					flux[i] = fluxR[i]
+				end
+			end
+		end
+		
+		local dq_dts = self:newState()
+		for i=1,self.gridsize do
+			local dx = self.ixs[i+1] - self.ixs[i]
+			for j=1,self.numStates do
+				dq_dts[i][j] = dq_dts[i][j] - (self.fluxes[i+1][j] - self.fluxes[i][j]) / dx
+			end
+		end
+	
+		return dq_dts
+
+	end,
+}
+
+local EulerMUSCL = {
+	-- first calculate new state interface left and right
+	-- then call the old calcDT which also calculates eigen basis stuff
+	calcDT = function(self) 
+
+for i=1,self.gridsize do
+	print('qs['..i..'] = ',unpack(self.qs[i]))
+end
+
 		local sigma = self:newState()
 		for i=3,self.gridsize-1 do
 			local qL2 = self.qs[i-2]
@@ -286,6 +387,12 @@ local EulerMUSCL = {
 			local qR2 = self.qs[i+1]
 			for j=1,self.numStates do
 				local dq = qR[j] - qL[j]
+
+				-- since we're doing flux/subgrid per-state (un-transformed)
+				--  then, for determining the next-cell of advection,
+				--   I'm going to use the velocity
+				--   ...which means this is a Euler-only MUSCL solver
+				local iu = .5*(qL[2]/qL[1] + qR[2]/qR[1])
 			
 				-- ratio of slope to next cell slope
 				local r = dq == 0 and 0 or 
@@ -304,6 +411,7 @@ local EulerMUSCL = {
 				-- ... but if the slope limiter is constrained to [0,2] then we want it divided at first, then multiply after 
 				sigma[i][j] = phi * dq
 			end
+print('sigma['..i..'] =',unpack(sigma[i]))
 		end
 	
 		-- subgrid values
@@ -315,15 +423,25 @@ local EulerMUSCL = {
 				iqLs[i][j] = self.qs[i-1][j] + .5 * dx * sigma[i-1][j]
 				iqRs[i][j] = self.qs[i][j] - .5 * dx * sigma[i][j]
 			end
+print('iqLs['..i..'] =',unpack(iqLs[i]))
+print('iqRs['..i..'] =',unpack(iqRs[i]))
 		end
 
 		-- flux based on subgrid values
 		local ifLs = self:newState()
 		local ifRs = self:newState()
 		for i=1,self.gridsize do
-			ifLs[i] = calcStateFlux(iqLs[i], self.gamma)
-			ifRs[i] = calcStateFlux(iqRs[i], self.gamma)
+			ifLs[i] = calcEulerStateFlux(iqLs[i], self.gamma)
+			ifRs[i] = calcEulerStateFlux(iqRs[i], self.gamma)
+print('ifLs['..i..'] =',unpack(ifLs[i]))
+print('ifRs['..i..'] =',unpack(ifRs[i]))
 		end
+
+		-- how should we get this dt?
+		-- based on Roe eigenvector without MUSCL?  or based on Burgers?  or fixed + implicit (optimistically)
+		-- should this be the dt that we consistently use even after using MUSCL to adjust the state?
+		local dt = Roe.calcDT(self)
+print('intermediate dt',dt)
 
 		-- half step in time
 		local iqhLs = self:newState()
@@ -334,41 +452,38 @@ local EulerMUSCL = {
 				iqhLs[i][j] = iqLs[i][j] + .5 * dt/dx * (ifLs[i][j] - ifRs[i-1][j])
 				iqhRs[i][j] = iqRs[i][j] + .5 * dt/dx * (ifLs[i+1][j] - ifRs[i][j])
 			end
+print('iqhLs['..i..'] =',unpack(iqhLs[i]))
+print('iqhRs['..i..'] =',unpack(iqhRs[i]))
 		end
 
 		-- once we have *this* collection of subgrid L & R states,
 		--  we use them for whatever method you want ...
 		-- ... be it HLL or Roe, etc 
 
-		-- flux based on half-step in time
-		local ifhLs = self:newState()
-		local ifhRs = self:newState()
-		for i=1,self.gridsize do
-			for j=1,self.numStates do
-				ifhLs[i] = calcStateFlux(iqhLs[i])
-				ifhRs[i] = calcStateFlux(iqhRs[i])
-			end
-		end
+		local getLeft = function(i) return iqhLs[i] end
+		local getRight = function(i) return iqhRs[i] end
 
-		-- derivative:
-		local dq_dts = self:newState()
-	
-		for i=1,self.gridsize do
-			local dx = self.ixs[i] - self.ixs[i-1]
-			for j=1,self.numStates do
-				dq_dts[i][j] = -dt/dx * (ifhLs[i+1] - ifhRs[i])
-			end
-		end
-
-		return dq_dts
+		--[[
+		TODO now the paper has officially gave me a circular dependency:
+		to do the MUSCL subgrid half-step in time it needs to know dt
+		however, to calculate dt, it needs the eigenvalues
+			eigenvalues need Roe matrix at interface
+			interface needs the left and right half-step values
+			... which need the dt
+		--]]
+		local dt = Roe.calcDT(self, getLeft, getRight)
+print('final dt',dt)
+		return dt
 	end,
+
+	calcFlux = Roe.calcFlux,
 }
 
 return {
 	Roe = Roe,
 	-- only works for Eulers
 	EulerBurgers = EulerBurgers,
-	-- only works for Eulers
+	EulerHLL = EulerHLL,
 	EulerMUSCL = EulerMUSCL,
 }
 
