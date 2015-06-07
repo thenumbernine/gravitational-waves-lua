@@ -3,6 +3,7 @@
 require 'ext'
 local fluxLimiters = require 'limiter' 
 local boundaryMethods = require 'boundary'
+local schemes = require 'scheme'
 
 -- here's some globals I have to get rid of
 
@@ -210,9 +211,12 @@ local sim = require'euler1d'
 	--fluxLimiter = fluxLimiters.donorCell,
 	fluxLimiter = fluxLimiters.superbee,
 	-- default is Roe
-	--scheme = require 'scheme'.EulerBurgers,
-	--scheme = require 'scheme'.HLL,
-	scheme = require 'scheme'.EulerMUSCL,
+	--scheme = schemes.EulerBurgers(),
+	--scheme = schemes.HLL(),
+	scheme = schemes.EulerMUSCL{
+		baseScheme = schemes.Roe(),
+		slopeLimiter = fluxLimiters.Fromm,
+	}
 }
 --]]
 

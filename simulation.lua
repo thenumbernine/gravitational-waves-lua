@@ -1,7 +1,6 @@
 require 'ext'
 local schemes = require 'scheme'
 
-
 local State = class()
 
 function State:init(h, w)
@@ -47,7 +46,7 @@ function Simulation:init(args)
 	self.boundaryMethod = assert(args.boundaryMethod)
 	self.fluxLimiter = assert(args.fluxLimiter)
 
-	self.scheme = args.scheme or schemes.Roe 
+	self.scheme = args.scheme or schemes.Roe()
 	self.t = 0
 	self.cfl = .5
 	self.xs = {}
@@ -156,7 +155,7 @@ end
 function Simulation:addSourceToDeriv()
 	local dq_dts = self:newState()
 	if self.scheme.addSourceToDeriv then
-		self.scheme.addSourceToDeriv(self, dq_dts)
+		self.scheme:addSourceToDeriv(self, dq_dts)
 	end
 	for i=1,self.gridsize do
 		self:addSourceToDerivCell(dq_dts, i)
@@ -181,10 +180,10 @@ end
 function Simulation:iterate()
 	self:boundaryMethod()
 	
-	local dt = self.scheme.calcDT(self)
+	local dt = self.scheme:calcDT(self)
 
 	self:integrate(dt, function()
-		return self.scheme.calcFlux(self, dt)
+		return self.scheme:calcFlux(self, dt)
 	end)
 
 	self:integrate(dt, function()
@@ -192,7 +191,7 @@ function Simulation:iterate()
 	end)
 	
 	if self.scheme.postIterate then
-		self.scheme.postIterate(self, dt)
+		self.scheme:postIterate(self, dt)
 	end
 	
 	self.t = self.t + dt
