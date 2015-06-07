@@ -321,14 +321,20 @@ local HLL = {
 	end,
 }
 
-local EulerMUSCL = {
+--local EulerMUSCLParent = HLL
+EulerMUSCLParent = Roe
+
+local EulerMUSCL
+EulerMUSCL = {
+	-- limiter of ratio
+	-- popular limiters: Fromm, Beam-Warming, Lax-Wendroff, minmod
+	-- notice that winded-ness needs to vary per-scheme
+	--slopeLimiter = require 'limiter'.LaxWendroff,
+	slopeLimiter = require 'limiter'.Fromm,
+
 	-- first calculate new state interface left and right
 	-- then call the old calcDT which also calculates eigen basis stuff
 	calcDT = function(self) 
-
-for i=1,self.gridsize do
-	print('qs['..i..'] = ',unpack(self.qs[i]))
-end
 
 		local sigma = self:newState()
 		for i=3,self.gridsize-1 do
@@ -351,8 +357,7 @@ end
 						and ((qL[j] - qL2[j]) / dq) 
 						or ((qR2[j] - qR[j]) / dq))
 				
-				-- limiter of ratio
-				local phi = self.fluxLimiter(r)
+				local phi = EulerMUSCL.slopeLimiter(r)
 				
 				-- slope limiter:
 				-- 	sigma = minmod(dq[i],dq[i']) for i current cell and i' next advection cell
@@ -362,20 +367,21 @@ end
 				-- ... but if the slope limiter is constrained to [0,2] then we want it divided at first, then multiply after 
 				sigma[i][j] = phi * dq
 			end
-print('sigma['..i..'] =',unpack(sigma[i]))
 		end
 	
 		-- subgrid values
 		local iqLs = self:newState()
 		local iqRs = self:newState()
+		for j=1,self.numStates do
+			iqLs[1][j] = self.qs[1][j]
+			iqRs[1][j] = self.qs[1][j]
+		end
 		for i=2,self.gridsize do
 			local dx = self.ixs[i] - self.ixs[i-1]
 			for j=1,self.numStates do
 				iqLs[i][j] = self.qs[i-1][j] + .5 * dx * sigma[i-1][j]
 				iqRs[i][j] = self.qs[i][j] - .5 * dx * sigma[i][j]
 			end
-print('iqLs['..i..'] =',unpack(iqLs[i]))
-print('iqRs['..i..'] =',unpack(iqRs[i]))
 		end
 
 		-- flux based on subgrid values
@@ -384,29 +390,30 @@ print('iqRs['..i..'] =',unpack(iqRs[i]))
 		for i=1,self.gridsize do
 			ifLs[i] = self:calcFluxForState(iqLs[i])
 			ifRs[i] = self:calcFluxForState(iqRs[i])
-print('ifLs['..i..'] =',unpack(ifLs[i]))
-print('ifRs['..i..'] =',unpack(ifRs[i]))
 		end
 
 		-- how should we get this dt?
 		-- based on Roe eigenvector without MUSCL?  or based on Burgers?  or fixed + implicit (optimistically)
 		-- should this be the dt that we consistently use even after using MUSCL to adjust the state?
-		local dt = Roe.calcDT(self)
-print('intermediate dt',dt)
+		local dt = EulerMUSCLParent.calcDT(self)
 
 		-- half step in time
 		local iqhLs = self:newState()
 		local iqhRs = self:newState()
+		for j=1,self.numStates do
+			iqhLs[1][j] = iqLs[1][j]
+			iqhRs[1][j] = iqRs[1][j]
+			iqhLs[self.gridsize][j] = iqLs[self.gridsize][j]
+			iqhRs[self.gridsize][j] = iqRs[self.gridsize][j]
+		end
 		for i=2,self.gridsize-1 do
 			local dx = self.ixs[i] - self.ixs[i-1]
 			for j=1,self.numStates do
 				iqhLs[i][j] = iqLs[i][j] + .5 * dt/dx * (ifLs[i][j] - ifRs[i-1][j])
 				iqhRs[i][j] = iqRs[i][j] + .5 * dt/dx * (ifLs[i+1][j] - ifRs[i][j])
 			end
-print('iqhLs['..i..'] =',unpack(iqhLs[i]))
-print('iqhRs['..i..'] =',unpack(iqhRs[i]))
 		end
-
+		
 		-- once we have *this* collection of subgrid L & R states,
 		--  we use them for whatever method you want ...
 		-- ... be it HLL or Roe, etc 
@@ -422,12 +429,11 @@ print('iqhRs['..i..'] =',unpack(iqhRs[i]))
 			interface needs the left and right half-step values
 			... which need the dt
 		--]]
-		local dt = Roe.calcDT(self, getLeft, getRight)
-print('final dt',dt)
+		local dt = EulerMUSCLParent.calcDT(self, getLeft, getRight)
 		return dt
 	end,
 
-	calcFlux = Roe.calcFlux,
+	calcFlux = EulerMUSCLParent.calcFlux,
 }
 
 return {

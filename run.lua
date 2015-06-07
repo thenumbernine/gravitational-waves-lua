@@ -211,8 +211,8 @@ local sim = require'euler1d'
 	fluxLimiter = fluxLimiters.superbee,
 	-- default is Roe
 	--scheme = require 'scheme'.EulerBurgers,
-	scheme = require 'scheme'.HLL,
-	--scheme = require 'scheme'.EulerMUSCL,
+	--scheme = require 'scheme'.HLL,
+	scheme = require 'scheme'.EulerMUSCL,
 }
 --]]
 
