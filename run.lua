@@ -18,7 +18,7 @@ local symmath = require 'symmath'
 
 -- setup
 
---[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+-- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 local sim
 do
 	local x = symmath.var'x'
@@ -201,7 +201,7 @@ end
 --]]
 
 
--- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+--[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 local sim = require'euler1d'
 --local sim = require'mhd'
 {

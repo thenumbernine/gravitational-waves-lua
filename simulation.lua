@@ -1,5 +1,6 @@
 require 'ext'
 local schemes = require 'scheme'
+local integrators = require 'integrators'
 
 local State = class()
 
@@ -47,6 +48,7 @@ function Simulation:init(args)
 	self.fluxLimiter = assert(args.fluxLimiter)
 
 	self.scheme = args.scheme or schemes.Roe()
+	self.integrator = args.integrator or integrators.ForwardEuler()
 	self.t = 0
 	self.cfl = .5
 	self.xs = {}
@@ -164,17 +166,7 @@ function Simulation:addSourceToDeriv()
 end
 
 function Simulation:integrate(dt, dq_dts)
-	-- [[ Euler
-	self.qs = self.qs + dt * dq_dts()
-	--]]
-
-	--[[ RK4
-	local k1 = dq_dts(self.qs)
-	local k2 = dq_dts(self.qs + .5 * k1)
-	local k3 = dq_dts(self.qs + .5 * k2)
-	local k4 = dq_dts(self.qs + k3)
-	self.qs = self.qs + dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
-	--]]
+	self.qs = self.integrator:integrate(self.qs, dt, dq_dts)
 end
 
 function Simulation:iterate()

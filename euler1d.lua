@@ -20,9 +20,21 @@ function Euler1DSimulation:init(...)
 end
 
 function Euler1DSimulation:initCell(i)
+	-- [[ Sod
 	local rho = self.xs[i] < 0 and 1 or .1
 	local u = 0
 	local E = 1	+ .5 * u * u	-- internal + kinetic
+	--]]
+	--[[ Sedov
+	local rho = 1
+	local u = 0
+	local E
+	if i == math.floor(self.gridsize/2) then
+		E = 1e+3 / ((self.gamma - 1) * rho)
+	else
+		E = 1 / ((self.gamma - 1) * rho)
+	end
+	--]]
 	return {rho, rho * u, rho * E}
 end
 

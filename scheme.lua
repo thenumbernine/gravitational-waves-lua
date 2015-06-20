@@ -193,8 +193,8 @@ end
 --[[
 
   d [ rho ]    d    [ rho ]     d    [ 0 ]
-  - [rho v] +  - (v [rho v]) +  - (P [ 1 ]) = 0
- dt [rho e]   dx    [rho e]    dx    [ v ]
+  - [rho u] +  - (u [rho u]) +  - (P [ 1 ]) = 0
+ dt [rho e]   dx    [rho e]    dx    [ u ]
 
 the 1st and 2nd terms are integrated via the flux integration
 the 1st and 3rd terms are integrated via the pressure integration
@@ -457,9 +457,9 @@ end
 
 return {
 	Roe = Roe,
+	HLL = HLL,
 	-- only works for Eulers
 	EulerBurgers = EulerBurgers,
-	HLL = HLL,
 	EulerMUSCL = EulerMUSCL,
 }
 
