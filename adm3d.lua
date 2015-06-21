@@ -199,7 +199,7 @@ function ADM3DSimulation:init(args, ...)
 	local function col() i=i+1 j=0 end
 	self.graphInfos = table()
 
-	local get_state = function(j) return function(i) return self.qs[i][j] end end
+	local get_state = function(j) return function(self, i) return self.qs[i][j] end end
 	local function add(args)
 		local index = args.index
 		for _,suffix in ipairs(args.suffix or {''}) do
@@ -216,7 +216,7 @@ function ADM3DSimulation:init(args, ...)
 
 	add{name='alpha', index=1}
 	do
-		local state = index:bind(self.qs)
+		local state = function(self,i) return self.qs[i] end
 		local alpha = state:index(1)
 		local g_xx = state:index(2)
 		local g_xy = state:index(3)
@@ -234,7 +234,7 @@ function ADM3DSimulation:init(args, ...)
 	j=j+1
 	self.graphInfos:insert{
 		viewport = {i,j},
-		getter = log:compose(index:bind(self.eigenbasisErrors)),
+		getter = function(self, i) return math.log(self.eigenbasisErrors[i]) end,
 		name = 'log eigenbasis error', 
 		color = {1,0,0}, 
 		range = {-30, 30},
@@ -242,7 +242,7 @@ function ADM3DSimulation:init(args, ...)
 	j=j+1
 	self.graphInfos:insert{
 		viewport = {i,j},
-		getter = log:compose(index:bind(self.fluxMatrixErrors)),
+		getter = function(self, i) return math.log(self.fluxMatrixErrors[i]) end,
 		name = 'log reconstruction error',
 		color = {1,0,0},
 		range = {-30, 30},
@@ -276,6 +276,10 @@ function ADM3DSimulation:init(args, ...)
 		local x,y = unpack(info.viewport)
 		info.viewport = {x/xmax, y/ymax, 1/xmax, 1/ymax}
 	end
+
+	self.graphInfoForNames = self.graphInfos:map(function(info,i)
+		return info, info.name
+	end)
 end
 
 function ADM3DSimulation:fluxTransform(i, v)

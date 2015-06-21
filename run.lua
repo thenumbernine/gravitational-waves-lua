@@ -17,9 +17,9 @@ for k,v in pairs(math) do _G[k] = v end
 local symmath = require 'symmath'
 
 -- setup
+local sims = table()
 
 -- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
-local sim
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -29,11 +29,7 @@ do
 	local h = H * symmath.exp(-(x - xc)^2 / sigma^2)
 	local g_xx = 1 - h:diff(x)^2
 	local K_xx = -h:diff(x,x) / g_xx^.5
-	sim = require'adm1d3var'{
-	--sim = require'adm1d3to5var'{
-	--sim = require'adm1d5var'{
-	--sim = require'bssnok1d'{
-	--sim = require'adm3d'{
+	local args = {
 		gridsize = 200,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
@@ -52,13 +48,23 @@ do
 		--f = .49,
 		f = 1 + 1/alpha^2,
 	}
-	sim.stopAtTime = 100
-	--sim.fixed_dt = 0.125
+
+	-- [=[ compare different equations/formalisms 
+	sims:insert(require'adm1d3var'(args))
+	sims:insert(require'adm1d3to5var'(args))
+	sims:insert(require'adm1d5var'(args))
+	--sims:insert(require'bssnok1d'{
+	--sims:insert(require'adm3d'(args))
+	--]=]
+
+	for _,sim in ipairs(sims) do
+		sim.stopAtTime = 100
+		sim.fixed_dt = 0.125
+	end
 end
 --]]
 
 --[[	1D profile of 2D spherical Gaussian curve perturbation / coordinate shock wave
-local sim
 do
 	-- r - eta(rs) = M ln(((rs + eta(r)) / (rs - eta(rs)))
 	-- eta(rs) = sqrt(rs^2 - 2 M rs)
@@ -66,7 +72,7 @@ do
 	local r = symmath.var'r'
 	local alpha = symmath.var'alpha'
 	local h = 5 * symmath.exp(-((r - rc) / 10)^2)
-	sim = require'adm2dspherical'{
+	sims:insert(require'adm2dspherical'{
 		gridsize = 200,
 		domain = {xmin=100, xmax=500},
 		boundaryMethod = boundaryMethods.freeFlow,
@@ -83,12 +89,11 @@ do
 		--f = 1.69,
 		--f = .49,
 		--f = 1 + 1/alpha^2,
-	}
+	})
 end
 --]]
 
 --[[	-- 1D profile of 3D Gaussian curve perturbation / coordinate shock wave in 3 directions
-local sim
 do
 	local x = symmath.var'x'
 	local y = symmath.var'y'
@@ -115,7 +120,7 @@ do
 	local hyy = hy:diff(y)
 	local hyz = hy:diff(z)
 	local hzz = hz:diff(z)
-	sim = require'adm3d'{
+	sims:insert(require'adm3d'{
 		gridsize = 100,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
@@ -146,12 +151,11 @@ do
 		--f = .49,
 		--f = 1/3,
 		f = 1 + 1/alpha^2,
-	}
+	})
 end
 --]]
 
 --[[	-- Alcubierre warp drive
-local sim
 do
 	local x = symmath.var'x'
 	local y = symmath.var'y'
@@ -163,7 +167,7 @@ do
 	local R = 1	-- parameter
 	local sigma = 1 -- parameter
 	local f = (symmath.tanh(sigma * (rs + R)) - symmath.tanh(sigma * (rs - R))) / (2 * symmath.tanh(sigma * R))
-	sim = require'adm3d'{
+	sims:insert(require'adm3d'{
 		gridsize = 100,
 		domain = {xmin=-10, xmax=10},
 		boundaryMethod = boundaryMethods.freeFlow,
@@ -196,57 +200,77 @@ do
 		--f = .49,
 		--f = 1/3,
 		f = 1 + 1/alpha^2,
-	}
+	})
 end
 --]]
 
 
 --[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
-local sim = require'euler1d'
---local sim = require'mhd'
-{
-	gridsize = 200,
-	domain = {xmin=-1, xmax=1},
-	boundaryMethod = boundaryMethods.mirror,
-	--fluxLimiter = fluxLimiters.donorCell,
-	fluxLimiter = fluxLimiters.superbee,
-	-- default is Roe
-	--scheme = schemes.EulerBurgers(),
-	--scheme = schemes.HLL(),
-	scheme = schemes.EulerMUSCL{
-		baseScheme = schemes.Roe(),
-		slopeLimiter = fluxLimiters.Fromm,
+do
+	local simClass = require'euler1d'
+	--local simClass = require'mhd'
+	
+	local args = {
+		gridsize = 200,
+		domain = {xmin=-1, xmax=1},
+		boundaryMethod = boundaryMethods.mirror,
+		--fluxLimiter = fluxLimiters.donorCell,
+		fluxLimiter = fluxLimiters.superbee,
+		-- default is Roe
+		--scheme = schemes.EulerBurgers(),
+		--scheme = schemes.HLL(),
+		scheme = schemes.EulerMUSCL{
+			baseScheme = schemes.Roe(),
+			slopeLimiter = fluxLimiters.Fromm,
+		}
 	}
-}
+
+	-- [=[ compare flux limiters
+	sims:insert(simClass(table(args, {fluxLimiter = fluxLimiters.donorCell})))
+	sims:insert(simClass(table(args, {fluxLimiter = fluxLimiters.LaxWendroff})))
+	sims:insert(simClass(table(args, {fluxLimiter = fluxLimiters.MC})))
+	sims:insert(simClass(table(args, {fluxLimiter = fluxLimiters.superbee})))
+	--]=]
+end
 --]]
 
 --[[
-local sim = require'maxwell'{
+sims:insert(require'maxwell'{
 	gridsize = 200,
 	domain = {xmin=-1, xmax=1},
 	boundaryMethod = boundaryMethods.freeFlow,
 	fluxLimiter = fluxLimiters.donorCell,
-}
+})
 --]]
 
 
-sim:reset()
-
+for _,sim in ipairs(sims) do
+	do
+		local r, g, b = math.random(), math.random(), math.random()
+		local l = math.sqrt(r^2 + g^2 + b^2)
+		sim.color = {r / l, g / l, b / l}
+	end
+	sim:reset()
+end
 
 --[[ text
 local printState = function()
-	for infoIndex,info in ipairs(sim.graphInfos) do
-		io.write(info.name)
-		for i=1,sim.gridsize do
-			local y = info.getter(i)
-			io.write('\t', y)
+	for _,sim in ipairs(sims) do
+		for infoIndex,info in ipairs(sim.graphInfos) do
+			io.write(info.name)
+			for i=1,sim.gridsize do
+				local y = info.getter(i)
+				io.write('\t', y)
+			end
+			print()
 		end
-		print()
 	end
 end
 printState()
 for iter=1,1 do
-	sim:iterate()
+	for _,sim in ipairs(sims) do
+		sim:iterate()
+	end
 	printState()
 end
 os.exit()
@@ -288,7 +312,9 @@ end
 
 TestApp.keyDownCallbacks = {
 	[sdl.SDLK_r] = function(self)
-		sim:reset()
+		for _,sim in ipairs(sims) do
+			sim:reset()
+		end
 	end,
 	[sdl.SDLK_e] = function(self)
 		self.reportError = not self.reportError	
@@ -304,66 +330,93 @@ TestApp.keyDownCallbacks = {
 function TestApp:update(...)
 	gl.glClear(gl.GL_COLOR_BUFFER_BIT)
 
-	if sim.stopAtTime then
-		local t = sim.t
-		if self.oldt then
-			if t >= sim.stopAtTime and self.oldt < sim.stopAtTime then
-				self.doIteration = false
+	for _,sim in ipairs(sims) do
+		if sim.stopAtTime then
+			local t = sim.t
+			if self.oldt then
+				if t >= sim.stopAtTime and self.oldt < sim.stopAtTime then
+					self.doIteration = false
+				end
 			end
+			self.oldt = t
 		end
-		self.oldt = t
 	end
 
-	if self.doIteration then
-		if self.doIteration == 'once' then
-			self.doIteration = false
+	for _,sim in ipairs(sims) do
+		if self.doIteration then
+			sim:iterate()
 		end
-		sim:iterate()
 	end
 
-	local xs = sim.xs
+	if self.doIteration == 'once' then
+		self.doIteration = false
+	end
+
 	local w, h = self:size()
-	for infoIndex,info in ipairs(sim.graphInfos) do
-		
-		local ys = {}
-		local ymin, ymax
-		for i=1,sim.gridsize do
-			local y = info.getter(i)
-			if not y then error("failed to get for getter "..info.name) end
-			ys[i] = y
-			if y == y and abs(y) < huge then
-				if not ymin or y < ymin then ymin = y end
-				if not ymax or y > ymax then ymax = y end
+	
+	-- just use the first sim's infos
+	for name,info in pairs(sims[1].graphInfoForNames) do
+			
+		local xmin, xmax, ymin, ymax
+		for _,sim in ipairs(sims) do
+			sim.ys = {}
+			local simymin, simymax
+			for i=1,sim.gridsize do
+				local siminfo = sim.graphInfoForNames[name]
+				if siminfo then
+					local y = siminfo.getter(sim,i)
+					if not y then error("failed to get for getter "..info.name) end
+					sim.ys[i] = y
+					if y == y and abs(y) < huge then
+						if not simymin or y < simymin then simymin = y end
+						if not simymax or y > simymax then simymax = y end
+					end
+				end
 			end
-		end
-		if self.reportError then
-			print(info.name, 'min', ymin, 'max', ymax)
-		end
+			if self.reportError then
+				print(info.name, 'min', simymin, 'max', simymax)
+			end
 
+			if not simymin or not simymax or simymin ~= simymin or simymax ~= simymax then
+				--simymin = -1
+				--simymax = 1
+			--elseif abs(simymin) == huge or abs(simymax) == huge then
+			else
+				local base = 10	-- round to nearest base-10
+				local scale = 10 -- ...with increments of 10
+				simymin, simymax = 1.1 * simymin - .1 * simymax, 1.1 * simymax - .1 * simymin	
+				local newymin = (simymin<0 and -1 or 1)*(abs(simymin)==huge and 1e+100 or base^log(abs(simymin),base))
+				local newymax = (simymax<0 and -1 or 1)*(abs(simymax)==huge and 1e+100 or base^log(abs(simymax),base))
+				simymin, simymax = newymin, newymax
+				do
+					local minDeltaY = 1e-5
+					local deltaY = simymax - simymin
+					if deltaY < minDeltaY then
+						simymax = simymax + .5 * minDeltaY
+						simymin = simymin - .5 * minDeltaY
+					end
+				end
+			end
+
+			local simxmin, simxmax = sim.domain.xmin, sim.domain.xmax
+			simxmin, simxmax = 1.1 * simxmin - .1 * simxmax, 1.1 * simxmax - .1 * simxmin
+
+			xmin = xmin or simxmin
+			xmax = xmax or simxmax
+			ymin = ymin or simymin
+			ymax = ymax or simymax
+				
+			if xmin and simxmin then xmin = math.min(xmin, simxmin) end
+			if xmax and simxmax then xmax = math.max(xmax, simxmax) end
+			if ymin and simymin then ymin = math.min(ymin, simymin) end
+			if ymax and simymax then ymax = math.max(ymax, simymax) end
+		end
+		
 		if not ymin or not ymax or ymin ~= ymin or ymax ~= ymax then
 			ymin = -1
 			ymax = 1
-		--elseif abs(ymin) == huge or abs(ymax) == huge then
-		else
-			local base = 10	-- round to nearest base-10
-			local scale = 10 -- ...with increments of 10
-			ymin, ymax = 1.1 * ymin - .1 * ymax, 1.1 * ymax - .1 * ymin	
-			local newymin = (ymin<0 and -1 or 1)*(abs(ymin)==huge and 1e+100 or base^log(abs(ymin),base))
-			local newymax = (ymax<0 and -1 or 1)*(abs(ymax)==huge and 1e+100 or base^log(abs(ymax),base))
-			ymin, ymax = newymin, newymax
-		end
-		do
-			local minDeltaY = 1e-5
-			local deltaY = ymax - ymin
-			if deltaY < minDeltaY then
-				ymax = ymax + .5 * minDeltaY
-				ymin = ymin - .5 * minDeltaY
-			end
 		end
 
-		local xmin, xmax = sim.domain.xmin, sim.domain.xmax
-		xmin, xmax = 1.1 * xmin - .1 * xmax, 1.1 * xmax - .1 * xmin	
-		
 		-- display
 		-- TODO viewports per variable and maybe ticks too
 		gl.glViewport(
@@ -407,42 +460,46 @@ function TestApp:update(...)
 		gl.glVertex2f(0, ymax)
 		gl.glEnd()
 
-		gl.glColor3f(unpack(info.color))
-		gl.glPointSize(2)
-		for _,mode in ipairs{
-			--gl.GL_POINTS,
-			gl.GL_LINE_STRIP
-		} do
-			gl.glBegin(mode)
-			for i=1,sim.gridsize do
-				gl.glVertex2f(xs[i], ys[i])
+		for _,sim in ipairs(sims) do
+			gl.glColor3f(unpack(sim.color))
+			gl.glPointSize(2)
+			if #sim.ys > 0 then
+				for _,mode in ipairs{
+					--gl.GL_POINTS,
+					gl.GL_LINE_STRIP
+				} do
+					gl.glBegin(mode)
+					for i=1,sim.gridsize do
+						gl.glVertex2f(sim.xs[i], sim.ys[i])
+					end
+					gl.glEnd()
+				end
 			end
-			gl.glEnd()
-		end
-		gl.glPointSize(1)
-		
-		if self.font then
-			local fontSizeX = (xmax - xmin) * .05
-			local fontSizeY = (ymax - ymin) * .1
-			local ystep = ystep * 5
-			for y=floor(ymin/ystep)*ystep,ceil(ymax/ystep)*ystep,ystep do
+			gl.glPointSize(1)
+			
+			if self.font then
+				local fontSizeX = (xmax - xmin) * .05
+				local fontSizeY = (ymax - ymin) * .1
+				local ystep = ystep * 5
+				for y=floor(ymin/ystep)*ystep,ceil(ymax/ystep)*ystep,ystep do
+					self.font:draw{
+						pos={xmin * .9 + xmax * .1, y + fontSizeY * .5},
+						text=tostring(y),
+						color = {1,1,1,1},
+						fontSize={fontSizeX, -fontSizeY},
+						multiLine=false,
+					}
+				end
 				self.font:draw{
-					pos={xmin * .9 + xmax * .1, y + fontSizeY * .5},
-					text=tostring(y),
+					pos={xmin, ymax},
+					text=info.name,
 					color = {1,1,1,1},
 					fontSize={fontSizeX, -fontSizeY},
 					multiLine=false,
 				}
 			end
-			self.font:draw{
-				pos={xmin, ymax},
-				text=info.name,
-				color = {1,1,1,1},
-				fontSize={fontSizeX, -fontSizeY},
-				multiLine=false,
-			}
+		
 		end
-	
 	end
 	if self.reportError then
 		self.reportError = false

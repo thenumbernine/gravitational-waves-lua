@@ -101,25 +101,21 @@ function ADM1D3VarSim:init(args, ...)
 	
 	local dalpha_f = exprs.f:diff(f_param):simplify()
 	self.calc.dalpha_f = dalpha_f:compile{f_param}
-
-	local get_state = function(j) return function(i) return self.qs[i][j] end end
-	local get_alpha = get_state'alpha'
-	local get_g_xx = get_state'g_xx'
-	local get_A_x = get_state(1)
-	local get_D_xxx = get_state(2)
-	local get_KTilde_xx = get_state(3)
-	local get_K_xx = get_KTilde_xx / sqrt:compose(get_g_xx)
-	self.graphInfos = {
-		{viewport={0/3, 0/3, 1/3, 1/3}, getter=get_alpha, name='alpha', color={1,0,1}},
-		{viewport={0/3, 1/3, 1/3, 1/3}, getter=get_A_x, name='A_x', color={0,1,0}},
-		{viewport={1/3, 0/3, 1/3, 1/3}, getter=get_g_xx, name='g_xx', color={.5,.5,1}},
-		{viewport={1/3, 1/3, 1/3, 1/3}, getter=get_D_xxx, name='D_xxx', color={1,1,0}},
-		{viewport={2/3, 0/3, 1/3, 1/3}, getter=get_K_xx, name='K_xx', color={0,1,1}},
-		{viewport={2/3, 1/3, 1/3, 1/3}, getter=get_alpha * sqrt:compose(get_g_xx), name='volume', color={0,1,1}},
-		{viewport={0/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
-		{viewport={1/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='log reconstuction error', color={1,0,0}, range={-30, 30}},
-	}
 end
+
+ADM1D3VarSim.graphInfos = table{
+	{viewport={0/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i].alpha end, name='alpha', color={1,0,1}},
+	{viewport={0/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] end, name='A_x', color={0,1,0}},
+	{viewport={1/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i].g_xx end, name='g_xx', color={.5,.5,1}},
+	{viewport={1/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][2] end, name='D_xxx', color={1,1,0}},
+	{viewport={2/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][3] / math.sqrt(self.qs[i].g_xx) end, name='K_xx', color={0,1,1}},
+	{viewport={2/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i].alpha * math.sqrt(self.qs[i].g_xx) end, name='volume', color={0,1,1}},
+	{viewport={0/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
+	{viewport={1/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.fluxMatrixErrors[i]) end, name='log reconstuction error', color={1,0,0}, range={-30, 30}},
+}
+ADM1D3VarSim.graphInfoForNames = ADM1D3VarSim.graphInfos:map(function(info,i)
+	return info, info.name
+end)
 
 local State = class(Simulation.State)
 

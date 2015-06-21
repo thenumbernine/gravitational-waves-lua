@@ -204,7 +204,7 @@ the 1st and 3rd terms are integrated via the pressure integration
 local EulerBurgers = class()
 
 EulerBurgers.calcDT = Burgers.calcDT
-	
+
 function EulerBurgers:calcFlux(sim, dt)
 	local dq_dts = sim:newState()
 	
