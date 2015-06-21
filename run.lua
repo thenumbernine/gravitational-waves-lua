@@ -19,7 +19,7 @@ local symmath = require 'symmath'
 -- setup
 local sims = table()
 
--- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+--[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -53,7 +53,7 @@ do
 	sims:insert(require'adm1d3var'(args))
 	sims:insert(require'adm1d3to5var'(args))
 	sims:insert(require'adm1d5var'(args))
-	--sims:insert(require'bssnok1d'{
+	sims:insert(require'bssnok1d'(args))
 	--sims:insert(require'adm3d'(args))
 	--]=]
 
@@ -205,7 +205,7 @@ end
 --]]
 
 
---[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+-- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
 	local simClass = require'euler1d'
 	--local simClass = require'mhd'

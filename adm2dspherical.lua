@@ -137,8 +137,8 @@ function ADM2DSphericalSimulation:init(args, ...)
 	-- alpha, g_rr, g_hh/r^2
 	-- A_r, D_rrr, D_rhh/r
 	-- K_rr, K_hh, r V_r
-	local get_r = index:bind(self.xs)
-	local get_state = function(i) return self.qs[i] end
+	local get_r = function(self,i) return self.xs[i] end
+	local get_state = function(self, i) return self.qs[i] end
 	local get_alpha = get_state:index(1)
 	local get_g_rr = get_state:index(2)
 	local get_g_hh = get_state:index(3)
@@ -148,7 +148,7 @@ function ADM2DSphericalSimulation:init(args, ...)
 	local get_K_rr = get_state:index(7)
 	local get_K_hh = get_state:index(8)
 	local get_V_r = get_state:index(9)
-	self.graphInfos = {
+	self.graphInfos = table{
 		{viewport = {0/4, 0/3, 1/4, 1/3}, getter = get_alpha, name = 'alpha', color = {1,0,1}},
 		{viewport = {1/4, 0/3, 1/4, 1/3}, getter = get_g_rr, name = 'g_rr', color = {0,1,0}},
 		{viewport = {2/4, 0/3, 1/4, 1/3}, getter = get_g_hh / get_r^2, name = 'g_hh/r^2', color = {0,1,0}},
@@ -158,10 +158,13 @@ function ADM2DSphericalSimulation:init(args, ...)
 		{viewport = {0/4, 2/3, 1/4, 1/3}, getter = get_K_rr, name = 'K_rr', color = {0,1,1}},
 		{viewport = {1/4, 2/3, 1/4, 1/3}, getter = get_K_hh, name = 'K_hh', color = {0,1,1}},
 		{viewport = {2/4, 2/3, 1/4, 1/3}, getter = get_V_r * get_r, name = 'V_r*r', color = {0,1,1}},
-		{viewport = {3/4, 0/3, 1/4, 1/3}, getter = get_alpha * get_r * sqrt:compose(get_g_rr * get_g_hh), name = 'volume', color = {0,1,1}},
-		{viewport = {3/4, 1/3, 1/4, 1/3}, getter = log:compose(index:bind(self.eigenbasisErrors)), name = 'log eigenbasis error', color = {1,0,0}, range = {-30, 30}},
-		{viewport = {3/4, 2/3, 1/4, 1/3}, getter = log:compose(index:bind(self.fluxMatrixErrors)), name = 'log reconstruction error', color = {1,0,0}, range = {-30, 30}},
+		{viewport = {3/4, 0/3, 1/4, 1/3}, getter = function(self,i) return self.qs[i][1] * self.xs[i] * math.sqrt(self.qs[i][2] * self.qs[i][3]) end, name = 'volume', color = {0,1,1}},
+		{viewport = {3/4, 1/3, 1/4, 1/3}, getter = function(self,i) return math.log(self.eigenbasisErrors[i]) end, name = 'log eigenbasis error', color = {1,0,0}, range = {-30, 30}},
+		{viewport = {3/4, 2/3, 1/4, 1/3}, getter = function(self,i) return math.log(self.fluxMatrixErrors[i]) end, name = 'log reconstruction error', color = {1,0,0}, range = {-30, 30}},
 	}
+	self.graphInfoForNames = self.graphInfos:map(function(info,i)
+		return info, info.name
+	end)
 end
 
 function ADM2DSphericalSimulation:initCell(i)

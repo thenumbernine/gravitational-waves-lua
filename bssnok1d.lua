@@ -188,29 +188,25 @@ function BSSNOK1DSim:init(args, ...)
 	
 	local dalpha_f = f:diff(args.f_param):simplify()
 	self.calc.dalpha_f = dalpha_f:compile{args.f_param}
-
-	local get_state = function(j) return function(i) return self.qs[i][j] end end
-	local get_alpha = get_state(1)
-	local get_phi = get_state(2)
-	local get_A_x = get_state(3)
-	local get_Phi_x = get_state(4)
-	local get_K = get_state(5)
-	local get_ATilde_xx = get_state(6)
-	--phi = -1/(4*n) ln g_xx
-	-- exp(-4n phi) = g_xx for n=1
-	-- volume = sqrt(g_xx) = sqrt(exp(-4n phi)) = exp(-2n phi)
-	self.graphInfos = {
-		{viewport={0/3, 0/3, 1/3, 1/3}, getter=get_alpha, name='alpha', color={1,0,1}},
-		{viewport={0/3, 1/3, 1/3, 1/3}, getter=get_A_x, name='A_x', color={0,1,0}},
-		{viewport={1/3, 0/3, 1/3, 1/3}, getter=get_phi, name='phi', color={.5,.5,1}},
-		{viewport={1/3, 1/3, 1/3, 1/3}, getter=get_Phi_x, name='Phi_x', color={1,1,0}},
-		{viewport={2/3, 0/3, 1/3, 1/3}, getter=get_K, name='K', color={0,1,1}},
-		{viewport={2/3, 1/3, 1/3, 1/3}, getter=get_ATilde_xx, name='ATilde_xx', color={0,1,1}},
-		{viewport={0/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
-		{viewport={1/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='log reconstruction error', color={1,0,0}, range={-30, 30}},
-		{viewport={2/3, 2/3, 1/3, 1/3}, getter=get_alpha * exp:compose(-2 * get_phi), name='volume', color={0,1,1}},
-	}
 end
+
+--phi = -1/(4*n) ln g_xx
+-- exp(-4n phi) = g_xx for n=1
+-- volume = sqrt(g_xx) = sqrt(exp(-4n phi)) = exp(-2n phi)
+BSSNOK1DSim.graphInfos = table{
+	{viewport={0/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] end, name='alpha', color={1,0,1}},
+	{viewport={0/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][3] end, name='A_x', color={0,1,0}},
+	{viewport={1/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][2] end, name='phi', color={.5,.5,1}},
+	{viewport={1/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][4] end, name='Phi_x', color={1,1,0}},
+	{viewport={2/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][5] end, name='K', color={0,1,1}},
+	{viewport={2/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][6] end, name='ATilde_xx', color={0,1,1}},
+	{viewport={0/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
+	{viewport={1/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.fluxMatrixErrors[i]) end, name='log reconstruction error', color={1,0,0}, range={-30, 30}},
+	{viewport={2/3, 2/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] * math.exp(-2 * self.qs[i][2]) end, name='volume', color={0,1,1}},
+}
+BSSNOK1DSim.graphInfoForNames = BSSNOK1DSim.graphInfos:map(function(info,i)
+	return info, info.name
+end)
 
 function BSSNOK1DSim:initCell(i)
 	local x = self.xs[i]
