@@ -1,5 +1,8 @@
 --[[
 based on http://arxiv.org/pdf/gr-qc/9609015v2.pdf
+which itself doesn't specify the formalism, just the equations.
+If you follow the book, it explains how to re-cast those same equations as the proper formalism (as I use in adm1d3to5var.lua)
+
 
 hyperbolic formalism:
 
@@ -41,11 +44,11 @@ for lambda = 0 the eigenvectors are
 [0,1,0,0,0]
 
 eigenvector matrix is :
-[	0			alpha	0	0	0			]
-[	0			0		0	1	0			]
-[	f/g_xx			-A_x		0	0	f/g_xx			]
-[	1			0		1	0	1			]
-[	-sqrt(f/g_xx)	-K_xx		0	0	sqrt(f/g_xx)	]
+[	0		  		alpha	0	0	0				]
+[	0		  		0		0	1	0				]
+[	f/g_xx			-A_x	0	0	f/g_xx			]
+[	1				0		1	0	1				]
+[	-sqrt(f/g_xx)	-K_xx	0	0	sqrt(f/g_xx)	]
 inverse:
 [(sqrt(f)*g_xx^(3/2)*A_x-f*g_xx*K_xx)/(2*alpha*f^(3/2)*sqrt(g_xx)),0,g_xx/(2*f),0,-sqrt(g_xx)/(2*sqrt(f))]
 [1/alpha,0,0,0,0]
@@ -110,7 +113,8 @@ require 'ext'
 local Simulation = require 'simulation'
 
 local ADM1D5VarSim = class(Simulation)
-	
+ADM1D5VarSim.name = 'ADM1D5VarSim'
+
 ADM1D5VarSim.numStates = 5 
 
 function ADM1D5VarSim:init(args, ...)

@@ -6,6 +6,7 @@ require 'ext'
 local Simulation = require 'simulation'
 
 local ADM1D3to5VarSim = class(Simulation)
+ADM1D3to5VarSim.name = 'ADM1D3to5VarSim'
 
 ADM1D3to5VarSim.numStates = 5
 
@@ -50,8 +51,8 @@ ADM1D3to5VarSim.graphInfos = table{
 	{viewport={0/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][3] end, name='A_x', color={0,1,0}},
 	{viewport={1/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][2] end, name='g_xx', color={.5,.5,1}},
 	{viewport={1/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][4] end, name='D_xxx', color={1,1,0}},
-	{viewport={2/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][5] / sqrt(self.qs[i][2]) end, name='K', color={0,1,1}},
-	{viewport={2/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] * sqrt(self.qs[i][2]) end, name='volume', color={0,1,1}},
+	{viewport={2/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][5] / math.sqrt(self.qs[i][2]) end, name='K_xx', color={0,1,1}},
+	{viewport={2/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] * math.sqrt(self.qs[i][2]) end, name='volume', color={0,1,1}},
 	{viewport={0/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
 	{viewport={1/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.fluxMatrixErrors[i]) end, name='log reconstuction error', color={1,0,0}, range={-30, 30}},
 }

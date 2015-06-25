@@ -89,13 +89,16 @@ function Roe:calcDT(sim, getLeft, getRight)
 	return calcDtWithEigenvalues(self, sim)
 end
 
-function Roe:calcFlux(sim, dt)
+function Roe:calcFlux(sim, dt, getLeft, getRight, getLeft2, getRight2)
 	
 	-- 2) calculate interface state difference in eigenbasis coordinates
 	for i=2,sim.gridsize do
+		local qL = getLeft and getLeft(i) or sim.qs[i-1]
+		local qR = getRight and getRight(i) or sim.qs[i]
+		
 		local dq = {}
 		for j=1,sim.numStates do
-			dq[j] = sim.qs[i][j] - sim.qs[i-1][j]
+			dq[j] = qR[j] - qL[j]
 		end
 		sim.deltaQTildes[i] = sim:eigenfields(i, dq)
 	end
@@ -105,10 +108,12 @@ function Roe:calcFlux(sim, dt)
 	-- 3) slope limit on interface difference
 	-- 4) transform back
 	for i=2,sim.gridsize do
-		
+		local qL = getLeft and getLeft(i) or sim.qs[i-1]
+		local qR = getRight and getRight(i) or sim.qs[i]
+
 		local qAvg = {}
 		for j=1,sim.numStates do
-			qAvg[j] = .5 * (sim.qs[i][j] + sim.qs[i-1][j])
+			qAvg[j] = .5 * (qR[j] + qL[j])
 		end
 			
 		local rTildes = {}
@@ -162,9 +167,20 @@ function Roe:calcFlux(sim, dt)
 	return dq_dts
 end
 
-local Burgers = class()
+--[[
 
-function Burgers:calcDT(sim)
+  d [ rho ]    d    [ rho ]     d    [ 0 ]
+  - [rho u] +  - (u [rho u]) +  - (P [ 1 ]) = 0
+ dt [rho e]   dx    [rho e]    dx    [ u ]
+
+the 1st and 2nd terms are integrated via the flux integration
+the 1st and 3rd terms are integrated via the pressure integration
+	that is split into first the momentum and then the work diffusion 
+
+--]]
+local EulerBurgers = class()
+
+function EulerBurgers:calcDT(sim, getLeft, getRight)
 	local gamma = sim.gamma
 	
 	-- determine timestep based on cell velocity 
@@ -190,31 +206,17 @@ function Burgers:calcDT(sim)
 	return dt
 end
 
---[[
 
-  d [ rho ]    d    [ rho ]     d    [ 0 ]
-  - [rho u] +  - (u [rho u]) +  - (P [ 1 ]) = 0
- dt [rho e]   dx    [rho e]    dx    [ u ]
-
-the 1st and 2nd terms are integrated via the flux integration
-the 1st and 3rd terms are integrated via the pressure integration
-	that is split into first the momentum and then the work diffusion 
-
---]]
-local EulerBurgers = class()
-
-EulerBurgers.calcDT = Burgers.calcDT
-
-function EulerBurgers:calcFlux(sim, dt)
+function EulerBurgers:calcFlux(sim, dt, getLeft, getRight, getLeft2, getRight2)
 	local dq_dts = sim:newState()
 	
 	local gamma = sim.gamma
 
 	for i=3,sim.gridsize-1 do
-		local qL2 = sim.qs[i-2]
-		local qL = sim.qs[i-1]
-		local qR = sim.qs[i]
-		local qR2 = sim.qs[i+1]
+		local qL2 = getLeft2 and getLeft2(i) or sim.qs[i-2]
+		local qL = getLeft and getLeft(i) or sim.qs[i-1]
+		local qR = getRight and getRight(i) or sim.qs[i]
+		local qR2 = getRight2 and getRight2(i) or sim.qs[i+1]
 		local uL = qL[2] / qL[1]
 		local uR = qR[2] / qR[1]
 		local iu = .5 * (uL + uR)
@@ -297,15 +299,15 @@ function HLL:calcDT(sim, getLeft, getRight)
 	return calcDtWithEigenvalues(self, sim)
 end
 	
-function HLL:calcFlux(sim, dt)
+function HLL:calcFlux(sim, dt, getLeft, getRight, getLeft2, getRight2)
 	local gamma = sim.gamma
 	
 	local iqs = sim:newState()
 	
 	for i=2,sim.gridsize do
 		-- TODO use qL and qR to allow compatability with MUSCL
-		local qL = sim.qs[i-1]
-		local qR = sim.qs[i]
+		local qL = getLeft and getLeft(i) or sim.qs[i-1]
+		local qR = getRight and getRight(i) or sim.qs[i]
 		
 		local sL = sim.eigenvalues[i][1]
 		local sR = sim.eigenvalues[i][sim.numStates]
@@ -341,24 +343,24 @@ local EulerMUSCL = class()
 function EulerMUSCL:init(args)
 	-- baseScheme can be Roe or HLL
 	-- TODO should MUSCL-Roe be using eigenbasis-transformed states somewhere in there? 
-	self.baseScheme = args.baseScheme
+	self.baseScheme = args.baseScheme or require 'scheme'.Roe()
 
 	-- limiter of ratio
 	-- popular limiters: Fromm, Beam-Warming, Lax-Wendroff, minmod
 	-- notice that winded-ness needs to vary per-scheme
-	self.slopeLimiter = args.slopeLimiter
+	self.slopeLimiter = args.slopeLimiter or fluxLimiters.Fromm
 end
 
-	-- first calculate new state interface left and right
-	-- then call the old calcDT which also calculates eigen basis stuff
-function EulerMUSCL:calcDT(sim)
-		
+-- first calculate new state interface left and right
+-- then call the old calcDT which also calculates eigen basis stuff
+function EulerMUSCL:calcDT(sim, getLeft, getRight, getLeft2, getRight2)
+	
 	local sigma = sim:newState()
 	for i=3,sim.gridsize-1 do
-		local qL2 = sim.qs[i-2]
-		local qL = sim.qs[i-1]
-		local qR = sim.qs[i]
-		local qR2 = sim.qs[i+1]
+		local qL2 = getLeft2 and getLeft2(i) or sim.qs[i-2]
+		local qL = getLeft and getLeft(i) or sim.qs[i-1]
+		local qR = getRight and getRight(i) or sim.qs[i]
+		local qR2 = getRight2 and getRight2(i) or sim.qs[i+1]
 		for j=1,sim.numStates do
 			local dq = qR[j] - qL[j]
 
@@ -367,7 +369,7 @@ function EulerMUSCL:calcDT(sim)
 			--   I'm going to use the velocity
 			--   ...which means this is a Euler-only MUSCL solver
 			local iu = .5*(qL[2]/qL[1] + qR[2]/qR[1])
-		
+			
 			-- ratio of slope to next cell slope
 			local r = dq == 0 and 0 or 
 				(iu >= 0 
@@ -394,10 +396,12 @@ function EulerMUSCL:calcDT(sim)
 		iqRs[1][j] = sim.qs[1][j]
 	end
 	for i=2,sim.gridsize do
+		local qL = getLeft and getLeft(i) or sim.qs[i-1]
+		local qR = getRight and getRight(i) or sim.qs[i]
 		local dx = sim.ixs[i] - sim.ixs[i-1]
 		for j=1,sim.numStates do
-			iqLs[i][j] = sim.qs[i-1][j] + .5 * dx * sigma[i-1][j]
-			iqRs[i][j] = sim.qs[i][j] - .5 * dx * sigma[i][j]
+			iqLs[i][j] = qL[j] + .5 * dx * sigma[i-1][j]
+			iqRs[i][j] = qR[j] - .5 * dx * sigma[i][j]
 		end
 	end
 
@@ -415,19 +419,19 @@ function EulerMUSCL:calcDT(sim)
 	local dt = self.baseScheme.calcDT(self, sim)
 
 	-- half step in time
-	local iqhLs = sim:newState()
-	local iqhRs = sim:newState()
+	self.iqhLs = sim:newState()
+	self.iqhRs = sim:newState()
 	for j=1,sim.numStates do
-		iqhLs[1][j] = iqLs[1][j]
-		iqhRs[1][j] = iqRs[1][j]
-		iqhLs[sim.gridsize][j] = iqLs[sim.gridsize][j]
-		iqhRs[sim.gridsize][j] = iqRs[sim.gridsize][j]
+		self.iqhLs[1][j] = iqLs[1][j]
+		self.iqhRs[1][j] = iqRs[1][j]
+		self.iqhLs[sim.gridsize][j] = iqLs[sim.gridsize][j]
+		self.iqhRs[sim.gridsize][j] = iqRs[sim.gridsize][j]
 	end
 	for i=2,sim.gridsize-1 do
 		local dx = sim.ixs[i] - sim.ixs[i-1]
 		for j=1,sim.numStates do
-			iqhLs[i][j] = iqLs[i][j] + .5 * dt/dx * (ifLs[i][j] - ifRs[i-1][j])
-			iqhRs[i][j] = iqRs[i][j] + .5 * dt/dx * (ifLs[i+1][j] - ifRs[i][j])
+			self.iqhLs[i][j] = iqLs[i][j] + .5 * dt/dx * (ifLs[i][j] - ifRs[i-1][j])
+			self.iqhRs[i][j] = iqRs[i][j] + .5 * dt/dx * (ifLs[i+1][j] - ifRs[i][j])
 		end
 	end
 	
@@ -435,8 +439,10 @@ function EulerMUSCL:calcDT(sim)
 	--  we use them for whatever method you want ...
 	-- ... be it HLL or Roe, etc 
 
-	local getLeft = function(i) return iqhLs[i] end
-	local getRight = function(i) return iqhRs[i] end
+	self.getLeft = function(i) return self.iqhLs[i] end
+	self.getRight = function(i) return self.iqhRs[i] end
+	self.getLeft2 = function(i) return self.iqhLs[i-1] end
+	self.getRight2 = function(i) return self.iqhRs[i+1] end
 
 	--[[
 	TODO now the paper has officially gave me a circular dependency:
@@ -446,13 +452,25 @@ function EulerMUSCL:calcDT(sim)
 		interface needs the left and right half-step values
 		... which need the dt
 	--]]
-	local dt = self.baseScheme.calcDT(self, sim, getLeft, getRight)
-	
+	local dt = self.baseScheme.calcDT(self, sim, self.getLeft, self.getRight)
+
 	return dt
 end
 
-function EulerMUSCL:calcFlux(...)
-	return self.baseScheme.calcFlux(self, ...)
+function EulerMUSCL:calcFlux(sim, dt)
+	return self.baseScheme:calcFlux(sim, dt, self.getLeft, self.getRight, self.getLeft2, self.getRight2)
+end
+
+function EulerMUSCL:postIterate(...)
+	if self.baseScheme.postIterate then
+		return self.baseScheme:postIterate(...)
+	end
+end
+
+function EulerMUSCL:addSourceToDeriv(...)
+	if self.baseScheme.addSourceToDeriv then
+		self.baseScheme:addSourceToDeriv(...)
+	end
 end
 
 return {

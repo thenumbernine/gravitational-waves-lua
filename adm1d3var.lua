@@ -64,6 +64,7 @@ require 'ext'
 local Simulation = require 'simulation'
 
 local ADM1D3VarSim = class(Simulation)
+ADM1D3VarSim.name = 'ADM1D3VarSim'
 
 ADM1D3VarSim.numStates = 3
 

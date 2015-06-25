@@ -10,16 +10,16 @@ local u0 = 1	-- permissivity
 
 function MaxwellSimulation:init(...)
 	MaxwellSimulation.super.init(self, ...)
-	local get_state = function(i) return self.qs[i] end
-	local Ex = get_state:index(1) / e0
-	local Ey = get_state:index(2) / e0
-	local Ez = get_state:index(3) / e0
+	local get_state = function(self,i) return self.qs[i] end
+	local Ex = function(self,i) return self.qs[i][1] / e0 end
+	local Ey = function(self,i) return self.qs[i][2] / e0 end
+	local Ez = function(self,i) return self.qs[i][3] / e0 end
 	local ESq = Ex^2 + Ey^2 + Ez^2
-	local Bx = get_state:index(4)
-	local By = get_state:index(5)
-	local Bz = get_state:index(6)
+	local Bx = function(self,i) return self.qs[i][4] end
+	local By = function(self,i) return self.qs[i][5] end
+	local Bz = function(self,i) return self.qs[i][6] end
 	local BSq = Bx^2 + By^2 + Bz^2
-	self.graphInfos = {
+	self.graphInfos = table{
 		{viewport={0/4, 0/3, 1/4, 1/3}, getter=Ex, name='Ex', color={1,0,0}},
 		{viewport={1/4, 0/3, 1/4, 1/3}, getter=Ey, name='Ey', color={0,1,0}},
 		{viewport={2/4, 0/3, 1/4, 1/3}, getter=Ez, name='Ez', color={0,0,1}},
@@ -28,10 +28,13 @@ function MaxwellSimulation:init(...)
 		{viewport={1/4, 1/3, 1/4, 1/3}, getter=By, name='By', color={1,0,1}},
 		{viewport={2/4, 1/3, 1/4, 1/3}, getter=Bz, name='Bz', color={1,1,0}},
 		{viewport={3/4, 1/3, 1/4, 1/3}, getter=sqrt:compose(BSq), name='B', color={1,1,0}},
-		{viewport={0/4, 2/3, 1/4, 1/3}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
-		{viewport={1/4, 2/3, 1/4, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='log reconstruction error', color={1,0,0}, range={-30, 30}},
+		{viewport={0/4, 2/3, 1/4, 1/3}, getter=function(self,i) return math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
+		{viewport={1/4, 2/3, 1/4, 1/3}, getter=function(self,i) return math.log(self.fluxMatrixErrors[i]) end, name='log reconstruction error', color={1,0,0}, range={-30, 30}},
 		{viewport={3/4, 2/3, 1/4, 1/3}, getter=.5 * (ESq * e0 + BSq / u0), name='energy', color={0,.5,1}},
 	}
+	self.graphInfoForNames = self.graphInfos:map(function(info,i)
+		return info, info.name
+	end)
 end
 
 function MaxwellSimulation:initCell(i)

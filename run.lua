@@ -50,10 +50,10 @@ do
 	}
 
 	-- [=[ compare different equations/formalisms 
-	sims:insert(require'adm1d3var'(args))
-	sims:insert(require'adm1d3to5var'(args))
-	sims:insert(require'adm1d5var'(args))
-	sims:insert(require'bssnok1d'(args))
+	sims:insert(require'adm1d3var'(args))		-- \_ these two are identical
+	sims:insert(require'adm1d3to5var'(args))	-- /
+	sims:insert(require'adm1d5var'(args))		--> this one, for 1st iter, calcs A_x half what it should
+	--sims:insert(require'bssnok1d'(args))
 	--sims:insert(require'adm3d'(args))
 	--]=]
 
@@ -216,21 +216,40 @@ do
 		boundaryMethod = boundaryMethods.mirror,
 		--fluxLimiter = fluxLimiters.donorCell,
 		fluxLimiter = fluxLimiters.superbee,
-		-- default is Roe
 		--scheme = schemes.EulerBurgers(),
+		--scheme = schemes.Roe(),	-- default
 		--scheme = schemes.HLL(),
+		-- [=[
 		scheme = schemes.EulerMUSCL{
-			baseScheme = schemes.Roe(),
+			baseScheme = schemes.EulerBurgers(),
 			slopeLimiter = fluxLimiters.Fromm,
 		}
+		--]=]
 	}
+	
+	-- [=[
+	sims:insert(simClass(args))
+	--]=]
 
-	-- [=[ compare flux limiters
+	--[=[ compare flux limiters
 	sims:insert(simClass(table(args, {fluxLimiter = fluxLimiters.donorCell})))
 	sims:insert(simClass(table(args, {fluxLimiter = fluxLimiters.LaxWendroff})))
 	sims:insert(simClass(table(args, {fluxLimiter = fluxLimiters.MC})))
 	sims:insert(simClass(table(args, {fluxLimiter = fluxLimiters.superbee})))
 	--]=]
+
+	--[=[ compare schemes
+	--sims:insert(simClass(table(args, {scheme = schemes.EulerBurgers()})))
+	sims:insert(simClass(table(args, {scheme = schemes.Roe()})))
+	--sims:insert(simClass(table(args, {scheme = schemes.HLL()})))
+	sims:insert(simClass(table(args, {scheme = schemes.EulerMUSCL{baseScheme = schemes.Roe()}})))
+	--sims:insert(simClass(table(args, {scheme = schemes.EulerMUSCL{baseScheme = schemes.HLL()}})))
+	--sims:insert(simClass(table(args, {scheme = schemes.HLLC()})))	-- TODO 
+	--]=]
+
+	for _,sim in ipairs(sims) do
+		sim.fixed_dt = 1/512
+	end
 end
 --]]
 
@@ -249,6 +268,7 @@ for _,sim in ipairs(sims) do
 		local r, g, b = math.random(), math.random(), math.random()
 		local l = math.sqrt(r^2 + g^2 + b^2)
 		sim.color = {r / l, g / l, b / l}
+		print(sim.name, unpack(sim.color))
 	end
 	sim:reset()
 end
