@@ -1,13 +1,13 @@
 require 'ext'
-local Simulation = require 'simulation'
-local MHDSimulation = class(Simulation)
+local RoeSolver = require 'roesolver'
+local MHDRoeSolver = class(RoeSolver)
 
-MHDSimulation.numStates = 8
-MHDSimulation.gamma = 5/3	
-MHDSimulation.mu = 1
+MHDRoeSolver.numStates = 8
+MHDRoeSolver.gamma = 5/3	
+MHDRoeSolver.mu = 1
 
-function MHDSimulation:init(...)
-	Simulation.init(self, ...)
+function MHDRoeSolver:init(...)
+	RoeSolver.init(self, ...)
 
 	local function initArray()
 		local t = {}
@@ -58,7 +58,7 @@ function MHDSimulation:init(...)
 	}
 end
 
-function MHDSimulation:initCell(i)
+function MHDRoeSolver:initCell(i)
 	local x = self.xs[i]
 	local rho = x < 0 and .1 or 1
 	local ux, uy, uz = 0, 0, 0
@@ -73,7 +73,7 @@ function MHDSimulation:initCell(i)
 	return {rho, rho*ux, rho*uy, rho*uz, Bx, By, Bz, ETotal}
 end
 
-function MHDSimulation:stateToPrims(rho, mx, my, mz, Bx, By, Bz, ETotal)
+function MHDRoeSolver:stateToPrims(rho, mx, my, mz, Bx, By, Bz, ETotal)
 	local ux, uy, uz = mx / rho, my / rho, mz / rho
 	local EMag = .5*(Bx*Bx + By*By + Bz*Bz) / self.mu
 	local EHydro = ETotal - EMag
@@ -84,7 +84,7 @@ function MHDSimulation:stateToPrims(rho, mx, my, mz, Bx, By, Bz, ETotal)
 	return rho, ux, uy, uz, Bx, By, Bz, p
 end
 
-function MHDSimulation:calcInterfaceEigenBasis(i,qL,qR)
+function MHDRoeSolver:calcInterfaceEigenBasis(i,qL,qR)
 	local gamma = self.gamma	
 	local gammaMinusOne = gamma - 1
 
@@ -393,4 +393,5 @@ function MHDSimulation:calcInterfaceEigenBasis(i,qL,qR)
 	end	
 end
 
-return MHDSimulation
+return MHDRoeSolver
+

@@ -1,15 +1,15 @@
 -- going by Trangenstein
 require 'ext'
-local Simulation = require 'simulation'
-local MaxwellSimulation = class(Simulation)
+local RoeSolver = require 'roesolver'
+local MaxwellRoeSolver = class(RoeSolver)
 
-MaxwellSimulation.numStates = 6	--E,B xyz
+MaxwellRoeSolver.numStates = 6	--E,B xyz
 
 local e0 = 1	-- permittivity
 local u0 = 1	-- permissivity
 
-function MaxwellSimulation:init(...)
-	MaxwellSimulation.super.init(self, ...)
+function MaxwellRoeSolver:init(...)
+	MaxwellRoeSolver.super.init(self, ...)
 	local get_state = function(self,i) return self.qs[i] end
 	local Ex = function(self,i) return self.qs[i][1] / e0 end
 	local Ey = function(self,i) return self.qs[i][2] / e0 end
@@ -37,7 +37,7 @@ function MaxwellSimulation:init(...)
 	end)
 end
 
-function MaxwellSimulation:initCell(i)
+function MaxwellRoeSolver:initCell(i)
 	local x = self.xs[i]
 	local Ex = 0
 	local Ey = 0
@@ -48,7 +48,7 @@ function MaxwellSimulation:initCell(i)
 	return {Ex * e0, Ey * e0, Ez * e0, Bx, By, Bz}
 end
 
-function MaxwellSimulation:calcInterfaceEigenBasis(i,qL,qR)
+function MaxwellRoeSolver:calcInterfaceEigenBasis(i,qL,qR)
 	local avgQ = {}
 	for j=1,self.numStates do
 		avgQ[j] = (qL[j] + qR[j]) / 2
@@ -93,7 +93,7 @@ function MaxwellSimulation:calcInterfaceEigenBasis(i,qL,qR)
 end
 
 local sigma = 1	-- conductivity
-function MaxwellSimulation:addSourceToDerivCell(dq_dts, i)
+function MaxwellRoeSolver:addSourceToDerivCell(dq_dts, i)
 	local eEx, eEy, eEz, Bx, By, Bz = unpack(self.qs[i])
 	local Ex = eEx / e0
 	local Ey = eEy / e0
@@ -103,5 +103,5 @@ function MaxwellSimulation:addSourceToDerivCell(dq_dts, i)
 	dq_dts[i][3] = dq_dts[i][3] - Ez * sigma
 end
 
-return MaxwellSimulation
+return MaxwellRoeSolver
 

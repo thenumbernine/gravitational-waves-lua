@@ -110,15 +110,13 @@ fluxMatrix;
 --]]
 
 require 'ext'
-local Simulation = require 'simulation'
 
-local ADM1D5VarSim = class(Simulation)
-ADM1D5VarSim.name = 'ADM1D5VarSim'
+local ADM1D5Var = class()
+ADM1D5Var.name = 'ADM1D5Var'
 
-ADM1D5VarSim.numStates = 5 
+ADM1D5Var.numStates = 5 
 
-function ADM1D5VarSim:init(args, ...)
-	ADM1D5VarSim.super.init(self, args, ...)
+function ADM1D5Var:init(args, ...)
 
 	local symmath = require 'symmath'
 	local function makesym(field)
@@ -152,7 +150,7 @@ function ADM1D5VarSim:init(args, ...)
 	self.calc.dalpha_f = dalpha_f:compile{args.f_param}
 end
 
-ADM1D5VarSim.graphInfos = table{
+ADM1D5Var.graphInfos = table{
 	{viewport={0/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] end, name='alpha', color={1,0,1}},
 	{viewport={0/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][3] end, name='A_x', color={0,1,0}},
 	{viewport={1/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][2] end, name='g_xx', color={.5,.5,1}},
@@ -162,12 +160,12 @@ ADM1D5VarSim.graphInfos = table{
 	{viewport={0/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
 	{viewport={1/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.fluxMatrixErrors[i]) end, name='log reconstruction error', color={1,0,0}, range={-30, 30}},
 }
-ADM1D5VarSim.graphInfoForNames = ADM1D5VarSim.graphInfos:map(function(info,i)
+ADM1D5Var.graphInfoForNames = ADM1D5Var.graphInfos:map(function(info,i)
 	return info, info.name
 end)
 
-function ADM1D5VarSim:initCell(i)
-	local x = self.xs[i]
+function ADM1D5Var:initCell(sim,i)
+	local x = sim.xs[i]
 	local alpha = self.calc.alpha(x)
 	local g_xx = self.calc.g_xx(x)
 	local A_x = self.calc.dx_alpha(x) / self.calc.alpha(x)
@@ -176,33 +174,33 @@ function ADM1D5VarSim:initCell(i)
 	return {alpha, g_xx, A_x, D_xxx, K_xx}
 end
 
-function ADM1D5VarSim:calcInterfaceEigenBasis(i,qL,qR)
+function ADM1D5Var:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local avgQ = {}
 	for j=1,self.numStates do
 		avgQ[j] = (qL[j] + qR[j]) / 2
 	end
 	
 	local alpha, g_xx, A_x, D_xxx, K_xx = unpack(avgQ)
-	local x = self.ixs[i]
+	local x = sim.ixs[i]
 	local f = self.calc.f(alpha)
 	local lambda = alpha * sqrt(f / g_xx)		
-	self.eigenvalues[i] = {-lambda, 0, 0, 0, lambda}
+	sim.eigenvalues[i] = {-lambda, 0, 0, 0, lambda}
 	-- row-major, math-indexed
-	self.fluxMatrix[i] = {
+	sim.fluxMatrix[i] = {
 		{0,0,0,0,0},
 		{0,0,0,0,0},
 		{f*K_xx/g_xx, -alpha*f*K_xx/g_xx^2, 0,0, alpha*f/g_xx},
 		{K_xx,0,0,0,alpha},
 		{A_x,0,alpha,0,0},
 	}
-	self.eigenvectors[i] = {
+	sim.eigenvectors[i] = {
 		{0,			alpha,	0,	0,	0			},	-- alpha
 		{0,			0,		0,	1,	0			},	-- g_xx
 		{f/g_xx,		-A_x,		0,	0,	f/g_xx			},	-- A_x
 		{1,			0,		1,	0,	1			},	-- D_xxx
 		{-sqrt(f/g_xx),-K_xx,		0,	0,	sqrt(f/g_xx)	},	-- K_xx
 	}
-	self.eigenvectorsInverse[i] = {
+	sim.eigenvectorsInverse[i] = {
 		{(g_xx * A_x / f - K_xx * sqrt(g_xx / f)) / (2 * alpha), 0, g_xx / (2 * f), 0, -.5 * sqrt(g_xx / f)}, 
 		{1 / alpha, 0, 0, 0, 0}, 
 		{-(g_xx * A_x) / (alpha * f), 0, -g_xx / f, 1, 0}, 
@@ -212,46 +210,5 @@ function ADM1D5VarSim:calcInterfaceEigenBasis(i,qL,qR)
 	-- note that because we have zero eigenvalues that the eigendecomposition cannot reconstruct the flux matrix
 end	
 	
-local function buildField(call)
-	return function(self, i, v)
-		local v1, v2, v3, v4, v5 = unpack(v)
-		
-		local avgQ = {}
-		for j=1,self.numStates do 
-			avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
-		end
-		local alpha, g_xx, A_x, D_xxx, K_xx = unpack(avgQ)
-		local f = self.calc.f(alpha)
-		return {call(alpha, f, g_xx, A_x, D_xxx, K_xx, v1, v2, v3, v4, v5)}
-	end
-end
-
-ADM1D5VarSim.fluxTransform = buildField(function(alpha, f, g_xx, A_x, D_xxx, K_xx, v1, v2, v3, v4, v5)
-	return 
-		0,
-		0,
-		v1*f*K_xx/g_xx - v2*alpha*f*K_xx/g_xx^2 + v5*alpha*f/g_xx,
-		v1*K_xx + v5*alpha,
-		v1*A_x + v3*alpha
-end)
---[[fixme
-ADM1D5VarSim.eigenfields = buildField(function(alpha, f, g_xx, A_x, D_xxx, K_xx, v1, v2, v3, v4, v5)
-	return 
-		v1 * (g_xx * A_x / f - K_xx * sqrt(g_xx / f)) / (2 * alpha) + v3 * g_xx / (2 * f) - v5 * .5 * sqrt(g_xx / f),
-		v1 / alpha,
-		-v1 * (g_xx * A_x) / (alpha * f) - v3 * g_xx / f + v4,
-		v2,
-		v1 * (g_xx * A_x / f + K_xx * sqrt(g_xx / f)) / (2 * alpha) + v3 * g_xx / (2 * f) + v5 * .5 * sqrt(g_xx / f) 
-end),
---]]
-
-function ADM1D5VarSim:addSourceToDerivCell(dq_dts, i)
-	local alpha, g_xx, A_x, D_xxx, K_xx = unpack(self.qs[i])
-	local f = self.calc.f(alpha)
-	dq_dts[i][1] = dq_dts[i][1] - alpha * alpha * f * K_xx / g_xx
-	dq_dts[i][2] = dq_dts[i][2] - 2 * alpha * K_xx
-	dq_dts[i][5] = dq_dts[i][5] + alpha * (A_x * D_xxx - K_xx * K_xx) / g_xx
-end
-
-return ADM1D5VarSim
+return ADM1D5Var
 

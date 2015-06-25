@@ -1,24 +1,25 @@
-require 'ext'
-local Simulation = require 'simulation'
-local Euler1DSim = class(Simulation)
+local table = require 'ext.table'
+local class = require 'ext.class'
 
-Euler1DSim.numStates = 3
-Euler1DSim.gamma = 5/3	
+local Euler1D = class()
 
-Euler1DSim.graphInfos = table{
+Euler1D.numStates = 3
+Euler1D.gamma = 5/3	
+
+Euler1D.graphInfos = table{
 	{viewport={0/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][1] end, name='rho', color={1,0,1}},
 	{viewport={1/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][2] / self.qs[i][1] end, name='u', color={0,1,0}},
 	{viewport={2/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][3] / self.qs[i][1] end, name='E', color={.5,.5,1}},
-	{viewport={0/3, 1/2, 1/3, 1/2}, getter=function(self,i) return math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
-	{viewport={1/3, 1/2, 1/3, 1/2}, getter=function(self,i) return math.log(self.fluxMatrixErrors[i]) end, name='log reconstruction error', color={1,0,0}, range={-30, 30}},
+	{viewport={0/3, 1/2, 1/3, 1/2}, getter=function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
+	{viewport={1/3, 1/2, 1/3, 1/2}, getter=function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end, name='log reconstruction error', color={1,0,0}, range={-30, 30}},
 }
-Euler1DSim.graphInfoForNames = Euler1DSim.graphInfos:map(function(info,i)
+Euler1D.graphInfoForNames = Euler1D.graphInfos:map(function(info,i)
 	return info, info.name
 end)
 
-function Euler1DSim:initCell(i)
+function Euler1D:initCell(sim,i)
 	-- [[ Sod
-	local rho = self.xs[i] < 0 and 1 or .1
+	local rho = sim.xs[i] < 0 and 1 or .1
 	local u = 0
 	local E = 1	+ .5 * u * u	-- internal + kinetic
 	--]]
@@ -26,17 +27,17 @@ function Euler1DSim:initCell(i)
 	local rho = 1
 	local u = 0
 	local E
-	if i == math.floor(self.gridsize/2) then
-		E = 1e+3 / ((self.gamma - 1) * rho)
+	if i == math.floor(sim.gridsize/2) then
+		E = 1e+3 / ((sim.gamma - 1) * rho)
 	else
-		E = 1 / ((self.gamma - 1) * rho)
+		E = 1 / ((sim.gamma - 1) * rho)
 	end
 	--]]
 	return {rho, rho * u, rho * E}
 end
 
 -- used by HLL
-function Euler1DSim:calcFluxForState(q, flux)
+function Euler1D:calcFluxForState(q, flux)
 	flux = flux or {}
 	local gamma = self.gamma
 	flux[1] = q[2]
@@ -46,7 +47,7 @@ function Euler1DSim:calcFluxForState(q, flux)
 end
 
 -- used by HLL
-function Euler1DSim:calcInterfaceEigenvalues(qL, qR, S)
+function Euler1D:calcInterfaceEigenvalues(sim, qL, qR, S)
 	S = S or {}
 	
 	local gamma = self.gamma
@@ -81,7 +82,7 @@ end
 
 -- used by Roe
 -- TODO fluxMatrix and reconstruction error is broken
-function Euler1DSim:calcInterfaceEigenBasis(i,qL,qR)
+function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local gamma = self.gamma
 	
 	local rhoL = qL[1]
@@ -107,7 +108,7 @@ function Euler1DSim:calcInterfaceEigenBasis(i,qL,qR)
 	
 	local Cs = sqrt((gamma - 1) * (H - .5 * u^2))
 	
-	local F = self.fluxMatrix[i]
+	local F = sim.fluxMatrix[i]
 	F[1][1] = 0
 	F[1][2] = 1
 	F[1][3] = 0
@@ -118,12 +119,12 @@ function Euler1DSim:calcInterfaceEigenBasis(i,qL,qR)
 	F[3][2] = H + (1-gamma) * u*u
 	F[3][3] = gamma * u
 	
-	local S = self.eigenvalues[i]
+	local S = sim.eigenvalues[i]
 	S[1] = u - Cs
 	S[2] = u
 	S[3] = u + Cs
 	
-	local U = self.eigenvectors[i]
+	local U = sim.eigenvectors[i]
 	U[1][1] = 1
 	U[1][2] = 1
 	U[1][3] = 1
@@ -135,7 +136,7 @@ function Euler1DSim:calcInterfaceEigenBasis(i,qL,qR)
 	U[3][3] = H + Cs * u
 	
 	-- [[ symbolically
-	local V = self.eigenvectorsInverse[i]
+	local V = sim.eigenvectorsInverse[i]
 	V[1][1] = (.5 * (gamma - 1) * u^2 + Cs * u) / (2 * Cs^2)
 	V[1][2] = -(Cs + (gamma - 1) * u) / (2 * Cs^2)
 	V[1][3] = (gamma - 1) / (2 * Cs^2)
@@ -174,5 +175,5 @@ function Euler1DSim:calcInterfaceEigenBasis(i,qL,qR)
 	--]]
 end
 
-return Euler1DSim
+return Euler1D
 

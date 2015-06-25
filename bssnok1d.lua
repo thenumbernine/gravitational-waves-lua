@@ -150,12 +150,10 @@ invert(eigenvectors);
 
 --]]
 require 'ext'
-local Simulation = require 'simulation'
-local BSSNOK1DSim = class(Simulation)
-BSSNOK1DSim.numStates = 6
+local BSSNOK1D = class()
+BSSNOK1D.numStates = 6
 
-function BSSNOK1DSim:init(args, ...)
-	BSSNOK1DSim.super.init(self, args, ...)
+function BSSNOK1D:init(args, ...)
 	local symmath = require 'symmath'
 	local function makesym(field)
 		return symmath.clone(assert(args[field], "expected to find field "..field)):simplify() 
@@ -193,7 +191,7 @@ end
 --phi = -1/(4*n) ln g_xx
 -- exp(-4n phi) = g_xx for n=1
 -- volume = sqrt(g_xx) = sqrt(exp(-4n phi)) = exp(-2n phi)
-BSSNOK1DSim.graphInfos = table{
+BSSNOK1D.graphInfos = table{
 	{viewport={0/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] end, name='alpha', color={1,0,1}},
 	{viewport={0/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][3] end, name='A_x', color={0,1,0}},
 	{viewport={1/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][2] end, name='phi', color={.5,.5,1}},
@@ -204,12 +202,12 @@ BSSNOK1DSim.graphInfos = table{
 	{viewport={1/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.fluxMatrixErrors[i]) end, name='log reconstruction error', color={1,0,0}, range={-30, 30}},
 	{viewport={2/3, 2/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] * math.exp(-2 * self.qs[i][2]) end, name='volume', color={0,1,1}},
 }
-BSSNOK1DSim.graphInfoForNames = BSSNOK1DSim.graphInfos:map(function(info,i)
+BSSNOK1D.graphInfoForNames = BSSNOK1D.graphInfos:map(function(info,i)
 	return info, info.name
 end)
 
-function BSSNOK1DSim:initCell(i)
-	local x = self.xs[i]
+function BSSNOK1D:initCell(sim,i)
+	local x = sim.xs[i]
 	local alpha = self.calc.alpha(x)
 	local phi = self.calc.phi(x)
 	local A_x = self.calc.A_x(x)
@@ -219,7 +217,7 @@ function BSSNOK1DSim:initCell(i)
 	return {alpha, phi, A_x, Phi_x, K, ATilde_xx}
 end
 
-function BSSNOK1DSim:calcInterfaceEigenBasis(i,qL,qR)
+function BSSNOK1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local avgQ = {}
 	for j=1,self.numStates do
 		avgQ[j] = (qL[j] + qR[j]) / 2
@@ -235,9 +233,9 @@ function BSSNOK1DSim:calcInterfaceEigenBasis(i,qL,qR)
 	local f_1_2 = sqrt(f)
 	local f_3_2 = f * f_1_2
 	local lambda = -alpha * f_1_2 * ie2p
-	self.eigenvalues[i] = {-lambda, 0, 0, 0, 0, lambda}
+	sim.eigenvalues[i] = {-lambda, 0, 0, 0, 0, lambda}
 	-- row-major, math-indexed
-	self.fluxMatrix[i] = {
+	sim.fluxMatrix[i] = {
 		{0,0,0,0,0,0},
 		{0,0,0,0,0,0},
 		{alpha * dalpha_f * K, 0, 0, 0, alpha * f, 0},
@@ -245,7 +243,7 @@ function BSSNOK1DSim:calcInterfaceEigenBasis(i,qL,qR)
 		{0, 0, alpha * ie4p, 0, 0, 0},
 		{0, 0, alpha * ie4p, 2 * alpha * ie4p, 0, 0},
 	}
-	self.eigenvectors[i] = {
+	sim.eigenvectors[i] = {
 		{0, 1, 0, 0, 0, 0},
 		{0, 0, 1, 0, 0, 0},
 		{6*f_3_2*e2p, 0, 0, 0, 0, 6*f_3_2*e2p},
@@ -254,7 +252,7 @@ function BSSNOK1DSim:calcInterfaceEigenBasis(i,qL,qR)
 		{-6*f-2, 0, 0, 0, 1, 6*f+2},
 	}
 	local tmp1 = e2p/(36*f_3_2)+ie2p/f_1_2
-	self.eigenvectorsInverse[i] = {
+	sim.eigenvectorsInverse[i] = {
 		{0, 0, ie2p/(6*f_3_2)*(1 - .5*(f_1_2*e2p*tmp1)), e2p/(72*f_3_2), -1/(12*f), 0},
 		{1,0,0,0,0,0},
 		{0,1,0,0,0,0},
@@ -264,12 +262,5 @@ function BSSNOK1DSim:calcInterfaceEigenBasis(i,qL,qR)
 	}
 end
 
-function BSSNOK1DSim:addSourceToDerivCell(dq_dts, i)
-	local alpha, phi, A_x, Phi_x, K, ATilde_xx = unpack(self.qs[i])
-	local f = self.calc.f(alpha)
-	dq_dts[i][1] = dq_dts[i][1] - alpha * alpha * f * K
-	dq_dts[i][2] = dq_dts[i][2] - alpha * K / 6
-end
-
-return BSSNOK1DSim
+return BSSNOK1D
 

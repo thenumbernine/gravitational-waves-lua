@@ -3,7 +3,6 @@
 require 'ext'
 local fluxLimiters = require 'limiter' 
 local boundaryMethods = require 'boundary'
-local schemes = require 'scheme'
 
 -- here's some globals I have to get rid of
 
@@ -19,7 +18,7 @@ local symmath = require 'symmath'
 -- setup
 local sims = table()
 
---[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+-- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -50,11 +49,11 @@ do
 	}
 
 	-- [=[ compare different equations/formalisms 
-	sims:insert(require'adm1d3var'(args))		-- \_ these two are identical
-	sims:insert(require'adm1d3to5var'(args))	-- /
-	sims:insert(require'adm1d5var'(args))		--> this one, for 1st iter, calcs A_x half what it should
-	--sims:insert(require'bssnok1d'(args))
-	--sims:insert(require'adm3d'(args))
+	--sims:insert(require'adm1d3var_roe'(args))		-- \_ these two are identical
+	--sims:insert(require'adm1d3to5var_roe'(args))	-- /
+	--sims:insert(require'adm1d5var_roe'(args))		--> this one, for 1st iter, calcs A_x half what it should
+	--sims:insert(require'bssnok1d_roe'(args))
+	sims:insert(require'adm3d_roe'(args))
 	--]=]
 
 	for _,sim in ipairs(sims) do
@@ -205,51 +204,55 @@ end
 --]]
 
 
--- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+--[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
-	local simClass = require'euler1d'
-	--local simClass = require'mhd'
+	--local solverClass = require 'euler1d_roe'
+	--local solverClass = require 'euler1d_hll'
+	local solverClass = require 'euler1d_burgers'
 	
 	local args = {
 		gridsize = 200,
 		domain = {xmin=-1, xmax=1},
 		boundaryMethod = boundaryMethods.mirror,
+		equation = require 'euler1d'(),
+		--equation = require 'mhd'(),
 		--fluxLimiter = fluxLimiters.donorCell,
 		fluxLimiter = fluxLimiters.superbee,
-		--scheme = schemes.EulerBurgers(),
-		--scheme = schemes.Roe(),	-- default
-		--scheme = schemes.HLL(),
-		-- [=[
-		scheme = schemes.EulerMUSCL{
-			baseScheme = schemes.EulerBurgers(),
+		--[=[
+		scheme = require 'euler1d_muscl'{
+			baseScheme = require 'euler1d_burgers'(),
 			slopeLimiter = fluxLimiters.Fromm,
 		}
 		--]=]
 	}
 	
-	-- [=[
-	sims:insert(simClass(args))
+	-- [=[ compare schemes
+	--sims:insert(require 'euler1d_burgers'(args))
+	--sims:insert(require 'euler1d_hll'(args))
+	sims:insert(require 'euler1d_roe'(args))
 	--]=]
 
 	--[=[ compare flux limiters
-	sims:insert(simClass(table(args, {fluxLimiter = fluxLimiters.donorCell})))
-	sims:insert(simClass(table(args, {fluxLimiter = fluxLimiters.LaxWendroff})))
-	sims:insert(simClass(table(args, {fluxLimiter = fluxLimiters.MC})))
-	sims:insert(simClass(table(args, {fluxLimiter = fluxLimiters.superbee})))
+	sims:insert(solverClass(table(args, {fluxLimiter = fluxLimiters.donorCell})))
+	sims:insert(solverClass(table(args, {fluxLimiter = fluxLimiters.LaxWendroff})))
+	sims:insert(solverClass(table(args, {fluxLimiter = fluxLimiters.MC})))
+	sims:insert(solverClass(table(args, {fluxLimiter = fluxLimiters.superbee})))
 	--]=]
 
 	--[=[ compare schemes
-	--sims:insert(simClass(table(args, {scheme = schemes.EulerBurgers()})))
-	sims:insert(simClass(table(args, {scheme = schemes.Roe()})))
-	--sims:insert(simClass(table(args, {scheme = schemes.HLL()})))
-	sims:insert(simClass(table(args, {scheme = schemes.EulerMUSCL{baseScheme = schemes.Roe()}})))
-	--sims:insert(simClass(table(args, {scheme = schemes.EulerMUSCL{baseScheme = schemes.HLL()}})))
-	--sims:insert(simClass(table(args, {scheme = schemes.HLLC()})))	-- TODO 
+	--sims:insert(solverClass(table(args, {scheme = schemes.EulerBurgers()})))
+	sims:insert(solverClass(table(args, {scheme = schemes.Roe()})))
+	--sims:insert(solverClass(table(args, {scheme = schemes.HLL()})))
+	sims:insert(solverClass(table(args, {scheme = schemes.EulerMUSCL{baseScheme = schemes.Roe()}})))
+	--sims:insert(solverClass(table(args, {scheme = schemes.EulerMUSCL{baseScheme = schemes.HLL()}})))
+	--sims:insert(solverClass(table(args, {scheme = schemes.HLLC()})))	-- TODO 
 	--]=]
 
+	--[=[
 	for _,sim in ipairs(sims) do
 		sim.fixed_dt = 1/512
 	end
+	--]=]
 end
 --]]
 
@@ -375,21 +378,24 @@ function TestApp:update(...)
 	local w, h = self:size()
 	
 	-- just use the first sim's infos
-	for name,info in pairs(sims[1].graphInfoForNames) do
+	for name,info in pairs(sims[1].equation.graphInfoForNames) do
 			
 		local xmin, xmax, ymin, ymax
 		for _,sim in ipairs(sims) do
 			sim.ys = {}
 			local simymin, simymax
 			for i=1,sim.gridsize do
-				local siminfo = sim.graphInfoForNames[name]
+				local siminfo = sim.equation.graphInfoForNames[name]
 				if siminfo then
 					local y = siminfo.getter(sim,i)
-					if not y then error("failed to get for getter "..info.name) end
-					sim.ys[i] = y
-					if y == y and abs(y) < huge then
-						if not simymin or y < simymin then simymin = y end
-						if not simymax or y > simymax then simymax = y end
+					if not y then 
+						--error("failed to get for getter "..info.name)
+					else
+						sim.ys[i] = y
+						if y == y and abs(y) < huge then
+							if not simymin or y < simymin then simymin = y end
+							if not simymax or y > simymax then simymax = y end
+						end
 					end
 				end
 			end

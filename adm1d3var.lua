@@ -60,17 +60,15 @@ then use the nonlinear transforms to recover state variables
 
 --]]
 
-require 'ext'
-local Simulation = require 'simulation'
+local class = require 'ext.class'
 
-local ADM1D3VarSim = class(Simulation)
-ADM1D3VarSim.name = 'ADM1D3VarSim'
+local ADM1D3Var = class()
+ADM1D3Var.name = 'ADM1D3Var'
 
-ADM1D3VarSim.numStates = 3
+ADM1D3Var.numStates = 3
 
 -- initial conditions
-function ADM1D3VarSim:init(args, ...)
-	ADM1D3VarSim.super.init(self, args, ...)
+function ADM1D3Var:init(args, ...)
 
 	local symmath = require 'symmath'
 	local function makesym(field)
@@ -104,7 +102,7 @@ function ADM1D3VarSim:init(args, ...)
 	self.calc.dalpha_f = dalpha_f:compile{f_param}
 end
 
-ADM1D3VarSim.graphInfos = table{
+ADM1D3Var.graphInfos = table{
 	{viewport={0/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i].alpha end, name='alpha', color={1,0,1}},
 	{viewport={0/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] end, name='A_x', color={0,1,0}},
 	{viewport={1/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i].g_xx end, name='g_xx', color={.5,.5,1}},
@@ -114,95 +112,12 @@ ADM1D3VarSim.graphInfos = table{
 	{viewport={0/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
 	{viewport={1/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.fluxMatrixErrors[i]) end, name='log reconstuction error', color={1,0,0}, range={-30, 30}},
 }
-ADM1D3VarSim.graphInfoForNames = ADM1D3VarSim.graphInfos:map(function(info,i)
+ADM1D3Var.graphInfoForNames = ADM1D3Var.graphInfos:map(function(info,i)
 	return info, info.name
 end)
 
-local State = class(Simulation.State)
-
-function State:init(...)
-	State.super.init(self, ...)
-	for i=1,#self do
-		self[i].alpha = 0
-		self[i].g_xx = 0
-	end
-end
-
-function State.__add(a,b)
-	local c = State(#a, #a[1])
-	for i=1,#a do
-		for j=1,#a[1] do
-			c[i][j] = a[i][j] + b[i][j]
-		end
-		c[i].alpha = a[i].alpha + b[i].alpha
-		c[i].g_xx = a[i].g_xx + b[i].g_xx
-	end
-	return c
-end
-
-function State.__mul(a,b)
-	local function is(x) return type(x) == 'table' and x.isa and x:isa(State) end
-	local src = is(a) and a or b
-	local c = State(#src, #src[1])
-	for i=1,#src do
-		for j=1,#src[1] do
-			local aij = type(a) == 'number' and a or a[i][j]
-			local bij = type(b) == 'number' and b or b[i][j]
-			c[i][j] = aij * bij
-		end
-		c[i].alpha = (type(a) == 'number' and a or a[i].alpha) * (type(b) == 'number' and b or b[i].alpha)
-		c[i].g_xx = (type(a) == 'number' and a or a[i].g_xx) * (type(b) == 'number' and b or b[i].g_xx)
-	end
-	return c
-end
-
-
-ADM1D3VarSim.State = State
-
-local function buildField(call)
-	return function(self, i, v)
-		local v1, v2, v3 = unpack(v)
-		
-		local avgQ = {}
-		for j=1,self.numStates do 
-			avgQ[j] = (self.qs[i-1][j] + self.qs[i][j]) / 2
-		end
-		avgQ.alpha = (self.qs[i-1].alpha + self.qs[i].alpha) / 2
-		avgQ.g_xx = (self.qs[i-1].g_xx + self.qs[i].g_xx) / 2
-		
-		local A_x, D_xxx, KTilde_xx = unpack(avgQ)
-		local x = self.ixs[i]
-		local alpha = avgQ.alpha
-		local g_xx = avgQ.g_xx
-		local f = self.calc.f(alpha)
-
-		return {call(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)}
-	end
-end
-
-ADM1D3VarSim.fluxTransform = buildField(function(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
-	return
-		v3 * alpha * f / sqrt(g_xx),
-		v3 * 2 * alpha / sqrt(g_xx),
-		v1 * alpha / sqrt(g_xx)
-end)
-
-ADM1D3VarSim.eigenfields = buildField(function(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
-	return
-		v1 / (2 * f) - v3 / (2 * sqrt(f)),
-		-2*v1/f + v2,
-		v1 / (2 * f) + v3 / (2 * sqrt(f))
-end)
-
-ADM1D3VarSim.eigenfieldsInverse = buildField(function(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
-	return
-		(v1 + v3) * f,
-		2 * v1 + v2 + 2 * v3,
-		sqrt(f) * (-v1 + v3)
-end)
-
-function ADM1D3VarSim:initCell(i)
-	local x = self.xs[i]
+function ADM1D3Var:initCell(sim,i)
+	local x = sim.xs[i]
 	local alpha = self.calc.alpha(x)
 	local g_xx = self.calc.g_xx(x)
 	local A_x = self.calc.dx_alpha(x) / self.calc.alpha(x)
@@ -212,42 +127,13 @@ function ADM1D3VarSim:initCell(i)
 	return {alpha=alpha, g_xx=g_xx, A_x, D_xxx, KTilde_xx}
 end
 
-function ADM1D3VarSim:calcInterfaceEigenBasis(i,qL,qR)
+function ADM1D3Var:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local alpha = (qL.alpha + qR.alpha) / 2
 	local g_xx = (qL.g_xx + qR.g_xx) / 2
 	local f = self.calc.f(alpha)
-	local lambda = alpha * sqrt(f / g_xx)		
-	self.eigenvalues[i] = {-lambda, 0, lambda}
+	local lambda = alpha * sqrt(f / g_xx)
+	sim.eigenvalues[i] = {-lambda, 0, lambda}
 end
 
-function ADM1D3VarSim:zeroDeriv(dq_dts)
-	ADM1D3VarSim.super.zeroDeriv(self, dq_dts)
-	-- zero deriv
-	for i=1,self.gridsize do
-		dq_dts[i].alpha = 0
-		dq_dts[i].g_xx = 0
-	end
-end
-
-function ADM1D3VarSim:addSourceToDerivCell(dq_dts, i)
-	local A_x, D_xxx, KTilde_xx = unpack(self.qs[i])
-	local alpha = self.qs[i].alpha
-	local g_xx = self.qs[i].g_xx
-	local f = self.calc.f(alpha)
-	local dalpha_f = self.calc.dalpha_f(alpha)
-	
-	dq_dts[i].alpha = dq_dts[i].alpha - alpha * alpha * f * KTilde_xx / (g_xx * sqrt(g_xx))
-	dq_dts[i].g_xx = dq_dts[i].g_xx - 2 * alpha * KTilde_xx / sqrt(g_xx)
-end
-
-function ADM1D3VarSim:integrateDeriv(dq_dts, dt)
-	ADM1D3VarSim.super.integrateDeriv(self, dq_dts, dt)
-	for i=1,self.gridsize do
-		self.qs[i].alpha = self.qs[i].alpha + dt * dq_dts[i].alpha
-		self.qs[i].g_xx = self.qs[i].g_xx + dt * dq_dts[i].g_xx
-	end
-	self.t = self.t + dt
-end
-
-return ADM1D3VarSim
+return ADM1D3Var
 
