@@ -87,15 +87,16 @@ for lambda = alpha*sqrt(f/g_rr)
 	v = [0, 0, 0, 1, 0, 0, sqrt(f/g_rr), sqrt(f*g_rr)/g_hh, 2]
 
 --]]
-require 'ext'
-local RoeSolver = require 'roesolver'
-local ADM2DSphericalRoeSolver = class(RoeSolver)
+local class = require 'ext.class'
+local table = require 'ext.table'
+
+local ADM2DSpherical = class()
 	
-ADM2DSphericalRoeSolver.numStates = 9
+ADM2DSpherical.numStates = 9
 
 -- initial conditions
-function ADM2DSphericalRoeSolver:init(args, ...)
-	ADM2DSphericalRoeSolver.super.init(self, args, ...)
+function ADM2DSpherical:init(args, ...)
+	ADM2DSpherical.super.init(self, args, ...)
 
 	local symmath = require 'symmath'
 
@@ -167,7 +168,7 @@ function ADM2DSphericalRoeSolver:init(args, ...)
 	end)
 end
 
-function ADM2DSphericalRoeSolver:initCell(i)
+function ADM2DSpherical:initCell(i)
 	local r = self.xs[i]
 	local alpha = self.calc_alpha(r)
 	local g_rr = self.calc_g_rr(r)
@@ -181,7 +182,7 @@ function ADM2DSphericalRoeSolver:initCell(i)
 	return {alpha, g_rr, g_hh, A_r, D_rrr, D_rhh, K_rr, K_hh, V_r}
 end
 
-function ADM2DSphericalRoeSolver:calcInterfaceEigenBasis(i,qL,qR)
+function ADM2DSpherical:calcInterfaceEigenBasis(i,qL,qR)
 	local avgQ = {}
 	for j=1,self.numStates do
 		avgQ[j] = (qL[j] + qR[j]) / 2
@@ -234,7 +235,7 @@ function ADM2DSphericalRoeSolver:calcInterfaceEigenBasis(i,qL,qR)
 	}
 end
 
-function ADM2DSphericalRoeSolver:addSourceToDerivCell(dq_dts, i)
+function ADM2DSpherical:addSourceToDerivCell(dq_dts, i)
 	local alpha, g_rr, g_hh, A_r, D_rrr, D_rhh, K_rr, K_hh, V_r = unpack(self.qs[i])
 	local f = self.calc_f(alpha)
 	local tr_K = K_rr / g_rr + K_hh / g_hh
@@ -250,8 +251,8 @@ function ADM2DSphericalRoeSolver:addSourceToDerivCell(dq_dts, i)
 	dq_dts[i][9] = dq_dts[i][9] + alpha * P_r
 end
 
-function ADM2DSphericalRoeSolver:iterate(...)
-	ADM2DSphericalRoeSolver.super.iterate(self, ...)
+function ADM2DSpherical:iterate(...)
+	ADM2DSpherical.super.iterate(self, ...)
 	-- enforce constraint of V_r = 2 * D_rhh / g_hh
 	-- i.e. 1 = 2 * D_rhh / (g_hh * V_r)
 	for i=1,self.gridsize do
@@ -269,5 +270,5 @@ function ADM2DSphericalRoeSolver:iterate(...)
 	end
 end
 
-return ADM2DSphericalRoeSolver
+return ADM2DSpherical
 

@@ -109,7 +109,8 @@ fluxMatrix;
 
 --]]
 
-require 'ext'
+local class = require 'ext.class'
+local table = require 'ext.table'
 
 local ADM1D5Var = class()
 ADM1D5Var.name = 'ADM1D5Var'

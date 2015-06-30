@@ -35,5 +35,35 @@ function State.__mul(a,b)
 	return c
 end
 
+function State.__unm(a)
+	return -1 * a
+end
+
+function State.__sub(a,b)
+	return a + -b
+end
+
+function State:clone()
+	local h = #self
+	local w = #self[1]
+	local new = State(h, w)
+	for i=1,h do
+		for j=1,w do
+			new[i][j] = self[i][j]
+		end
+	end
+	return new
+end
+
+function State.dot(a,b)
+	local s = 0
+	for i=1,#a do
+		for j=1,#a[1] do
+			s = s + a[i][j] * b[i][j]
+		end
+	end
+	return s
+end
+
 return State
 

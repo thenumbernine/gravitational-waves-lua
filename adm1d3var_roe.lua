@@ -23,6 +23,15 @@ function State:init(...)
 	end
 end
 
+function State:clone()
+	local dst = State.super.clone(self)
+	for i=1,#self do
+		dst[i].alpha = self[i].alpha
+		dst[i].g_xx = self[i].g_xx
+	end
+	return dst
+end
+
 function State.__add(a,b)
 	local c = State(#a, #a[1])
 	for i=1,#a do

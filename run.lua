@@ -1,6 +1,8 @@
 #!/usr/bin/env luajit
 
-require 'ext'
+local class = require 'ext.class'
+local table = require 'ext.table'
+
 local fluxLimiters = require 'limiter' 
 local boundaryMethods = require 'boundary'
 
@@ -18,7 +20,7 @@ local symmath = require 'symmath'
 -- setup
 local sims = table()
 
--- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+--[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -53,7 +55,8 @@ do
 	--sims:insert(require'adm1d3to5var_roe'(args))	-- /
 	--sims:insert(require'adm1d5var_roe'(args))		--> this one, for 1st iter, calcs A_x half what it should
 	--sims:insert(require'bssnok1d_roe'(args))
-	sims:insert(require'adm3d_roe'(args))
+	--sims:insert(require'adm3d_roe'(args))
+	sims:insert(require'bssnok1d_backwardeuler_newton'(args))
 	--]=]
 
 	for _,sim in ipairs(sims) do
@@ -204,11 +207,11 @@ end
 --]]
 
 
---[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+-- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
-	--local solverClass = require 'euler1d_roe'
+	local solverClass = require 'euler1d_roe'
 	--local solverClass = require 'euler1d_hll'
-	local solverClass = require 'euler1d_burgers'
+	--local solverClass = require 'euler1d_burgers'
 	
 	local args = {
 		gridsize = 200,
@@ -229,7 +232,10 @@ do
 	-- [=[ compare schemes
 	--sims:insert(require 'euler1d_burgers'(args))
 	--sims:insert(require 'euler1d_hll'(args))
-	sims:insert(require 'euler1d_roe'(args))
+	--sims:insert(require 'euler1d_roe'(args))
+	sims:insert(require 'euler1d_roe_backwardeuler_conjres'(args))
+	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
+	--sims:insert(require 'euler1d_backwardeuler_conjres'(args))
 	--]=]
 
 	--[=[ compare flux limiters

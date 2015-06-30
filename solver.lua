@@ -55,14 +55,18 @@ function Solver:integrate(dt, dq_dts)
 	self.qs = self.integrator:integrate(self.qs, dt, dq_dts)
 end
 
+function Solver:integrateFlux(dt)
+	self:integrate(dt, function()
+		return self:calcFlux(dt)
+	end)
+end
+
 function Solver:iterate()
 	self:boundaryMethod()
 	
 	local dt = self:calcDT()
 
-	self:integrate(dt, function()
-		return self:calcFlux(dt)
-	end)
+	self:integrateFlux(dt)
 
 	self:integrate(dt, function()
 		return self:addSourceToDeriv()

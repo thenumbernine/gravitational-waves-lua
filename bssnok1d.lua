@@ -147,9 +147,9 @@ subst([f=-1/3],%)$ratsimp(%);
 /* [wxMaxima: input   start ] */
 invert(eigenvectors);
 /* [wxMaxima: input   end   ] */
-
 --]]
-require 'ext'
+
+local class = require 'ext.class'
 local BSSNOK1D = class()
 BSSNOK1D.numStates = 6
 
@@ -198,8 +198,8 @@ BSSNOK1D.graphInfos = table{
 	{viewport={1/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][4] end, name='Phi_x', color={1,1,0}},
 	{viewport={2/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][5] end, name='K', color={0,1,1}},
 	{viewport={2/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][6] end, name='ATilde_xx', color={0,1,1}},
-	{viewport={0/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
-	{viewport={1/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.fluxMatrixErrors[i]) end, name='log reconstruction error', color={1,0,0}, range={-30, 30}},
+	--{viewport={0/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
+	--{viewport={1/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.fluxMatrixErrors[i]) end, name='log reconstruction error', color={1,0,0}, range={-30, 30}},
 	{viewport={2/3, 2/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] * math.exp(-2 * self.qs[i][2]) end, name='volume', color={0,1,1}},
 }
 BSSNOK1D.graphInfoForNames = BSSNOK1D.graphInfos:map(function(info,i)

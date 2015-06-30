@@ -2,7 +2,8 @@
 3-var system extrapolated to 5-vars so the integration of alpha and g_xx are not separate
 --]]
 
-require 'ext'
+local class = require 'ext.class'
+local table = require 'ext.table'
 
 local ADM1D3to5Var = class()
 ADM1D3to5Var.name = 'ADM1D3to5Var'

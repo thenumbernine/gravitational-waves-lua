@@ -26,6 +26,12 @@ bssnok1d.lua is a hodge-podge of the BSSNOK partial wrt time and the hyperbolic 
 
 
 
+and then I started adding attempts at implicit solvers.
+the backward-euler conj.res. implicit and the backward-euler newton+conj.res. implicit don't work so great at the moment.
+the roe+backward-euler conj.res. implicit is stable for a while, but with some errors at boundary conditions (which probably what makes it explode... I hope)
+
+
+
 TODO
 
 - f = 1 + 1/alpha^2 no longer behaves correctly, even diverges in the 5-var system
