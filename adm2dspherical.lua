@@ -96,8 +96,6 @@ ADM2DSpherical.numStates = 9
 
 -- initial conditions
 function ADM2DSpherical:init(args, ...)
-	ADM2DSpherical.super.init(self, args, ...)
-
 	local symmath = require 'symmath'
 
 	local r = assert(args.r)
@@ -168,8 +166,8 @@ function ADM2DSpherical:init(args, ...)
 	end)
 end
 
-function ADM2DSpherical:initCell(i)
-	local r = self.xs[i]
+function ADM2DSpherical:initCell(sim,i)
+	local r = sim.xs[i]
 	local alpha = self.calc_alpha(r)
 	local g_rr = self.calc_g_rr(r)
 	local g_hh = self.calc_g_hh(r)
@@ -182,25 +180,25 @@ function ADM2DSpherical:initCell(i)
 	return {alpha, g_rr, g_hh, A_r, D_rrr, D_rhh, K_rr, K_hh, V_r}
 end
 
-function ADM2DSpherical:calcInterfaceEigenBasis(i,qL,qR)
+function ADM2DSpherical:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local avgQ = {}
 	for j=1,self.numStates do
 		avgQ[j] = (qL[j] + qR[j]) / 2
 	end
 	
 	local alpha, g_rr, g_hh, A_r, D_rrr, D_rhh, K_rr, K_hh, V_r = unpack(avgQ)
-	local x = self.ixs[i]
+	local x = sim.ixs[i]
 	local f = self.calc_f(alpha)
 	local tr_K = K_rr / g_rr + K_hh / g_hh
 
 	local l1 = alpha / sqrt(g_rr)
 	local l2 = alpha * sqrt(f / g_rr)
-	self.eigenvalues[i] = {-l2, -l1, 0, 0, 0, 0, 0, l1, l2}
+	sim.eigenvalues[i] = {-l2, -l1, 0, 0, 0, 0, 0, l1, l2}
 
 	-- row-major, math-indexed
 	local lambdaUr_rr = A_r + 2 * V_r - 2 * D_rhh / g_hh
 	local lambdaUr_hh = D_rhh / g_rr
-	self.fluxMatrix[i] = {
+	sim.fluxMatrix[i] = {
 		{0,0,0,0,0,0,0,0,0},
 		{0,0,0,0,0,0,0,0,0},
 		{0,0,0,0,0,0,0,0,0},
@@ -211,7 +209,7 @@ function ADM2DSpherical:calcInterfaceEigenBasis(i,qL,qR)
 		{lambdaUr_hh, -alpha/g_rr^2, 0, 0, 0, alpha/g_rr, 0, 0, 0},
 		{0,0,0,0,0,0,0,0,0},
 	}
-	self.eigenvectors[i] = {
+	sim.eigenvectors[i] = {
 		{0,0,1,0,0,0,0,0,0},
 		{0,0,0,1,0,0,0,0,0},
 		{0,0,0,0,1,0,0,0,0},
@@ -222,7 +220,7 @@ function ADM2DSpherical:calcInterfaceEigenBasis(i,qL,qR)
 		{0,1/(2*sqrt(g_rr)),0,0,0,0,0,1/(2*sqrt(g_rr)),0},
 		{0,0,0,0,0,1,0,0,0}
 	}
-	self.eigenvectorsInverse[i] = {
+	sim.eigenvectorsInverse[i] = {
 		{0, 0, 0, -1, 0, 0, sqrt(f/g_rr), sqrt(f*g_rr)/g_hh, -2},
 		{0, 0, 0, 0, 0, -1, 0, sqrt(g_rr), 0},
 		{1, 0, 0, 0, 0, 0, 0, 0, 0}, 
@@ -233,41 +231,6 @@ function ADM2DSpherical:calcInterfaceEigenBasis(i,qL,qR)
 		{0, 0, 0, 0, 0, 1, 0, sqrt(g_rr), 0},
 		{0, 0, 0, 1, 0, 0, sqrt(f/g_rr), sqrt(f*g_rr)/g_hh, 2}	
 	}
-end
-
-function ADM2DSpherical:addSourceToDerivCell(dq_dts, i)
-	local alpha, g_rr, g_hh, A_r, D_rrr, D_rhh, K_rr, K_hh, V_r = unpack(self.qs[i])
-	local f = self.calc_f(alpha)
-	local tr_K = K_rr / g_rr + K_hh / g_hh
-	local S_rr = K_rr * (2 * K_hh / g_hh - K_rr / g_rr) + A_r * (D_rrr / g_rr - 2 * D_rhh / g_hh)
-				+ 2 * D_rhh / g_hh * (D_rrr / g_rr - D_rhh / g_hh) + 2 * A_r * V_r
-	local S_hh = K_rr * K_hh / g_rr - D_rrr * D_rhh / g_rr^2 + 1
-	local P_r = -2 / g_hh * (A_r * K_hh - D_rhh * (K_hh / g_hh - K_rr / g_rr))
-	dq_dts[i][1] = dq_dts[i][1] - alpha * alpha * f * tr_K 
-	dq_dts[i][2] = dq_dts[i][2] - 2 * alpha * K_rr
-	dq_dts[i][3] = dq_dts[i][3] - 2 * alpha * K_hh
-	dq_dts[i][7] = dq_dts[i][7] + alpha * S_rr
-	dq_dts[i][8] = dq_dts[i][8] + alpha * S_hh
-	dq_dts[i][9] = dq_dts[i][9] + alpha * P_r
-end
-
-function ADM2DSpherical:iterate(...)
-	ADM2DSpherical.super.iterate(self, ...)
-	-- enforce constraint of V_r = 2 * D_rhh / g_hh
-	-- i.e. 1 = 2 * D_rhh / (g_hh * V_r)
-	for i=1,self.gridsize do
-		--[[ direct assign:
-		self.qs[i][9] = 2 * self.qs[i][6] / self.qs[i][3]
-		--]]
-		-- [[ geometric renormalization
-		local c = abs(2 * self.qs[i][6] / (self.qs[i][3] * self.qs[i][9]))^(1/3)
-		self.qs[i][3] = self.qs[i][3] * c
-		self.qs[i][6] = self.qs[i][6] / c
-		self.qs[i][9] = self.qs[i][9] * c
-		-- 2 * (self.qs[i][6] / cbrt(c)) / (self.qs[i][3] * cbrt(c) * self.qs[i][9] * cbrt(c))
-		-- = (2 * self.qs[i][6] / (self.qs[i][3] * self.qs[i][9])) / c
-		-- = 1
-	end
 end
 
 return ADM2DSpherical

@@ -7,6 +7,7 @@ function Roe:init(args)
 	Roe.super.init(self, args)
 
 	self.deltaQTildes = {}
+	self.rTildes = {}
 	self.fluxMatrix = {}
 	self.eigenvectors = {}
 	self.eigenvectorsInverse = {}
@@ -42,6 +43,13 @@ Roe.eigenfieldsInverse = buildField'eigenvectors'
 
 function Roe:reset()
 	Roe.super.reset(self)
+
+	for i=1,self.gridsize do
+		self.rTildes[i] = {}
+		for j=1,self.numStates do
+			self.rTildes[i][j] = 0
+		end
+	end
 
 	-- state interfaces
 	for i=1,self.gridsize+1 do
@@ -132,9 +140,7 @@ function Roe:calcDT(getLeft, getRight)
 	return Roe.super.calcDT(self)
 end
 
-function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
-	
-	-- 2) calculate interface state difference in eigenbasis coordinates
+function Roe:calcDeltaQTildes(getLeft, getRight)
 	for i=2,self.gridsize do
 		local qL = getLeft and getLeft(i) or self.qs[i-1]
 		local qR = getRight and getRight(i) or self.qs[i]
@@ -145,10 +151,36 @@ function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
 		end
 		self.deltaQTildes[i] = self:eigenfields(i, dq)
 	end
+end
 
-	local useFluxMatrix = false
+function Roe:calcRTildes(getLeft, getRight)
+	for i=2,self.gridsize do
+		local qL = getLeft and getLeft(i) or self.qs[i-1]
+		local qR = getRight and getRight(i) or self.qs[i]
+		for j=1,self.numStates do
+			if self.deltaQTildes[i][j] == 0 then
+				self.rTildes[i][j] = 0
+			else
+				if self.eigenvalues[i][j] >= 0 then
+					self.rTildes[i][j] = self.deltaQTildes[i-1][j] / self.deltaQTildes[i][j]
+				else
+					self.rTildes[i][j] = self.deltaQTildes[i+1][j] / self.deltaQTildes[i][j]
+				end
+			end
+		end
+	end
+end
+
+function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
+
+	-- 2) calculate interface state difference in eigenbasis coordinates
+	self:calcDeltaQTildes(getLeft, getRight)
 
 	-- 3) slope limit on interface difference
+	self:calcRTildes(getLeft, getRight)
+	
+	local useFluxMatrix = false
+	
 	-- 4) transform back
 	for i=2,self.gridsize do
 		local qL = getLeft and getLeft(i) or self.qs[i-1]
@@ -159,22 +191,9 @@ function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
 			qAvg[j] = .5 * (qR[j] + qL[j])
 		end
 			
-		local rTildes = {}
-		for j=1,self.numStates do
-			if self.deltaQTildes[i][j] == 0 then
-				rTildes[j] = 0
-			else
-				if self.eigenvalues[i][j] >= 0 then
-					rTildes[j] = self.deltaQTildes[i-1][j] / self.deltaQTildes[i][j]
-				else
-					rTildes[j] = self.deltaQTildes[i+1][j] / self.deltaQTildes[i][j]
-				end
-			end
-		end
-
 		local fluxTilde = {}
 		for j=1,self.numStates do
-			local phi = self.fluxLimiter(rTildes[j])
+			local phi = self.fluxLimiter(self.rTildes[i][j])
 			local theta = self.eigenvalues[i][j] >= 0 and 1 or -1
 			local dx = self.xs[i] - self.xs[i-1]
 			local epsilon = self.eigenvalues[i][j] * dt / dx

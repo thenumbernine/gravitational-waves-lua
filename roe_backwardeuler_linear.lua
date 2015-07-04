@@ -1,67 +1,64 @@
-local conjres = require 'conjres'
-
 local RoeBackwardEulerConjRes = require 'ext.class'(require 'roe')
+
+RoeBackwardEulerConjRes.fixed_dt = 1/50
+
+function RoeBackwardEulerConjRes:init(args)
+	RoeBackwardEulerConjRes.super.init(self, args)
+
+	self.linearSolver = args.linearSolver or require 'linearsolvers'.conjres
+
+	self.Phis = {}
+end
+
+function RoeBackwardEulerConjRes:reset()
+	RoeBackwardEulerConjRes.super.reset(self)
+
+	for i=1,self.gridsize do
+		self.Phis[i] = {}
+		for j=1,self.numStates do
+			self.Phis[i][j] = 1
+		end
+	end
+end
 
 function RoeBackwardEulerConjRes:integrateFlux(dt)
 	-- the previous call in Solver:iterate is to self:calcDT
 	-- which calls self.equation:calcInterfaceEigenBasis, which fills the self.eigenvalues table
 
-	-- TODO shares in common with Roe
-	for i=2,self.gridsize do
-		local qL = getLeft and getLeft(i) or self.qs[i-1]
-		local qR = getRight and getRight(i) or self.qs[i]
-		
-		local dq = {}
-		for j=1,self.numStates do
-			dq[j] = qR[j] - qL[j]
-		end
-		self.deltaQTildes[i] = self:eigenfields(i, dq)
-	end
+	self:calcDeltaQTildes()
+	self:calcRTildes()
 
 	-- compute Phi vector along interfaces
 	-- Phi = diag(sign(v_i) + 1/2 phi * (dt/dx v_i - sign(v_i)))
 	-- TODO shares in common with Roe
-	local Phi = {}
 	for i=2,self.gridsize do
-		Phi[i] = {}
-		
 		for j=1,self.numStates do
-			local lambda = self.eigenvalues[i][j]
-			local rTilde
-			if self.deltaQTildes[i][j] == 0 then
-				rTilde = 0
-			else
-				if lambda >= 0 then
-					rTilde = self.deltaQTildes[i-1][j] / self.deltaQTildes[i][j]
-				else
-					rTilde = self.deltaQTildes[i+1][j] / self.deltaQTildes[i][j]
-				end
-			end
-			local phi = self.fluxLimiter(rTilde)
-			local theta = lambda >= 0 and 1 or -1
+			local phi = self.fluxLimiter(self.rTildes[i][j])
+			local theta = self.eigenvalues[i][j] >= 0 and 1 or -1
 			local dx = self.xs[i] - self.xs[i-1]
-			local epsilon = lambda * dt / dx
-			Phi[i][j] = theta + .5 * phi * (epsilon - theta)
+			local epsilon = self.eigenvalues[i][j] * dt / dx
+			self.Phis[i][j] = theta + .5 * phi * (epsilon - theta)
 		end
 	end
 	
 	local function applyLeft(i,x)
 		x = self:eigenfields(i,x)
 		for j=1,self.numStates do
-			x[j] = .5 * x[j] * self.eigenvalues[i][j] * (1 + Phi[i][j])
+			x[j] = .5 * x[j] * self.eigenvalues[i][j] * (1 + self.Phis[i][j])
 		end
 		return self:eigenfieldsInverse(i, x)
 	end
 	local function applyRight(i,x)
 		x = self:eigenfields(i,x)
 		for j=1,self.numStates do
-			x[j] = .5 * x[j] * self.eigenvalues[i][j] * (1 - Phi[i][j])
+			x[j] = .5 * x[j] * self.eigenvalues[i][j] * (1 - self.Phis[i][j])
 		end
 		return self:eigenfieldsInverse(i, x)
 	end
 
 	local q = self.qs
-	self.qs = conjres{
+	self.qs = self.linearSolver{
+		--maxiter = 1000,
 		x0 = q:clone(),
 		b = q:clone(),
 		A = function(x)
@@ -94,7 +91,17 @@ function RoeBackwardEulerConjRes:integrateFlux(dt)
 			end
 			return y
 		end,
+		A_diag = (function()
+			local n = self:newState()
+			for i=1,self.gridsize do
+				for j=1,self.numStates do
+					n[i][j] = 1
+				end
+			end
+			return n
+		end)(),
 	}
+	self:boundaryMethod()
 end
 
 return RoeBackwardEulerConjRes

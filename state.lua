@@ -65,5 +65,25 @@ function State.dot(a,b)
 	return s
 end
 
+function State.perElementMultiply(a,b)
+	local c = State(#a, #a[1])
+	for i=1,#a do
+		for j=1,#a[i] do
+			c[i][j] = a[i][j] * b[i][j]
+		end
+	end
+	return c
+end
+
+function State.perElementDivide(a,b)
+	local c = State(#a, #a[1])
+	for i=1,#a do
+		for j=1,#a[i] do
+			c[i][j] = a[i][j] / b[i][j]
+		end
+	end
+	return c
+end
+
 return State
 

@@ -30,6 +30,7 @@ do
 	local h = H * symmath.exp(-(x - xc)^2 / sigma^2)
 	local g_xx = 1 - h:diff(x)^2
 	local K_xx = -h:diff(x,x) / g_xx^.5
+	local kappa = 1
 	local args = {
 		gridsize = 200,
 		domain = {xmin=0, xmax=300},
@@ -38,6 +39,15 @@ do
 		-- the symbolic math driving it:
 		x = x,	-- variable
 		alpha = 1,
+		--[=[
+		alpha = 1/2 * (
+			(1 + symmath.sqrt(1 + kappa))
+			* symmath.sqrt((1-h:diff(x))/(1+h:diff(x)))
+			- 
+			kappa / (1 + symmath.sqrt(1 + kappa))
+			* symmath.sqrt((1+h:diff(x))/(1-h:diff(x)))
+		),
+		--]=]
 		g_xx = g_xx,	-- g_xx
 		-- A_x = d/dx alpha
 		-- D_xxx = 1/2 d/dx g_xx
@@ -47,16 +57,16 @@ do
 		--f = 1,
 		--f = 1.69,
 		--f = .49,
-		f = 1 + 1/alpha^2,
+		f = 1 + kappa/alpha^2,
 	}
 
 	-- [=[ compare different equations/formalisms 
 	--sims:insert(require'adm1d3var_roe'(args))		-- \_ these two are identical
-	--sims:insert(require'adm1d3to5var_roe'(args))	-- /
+	sims:insert(require'adm1d3to5var_roe'(args))	-- /
 	--sims:insert(require'adm1d5var_roe'(args))		--> this one, for 1st iter, calcs A_x half what it should
 	--sims:insert(require'bssnok1d_roe'(args))
 	--sims:insert(require'adm3d_roe'(args))
-	sims:insert(require'bssnok1d_backwardeuler_newton'(args))
+	--sims:insert(require'bssnok1d_backwardeuler_newton'(args))
 	--]=]
 
 	for _,sim in ipairs(sims) do
@@ -66,7 +76,7 @@ do
 end
 --]]
 
---[[	1D profile of 2D spherical Gaussian curve perturbation / coordinate shock wave
+-- [[	1D profile of 2D spherical Gaussian curve perturbation / coordinate shock wave
 do
 	-- r - eta(rs) = M ln(((rs + eta(r)) / (rs - eta(rs)))
 	-- eta(rs) = sqrt(rs^2 - 2 M rs)
@@ -74,7 +84,7 @@ do
 	local r = symmath.var'r'
 	local alpha = symmath.var'alpha'
 	local h = 5 * symmath.exp(-((r - rc) / 10)^2)
-	sims:insert(require'adm2dspherical'{
+	sims:insert(require'adm2dspherical_roe'{
 		gridsize = 200,
 		domain = {xmin=100, xmax=500},
 		boundaryMethod = boundaryMethods.freeFlow,
@@ -207,7 +217,7 @@ end
 --]]
 
 
--- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+--[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
 	local solverClass = require 'euler1d_roe'
 	--local solverClass = require 'euler1d_hll'
@@ -219,6 +229,9 @@ do
 		boundaryMethod = boundaryMethods.mirror,
 		equation = require 'euler1d'(),
 		--equation = require 'mhd'(),
+		--linearSolver = require 'linearsolvers'.conjres,
+		--linearSolver = require 'linearsolvers'.conjgrad,
+		linearSolver = require 'linearsolvers'.jacobi,
 		--fluxLimiter = fluxLimiters.donorCell,
 		fluxLimiter = fluxLimiters.superbee,
 		--[=[
@@ -233,7 +246,7 @@ do
 	--sims:insert(require 'euler1d_burgers'(args))
 	--sims:insert(require 'euler1d_hll'(args))
 	--sims:insert(require 'euler1d_roe'(args))
-	sims:insert(require 'euler1d_roe_backwardeuler_conjres'(args))
+	sims:insert(require 'euler1d_roe_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_conjres'(args))
 	--]=]
