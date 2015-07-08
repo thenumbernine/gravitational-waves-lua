@@ -1,3 +1,13 @@
+--[[
+rho,t = -m,x
+m,t = -(m^2/rho + p),x
+E,t = -(m/rho*(E+p)),x
+
+-- flux matrix:
+[rho],t   [0											1						0			] [rho],x	[ 0 ]
+[ m ],t + [(gamma-3)/2*m^2/rho^2						(3-gamma)*m/rho			gamma-1		] [ m ],x = [ 0 ]
+[ E ],t   [(-gamma*m*E/rho^2 + (gamma-1)*m^3/rho^3)		H+(1-gamma)*m^2/rho^2	gamma*m/rho	] [ E ],x	[ 0 ]
+--]]
 local table = require 'ext.table'
 local class = require 'ext.class'
 
@@ -18,6 +28,24 @@ Euler1D.graphInfoForNames = Euler1D.graphInfos:map(function(info,i)
 end)
 
 function Euler1D:initCell(sim,i)
+	--[[ constant
+	local rho = 1
+	local u = 0
+	local E = 1 + .5 * u * u
+	--]]
+	--[[ linear
+	local rho = 2 + sim.xs[i]
+	local u = 0
+	local E = 1
+	--]]
+	--[[ gaussian curve
+	local x = sim.xs[i]
+	local sigma = 1/math.sqrt(10)
+	local rho = math.exp(-x^2/sigma^2) + .1
+	-- drho/dx = (-2x/sigma^2) exp(-x^2/sigma^2)
+	local u = 0
+	local E = 1 + .5 * u * u + .1 * (math.exp(-x^2/sigma^2) + 1) / ((self.gamma - 1) * rho)
+	--]]
 	-- [[ Sod
 	local rho = sim.xs[i] < 0 and 1 or .1
 	local u = 0
@@ -28,9 +56,9 @@ function Euler1D:initCell(sim,i)
 	local u = 0
 	local E
 	if i == math.floor(sim.gridsize/2) then
-		E = 1e+3 / ((sim.gamma - 1) * rho)
+		E = 1e+3 / ((self.gamma - 1) * rho)
 	else
-		E = 1 / ((sim.gamma - 1) * rho)
+		E = 1 / ((self.gamma - 1) * rho)
 	end
 	--]]
 	return {rho, rho * u, rho * E}

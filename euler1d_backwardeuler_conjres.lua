@@ -14,13 +14,9 @@ local Solver = require 'solver'
 
 local EulerBackwardEulerConjRes = class(Solver)
 
-EulerBackwardEulerConjRes.fixed_dt = 1/10
+EulerBackwardEulerConjRes.equation = require 'euler1d'()
 
-function EulerBackwardEulerConjRes:init(args)
-	args = table(args)
-	args.equation = require 'euler1d'(args)
-	EulerBackwardEulerConjRes.super.init(self, args)
-end
+EulerBackwardEulerConjRes.fixed_dt = 1/10
 
 function EulerBackwardEulerConjRes:iterate()
 	local dt = self.fixed_dt

@@ -76,7 +76,7 @@ do
 end
 --]]
 
--- [[	1D profile of 2D spherical Gaussian curve perturbation / coordinate shock wave
+--[[	1D profile of 2D spherical Gaussian curve perturbation / coordinate shock wave
 do
 	-- r - eta(rs) = M ln(((rs + eta(r)) / (rs - eta(rs)))
 	-- eta(rs) = sqrt(rs^2 - 2 M rs)
@@ -217,7 +217,7 @@ end
 --]]
 
 
---[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+-- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
 	local solverClass = require 'euler1d_roe'
 	--local solverClass = require 'euler1d_hll'
@@ -229,9 +229,9 @@ do
 		boundaryMethod = boundaryMethods.mirror,
 		equation = require 'euler1d'(),
 		--equation = require 'mhd'(),
-		--linearSolver = require 'linearsolvers'.conjres,
-		--linearSolver = require 'linearsolvers'.conjgrad,
-		linearSolver = require 'linearsolvers'.jacobi,
+		linearSolver = require 'linearsolvers'.conjres,		-- actually works
+		--linearSolver = require 'linearsolvers'.conjgrad,	-- not so well
+		--linearSolver = require 'linearsolvers'.jacobi,	-- nope
 		--fluxLimiter = fluxLimiters.donorCell,
 		fluxLimiter = fluxLimiters.superbee,
 		--[=[
@@ -246,9 +246,10 @@ do
 	--sims:insert(require 'euler1d_burgers'(args))
 	--sims:insert(require 'euler1d_hll'(args))
 	--sims:insert(require 'euler1d_roe'(args))
-	sims:insert(require 'euler1d_roe_backwardeuler_linear'(args))
+	--sims:insert(require 'euler1d_roe_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_conjres'(args))
+	sims:insert(require 'euler1d_dft'(args))
 	--]=]
 
 	--[=[ compare flux limiters
@@ -267,7 +268,7 @@ do
 	--sims:insert(solverClass(table(args, {scheme = schemes.HLLC()})))	-- TODO 
 	--]=]
 
-	--[=[
+	-- [=[
 	for _,sim in ipairs(sims) do
 		sim.fixed_dt = 1/512
 	end
