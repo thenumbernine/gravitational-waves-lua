@@ -85,7 +85,7 @@ local function dft_x(xs)
 			local xim = imag(xs[k])
 			-- apply derivative
 			local s = 2 * math.pi * (k-1) / N
-			-- why is there a -1 here?
+			-- why does there need to be a -1 here?
 			s = s * -1
 			-- multiply by 'i'...
 			xre, xim = -s * xim, s * xre
@@ -98,12 +98,15 @@ local function dft_x(xs)
 end
 
 function EulerDFT:iterate()
+	self:boundaryMethod()
+	
 	local dt = self.fixed_dt
 	
 	local N = self.gridsize
 	local xmin = self.domain.xmin
 	local xmax = self.domain.xmax
 
+-- [=[ dft on flux then calc the dft's x-deriv
 	local rhoFluxes = {}
 	local jFluxes = {}
 	local EFluxes = {}
@@ -131,8 +134,9 @@ function EulerDFT:iterate()
 		self.qs[i][2] = self.qs[i][2] - dt * real(dx_jFluxes[i])
 		self.qs[i][3] = self.qs[i][3] - dt * real(dx_EFluxes[i])
 	end
+--]=]
 
---[=[
+--[=[ test
 	local rhos = {}
 	local js = {}
 	local Es = {}
@@ -148,7 +152,7 @@ function EulerDFT:iterate()
 	local js = dft(1, jHats)
 	local Es = dft(1, EHats)
 
-	-- replace channel 2 with derivative of channel 1
+	-- replace channel 2 with derivative of channel 1 - for verification 
 	local drhos = dft_x(rhoHats)
 	for i=1,N do
 		-- where did I lose a minus sign?
@@ -161,6 +165,8 @@ function EulerDFT:iterate()
 		self.qs[i] = {real(rhos[i])/N, real(js[i])/N, real(Es[i])/N}
 	end
 --]=]
+
+	self.t = self.t + dt
 end
 
 return EulerDFT

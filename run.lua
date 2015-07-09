@@ -229,8 +229,8 @@ do
 		boundaryMethod = boundaryMethods.mirror,
 		equation = require 'euler1d'(),
 		--equation = require 'mhd'(),
-		linearSolver = require 'linearsolvers'.conjres,		-- actually works
-		--linearSolver = require 'linearsolvers'.conjgrad,	-- not so well
+		--linearSolver = require 'linearsolvers'.conjres,		-- actually works
+		linearSolver = require 'linearsolvers'.conjgrad,	-- not so well
 		--linearSolver = require 'linearsolvers'.jacobi,	-- nope
 		--fluxLimiter = fluxLimiters.donorCell,
 		fluxLimiter = fluxLimiters.superbee,
@@ -248,8 +248,8 @@ do
 	--sims:insert(require 'euler1d_roe'(args))
 	--sims:insert(require 'euler1d_roe_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
-	--sims:insert(require 'euler1d_backwardeuler_conjres'(args))
-	sims:insert(require 'euler1d_dft'(args))
+	sims:insert(require 'euler1d_backwardeuler_linear'(args))
+	--sims:insert(require 'euler1d_dft'(args))
 	--]=]
 
 	--[=[ compare flux limiters
@@ -526,7 +526,7 @@ function TestApp:update(...)
 			if self.font then
 				local fontSizeX = (xmax - xmin) * .05
 				local fontSizeY = (ymax - ymin) * .1
-				local ystep = ystep * 5
+				local ystep = ystep * 2
 				for y=floor(ymin/ystep)*ystep,ceil(ymax/ystep)*ystep,ystep do
 					self.font:draw{
 						pos={xmin * .9 + xmax * .1, y + fontSizeY * .5},

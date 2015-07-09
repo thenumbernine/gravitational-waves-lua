@@ -9,20 +9,24 @@ q_i(t+dt) = ||(delta_ij - dt A_ij)^-1||_ij q_j(t)
 local class = require 'ext.class'
 local table = require 'ext.table'
 
-local conjres = require 'conjres'
-local Solver = require 'solver'
+-- I'm only using SolverFV over Solver for its calcDT
+local SolverFV = require 'solverfv'
 
-local EulerBackwardEulerConjRes = class(Solver)
+local EulerBackwardEulerLinear = class(SolverFV)
 
-EulerBackwardEulerConjRes.equation = require 'euler1d'()
+EulerBackwardEulerLinear.equation = require 'euler1d'()
 
-EulerBackwardEulerConjRes.fixed_dt = 1/10
+function EulerBackwardEulerLinear:init(args)
+	EulerBackwardEulerLinear.super.init(self, args)
+	self.linearSolver = assert(args.linearSolver)
+end
 
-function EulerBackwardEulerConjRes:iterate()
-	local dt = self.fixed_dt
+function EulerBackwardEulerLinear:iterate()
+	self:boundaryMethod()
+	local dt = self:calcDT()
 	local gamma = self.equation.gamma
 	local q = self.qs
-	self.qs = conjres{
+	self.qs = self.linearSolver{
 		b = q:clone(),
 		x0 = q:clone(),
 		A = function(x)
@@ -42,8 +46,9 @@ function EulerBackwardEulerConjRes:iterate()
 			end
 			return y
 		end,
+		A_diag = q:clone(),
 	}
 end
 
-return EulerBackwardEulerConjRes
+return EulerBackwardEulerLinear
 
