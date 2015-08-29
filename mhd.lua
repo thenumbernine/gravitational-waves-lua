@@ -1,65 +1,55 @@
 local class = require 'ext.class'
 
+local function isnan(x) return x ~= x end
+local function isinf(x) return x == math.huge or x == -math.huge end
+local function finite(x) return not isnan(x) and not isinf(x) end
+
 local MHD = class()
 
 MHD.numStates = 8
 MHD.gamma = 5/3	
 MHD.mu = 1
 
-function MHD:init(...)
-	RoeSolver.init(self, ...)
-
-	local function initArray()
-		local t = {}
-		for i=1,self.gridsize do
-			t[i] = 0
-		end
-		return t
-	end
-	self.primOrthoError = initArray()	-- ortho error of dU/dW * dW/dU
-	self.consOrthoError = initArray()	-- ortho error of L_A * R_A
-
-	local mu = self.mu
-	local gamma = self.gamma
-	local getState = index:bind(self.qs)
-	local rho = getState:index(1)
-	local ux = getState:index(2) / rho
-	local uy = getState:index(3) / rho
-	local uz = getState:index(4) / rho
-	local Bx = getState:index(5) / mu
-	local By = getState:index(6) / mu
-	local Bz = getState:index(7) / mu
-	local ETotal = getState:index(8)
+do
+	local rho = function(self,i) return self.qs[i][1] end
+	local ux = function(self,i) return self.qs[i][2]/rho(self,i) end
+	local uy = function(self,i) return self.qs[i][3]/rho(self,i) end
+	local uz = function(self,i) return self.qs[i][4]/rho(self,i) end
+	local Bx = function(self,i) return self.qs[i][5]/self.equation.mu end
+	local By = function(self,i) return self.qs[i][6]/self.equation.mu end
+	local Bz = function(self,i) return self.qs[i][7]/self.equation.mu end
+	local ETotal = function(self,i) return self.qs[i][8] end
 	local eTotal = ETotal / rho
-	local EMag = .5*(Bx*Bx + By*By + Bz*Bz) / mu
+	local EMag = .5*(Bx*Bx + By*By + Bz*Bz) / function(self,i) return self.equation.mu end
 	local EHydro = ETotal - EMag
 	local eHydro = EHydro / rho
-	local eKin = .5*(ux*ux + uy*uy + uz*uz)
+	local eKin = function(self,i) return .5*(ux(self,i)^2 + uy(self,i)^2 + uz(self,i)^2) end
 	local eInt = eHydro - eKin
-	local p = eInt / (gamma - 1)
-	self.graphInfos = {
-		{viewport={0/5, 0/4, 1/5, 1/4}, getter=(index:bind(self.eigenbasisErrors)), name='eigenbasis error', color={1,0,0}, range={-30, 30}},
-		{viewport={0/5, 1/4, 1/5, 1/4}, getter=(index:bind(self.fluxMatrixErrors)), name='reconstruction error', color={1,0,0}, range={-30, 30}},
-		{viewport={0/5, 2/4, 1/5, 1/4}, getter=(index:bind(self.primOrthoError)), name='dU/dW ortho error', color={1,0,0}, range={-30, 30}},
-		{viewport={0/5, 3/4, 1/5, 1/4}, getter=(index:bind(self.consOrthoError)), name='dF/dU eigenbasis error', color={1,0,0}, range={-30, 30}},
-		{viewport={1/5, 0/4, 1/5, 1/4}, getter=rho, name='rho', color={1,0,1}},
-		{viewport={1/5, 1/4, 1/5, 1/4}, getter=rho, name='p', color={1,0,1}},
-		{viewport={2/5, 0/4, 1/5, 1/4}, getter=ux, name='ux', color={0,1,0}},
-		{viewport={2/5, 1/4, 1/5, 1/4}, getter=uy, name='uy', color={0,1,0}},
-		{viewport={2/5, 2/4, 1/5, 1/4}, getter=uz, name='uz', color={0,1,0}},
-		{viewport={3/5, 0/4, 1/5, 1/4}, getter=Bx, name='Bx', color={.5,.5,1}},
-		{viewport={3/5, 1/4, 1/5, 1/4}, getter=By, name='By', color={.5,.5,1}},
-		{viewport={3/5, 2/4, 1/5, 1/4}, getter=Bz, name='Bz', color={.5,.5,1}},
-		{viewport={4/5, 0/4, 1/5, 1/4}, getter=eTotal, name='eTotal', color={1,1,0}},
-		{viewport={4/5, 1/4, 1/5, 1/4}, getter=eKin, name='eKin', color={1,1,0}},
-		{viewport={4/5, 2/4, 1/5, 1/4}, getter=eInt, name='eInt', color={1,1,0}},
-		{viewport={4/5, 3/4, 1/5, 1/4}, getter=eInt, name='eHydro', color={1,1,0}},
-		{viewport={3/5, 3/4, 1/5, 1/4}, getter=eInt, name='EMag', color={1,1,0}},
+	local p = function(self,i) return eInt(self,i) / (self.equation.gamma - 1) end
+	MHD.graphInfos = table{
+		{viewport={0/5, 0/4, 1/5, 1/4}, getter=function(self,i) return self.eigenbasisErrors[i] end, name='eigenbasis error', color={1,0,0}, range={-30, 30}},
+		{viewport={0/5, 1/4, 1/5, 1/4}, getter=function(self,i) return self.fluxMatrixErrors[i] end, name='reconstruction error', color={1,0,0}, range={-30, 30}},
+		{viewport={1/5, 0/4, 1/5, 1/4}, getter=function(self,i) return rho(self,i) end, name='rho', color={1,0,1}},
+		{viewport={1/5, 1/4, 1/5, 1/4}, getter=function(self,i) return p(self,i) end, name='p', color={1,0,1}},
+		{viewport={2/5, 0/4, 1/5, 1/4}, getter=function(self,i) return ux(self,i) end, name='ux', color={0,1,0}},
+		{viewport={2/5, 1/4, 1/5, 1/4}, getter=function(self,i) return uy(self,i) end, name='uy', color={0,1,0}},
+		{viewport={2/5, 2/4, 1/5, 1/4}, getter=function(self,i) return uz(self,i) end, name='uz', color={0,1,0}},
+		{viewport={3/5, 0/4, 1/5, 1/4}, getter=function(self,i) return Bx(self,i) end, name='Bx', color={.5,.5,1}},
+		{viewport={3/5, 1/4, 1/5, 1/4}, getter=function(self,i) return By(self,i) end, name='By', color={.5,.5,1}},
+		{viewport={3/5, 2/4, 1/5, 1/4}, getter=function(self,i) return Bz(self,i) end, name='Bz', color={.5,.5,1}},
+		{viewport={4/5, 0/4, 1/5, 1/4}, getter=function(self,i) return eTotal(self,i) end, name='eTotal', color={1,1,0}},
+		{viewport={4/5, 1/4, 1/5, 1/4}, getter=function(self,i) return eKin(self,i) end, name='eKin', color={1,1,0}},
+		{viewport={4/5, 2/4, 1/5, 1/4}, getter=function(self,i) return eInt(self,i) end, name='eInt', color={1,1,0}},
+		{viewport={4/5, 3/4, 1/5, 1/4}, getter=function(self,i) return eHydro(self,i) end, name='eHydro', color={1,1,0}},
+		{viewport={3/5, 3/4, 1/5, 1/4}, getter=function(self,i) return EMag(self,i) end, name='EMag', color={1,1,0}},
 	}
 end
+MHD.graphInfoForNames = MHD.graphInfos:map(function(info,i)
+	return info, info.name
+end)
 
-function MHD:initCell(i)
-	local x = self.xs[i]
+function MHD:initCell(sim,i)
+	local x = sim.xs[i]
 	local rho = x < 0 and .1 or 1
 	local ux, uy, uz = 0, 0, 0
 	local Bx = 0	-- .75
@@ -84,7 +74,8 @@ function MHD:stateToPrims(rho, mx, my, mz, Bx, By, Bz, ETotal)
 	return rho, ux, uy, uz, Bx, By, Bz, p
 end
 
-function MHD:calcInterfaceEigenBasis(i,qL,qR)
+-- using "An Upwind Differing Scheme for the Equations of Ideal Magnetohydrodynamics" by Brio & Wu
+function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local gamma = self.gamma	
 	local gammaMinusOne = gamma - 1
 
@@ -102,295 +93,240 @@ function MHD:calcInterfaceEigenBasis(i,qL,qR)
 
 	local mu = self.mu
 	local BSq = Bx*Bx + By*By + Bz*Bz
-	local vaxSq = Bx*Bx / (mu*rho)
-	local vax = sqrt(vaxSq)
-	local CsSq = gamma*p / rho
-	local Cs= sqrt(CsSq)
-	local vaSq = BSq / (mu*rho)
-	local va = sqrt(vaSq)
-	local cStarSq = .5*(vaSq + CsSq)
-	local discr = sqrt(cStarSq*cStarSq - vaxSq*CsSq)
-	local vfSq = cStarSq + discr
-	local vsSq = cStarSq - discr
-	local vf = sqrt(vfSq)
-	local vs = sqrt(vsSq)
-	local sgnBx = Bx >= 0 and 1 or -1
-
-	self.fluxMatrix[i] = {
-		{0,0,0,0,0,0,0,0},
-		{0,0,0,0,0,0,0,0},
-		{0,0,0,0,0,0,0,0},
-		{0,0,0,0,0,0,0,0},
-		{0,0,0,0,0,0,0,0},
-		{0,0,0,0,0,0,0,0},
-		{0,0,0,0,0,0,0,0},
-		{0,0,0,0,0,0,0,0}
-	}
-	
-	local S = self.eigenvalues[i]
-	S[1] = ux - vf
-	S[2] = ux - vax
-	S[3] = ux - vs
-	S[4] = ux
-	S[5] = ux
-	S[6] = ux + vs
-	S[7] = ux + vax
-	S[8] = ux + vf
-
-	local tau = 1 / rho
-	local epsilon = 1e-20
-
-	local afSq = (vfSq - vaxSq) / (vfSq - vsSq)
-	local af
-	if afSq > epsilon then
-		af = sqrt(afSq)
-	else
-		af, afSq = 1, 1
-	end
-	
-	local asSq = (vfSq - CsSq) / (vfSq - vsSq)
-	local as
-	if asSq > epsilon then
-		as = sqrt(asSq)
-	else
-		as, asSq = 1, 1
-	end
-
-	local BTSq = By*By + Bz*Bz
-	local betay = 0
-	local betaz = 0
-	if BTSq > epsilon then
-		local BT = sqrt(BTSq)
-		betay = By / BT
-		betaz = Bz / BT
-	end
-		
-	local RFast = vf / sqrt(afSq*(vfSq + CsSq) + asSq*(vfSq + vaxSq))
-	local RSlow = vfSq / sqrt(afSq*CsSq*(vfSq + CsSq) + asSq*vfSq*(vsSq + CsSq))
-
-	local sqrt1_2 = sqrt(.5)
-
-	local R_A = {	--right eigenvectors
-	--fast -
-		{
-			af*tau*RFast,
-			af*vf*RFast,
-			-as*betay*vax*sgnBx*RFast,
-			-as*betaz*vax*sgnBx*RFast,
-			0,
-			-as*betay*vf*sqrt(mu*rho)*RFast,
-			-as*betaz*vf*sqrt(mu*rho)*RFast,
-			-af*gamma*p*RFast
-		},
-	--alfven -
-		{
-			0,
-			0,
-			-betaz*vf*sqrt1_2,
-			betay*vf*sqrt1_2,
-			0,
-			-sgnBx*sqrt(mu*rho)*betaz*vf*sqrt1_2,
-			sgnBx*sqrt(mu*rho)*betay*vf*sqrt1_2,
-			0
-		},
-	--slow -
-		{
-			as*tau,
-			as*vs,
-			af*betay*Cs*sgnBx,
-			af*betaz*Cs*sgnBx,
-			0,
-			af*betay*CsSq / vf*sqrt(mu*rho),
-			af*betaz*CsSq / vf*sqrt(mu*rho),
-			-as*gamma*p
-		},
-	--entropy
-		{tau, 0, 0, 0, 0, 0, 0, 0},
-		{0, 0, 0, 0, 1, 0, 0, 0},
-	--zero
-	--slow +
-		{
-			-as*tau,
-			as*vs,
-			af*betay*Cs*sgnBx,
-			af*betaz*Cs*sgnBx,
-			0,
-			-af*betay*CsSq / vf*sqrt(mu*rho),
-			-af*betaz*CsSq / vf*sqrt(mu*rho),
-			as*gamma*p
-		},
-	--alfven +
-		{
-			0,
-			0,
-			betaz*vf*sqrt1_2,
-			-betay*vf*sqrt1_2,
-			0,
-			-sgnBx*sqrt(mu*rho)*betaz*vf*sqrt1_2,
-			sgnBx*sqrt(mu*rho)*betay*vf*sqrt1_2,
-			0
-		},
-	--fast +
-		{
-			-af*tau*RFast,
-			af*vf*RFast,
-			-as*betay*vax*sgnBx*RFast,
-			-as*betaz*vax*sgnBx*RFast,
-			0,
-			as*betay*vf*sqrt(mu*rho)*RFast,
-			as*betaz*vf*sqrt(mu*rho)*RFast,
-			af*gamma*p*RFast
-		}
-	}
-
-	--specify in rows (so it will look as-is)
-	--so L_ij = L_A[i][j]
-	local L_A = {
-	--fast -
-		{
-			0,
-			 af*vf*RFast / vfSq,
-			 -as*betay*vax*sgnBx*RFast / vfSq,
-			 -as*betaz*vax*sgnBx*RFast / vfSq,
-			 0,
-			 -as*betay*vf / sqrt(mu*rho)*RFast / vfSq,
-			 -as*betaz*vf / sqrt(mu*rho)*RFast / vfSq,
-			 -af*tau*RFast / vfSq
-		},
-	--alfven -
-		{
-			0,
-			0,
-			-betaz*sqrt1_2 / vf,
-			betay*sqrt1_2 / vf,
-			0,
-			-sgnBx*betaz / sqrt(mu*rho)*sqrt1_2 / vf,
-			sgnBx*betay / sqrt(mu*rho)*sqrt1_2 / vf,
-			0
-		},
-	--slow -
-		{
-			0,
-			as*vs*RSlow / vfSq,
-			af*betay*Cs*sgnBx*RSlow / vfSq,
-			af*betaz*Cs*sgnBx*RSlow / vfSq,
-			0,
-			af*betay*CsSq / (sqrt(mu*rho)*vf)*RSlow / vfSq,
-			af*betaz*CsSq / (sqrt(mu*rho)*vf)*RSlow / vfSq,
-			-as*gamma*p*RSlow / vfSq
-		},
-	--entropy
-		{rho, 0, 0, 0, 0, 0, 0, 1 / (gamma*p)},
-	--zero
-		{0, 0, 0, 0, 1, 0, 0, 0},
-	--slow +
-		{
-			0,
-			as*vs*RSlow / vfSq,
-			af*betay*Cs*sgnBx*RSlow / vfSq,
-			af*betaz*Cs*sgnBx*RSlow / vfSq,
-			0,
-			-af*betay*CsSq / (sqrt(mu*rho)*vf)*RSlow / vfSq,
-			-af*betaz*CsSq / (sqrt(mu*rho)*vf)*RSlow / vfSq,
-			as*gamma*p*RSlow / vfSq
-		},
-	--alfven +
-		{
-			0,
-			0, 
-			betaz*sqrt1_2 / vf,
-			-betay*sqrt1_2 / vf,
-			0, 
-			-sgnBx*betaz / sqrt(mu*rho)*sqrt1_2 / vf,
-			sgnBx*betay / sqrt(mu*rho)*sqrt1_2 / vf,
-			0
-		},
-	--fast +
-		{
-			0,
-			 af*vf*RFast / vfSq,
-			 -as*betay*vax*sgnBx*RFast / vfSq,
-			 -as*betaz*vax*sgnBx*RFast / vfSq,
-			 0,
-			 as*betay*vf / sqrt(mu*rho)*RFast / vfSq,
-			 as*betaz*vf / sqrt(mu*rho)*RFast / vfSq,
-			 af*tau*RFast / vfSq
-		}
-	}
-
-	local rhoSq = rho*rho
-	local tauSq = tau*tau
 	local uSq = ux*ux + uy*uy + uz*uz
+	local BdotU = Bx*ux + By*uy + Bz*uz
+	local caxSq = Bx*Bx / (mu*rho)
+	local cax = sqrt(caxSq)
+	local aSq = gamma*p / rho
+	local a = sqrt(aSq)
+	local caSq = BSq / (mu*rho)
+	local ca = sqrt(caSq)
+	local aStarSq = aSq + caSq
+	local discr = sqrt(aStarSq * aStarSq - 4 * caxSq * aSq)
+	local cfSq = .5 * (aStarSq + discr)
+	local csSq = .5 * (aStarSq - discr)
+	local cf = sqrt(cfSq)
+	local cs = sqrt(csSq)
+	local sgnBx = Bx >= 0 and 1 or -1
+	local sqrtRho = sqrt(rho)
 
-	--specified by row, so dU_dW[i][j] == (dU/dW)_ij
-	local dU_dW = {
-		{-rhoSq,	0,	0,	0,	0,	0,	0,	0},
-		{-ux*rhoSq,	rho,	0,	0,	0,	0,	0,	0},
-		{-uy*rhoSq,	0,	rho,	0,	0,	0,	0,	0},
-		{-uz*rhoSq,	0,	0,	rho,	0,	0,	0,	0},
-		{0,	0,	0,	0,	1,	0,	0,	0},
-		{0,	0,	0,	0,	0,	1,	0,	0},
-		{0,	0,	0,	0,	0,	0,	1,	0},
-		{.5*BSq/mu,	ux,	uy,	uz,	Bx*tau/mu,	By*tau/mu,	Bz*tau/mu,	1/gammaMinusOne}
-	}
-	--specified by row, so dW_dU[i][j] == (dW/dU)_ij
-	local dW_dU = {
-		{-tauSq,	0,	0,	0,	0,	0,	0,	0},
-		{-tau*ux,	tau,	0,	0,	0,	0,	0,	0},
-		{-tau*uy,	0,	tau,	0,	0,	0,	0,	0},
-		{-tau*uz,	0,	0,	tau,	0,	0,	0,	0},
-		{0,	0,	0,	0,	1,	0,	0,	0},
-		{0,	0,	0,	0,	0,	1,	0,	0},
-		{0,	0,	0,	0,	0,	0,	1,	0},
-		{gammaMinusOne*tau*(uSq + .5*BSq*tau/mu),	-gammaMinusOne*tau*ux,	-gammaMinusOne*tau*uy,	-gammaMinusOne*tau*uz,	-gammaMinusOne*Bx*tau/mu,	-gammaMinusOne*By*tau/mu,	-gammaMinusOne*Bz*tau/mu,	gammaMinusOne}
-	}
-	--now transform these to the left and right eigenvectors of the flux ...
-	--with transformations: R_U = dU/dW*R_A and L_U = L_A*dW/dU
-	--don't forget indexing is A_ij == A[i][j] except R_A is transposed
+	local ETotal = sim.qs[i][8]
+	local PStar = p + .5 * BSq
+	local H = (ETotal + PStar) / rho
+
+	-- Brio & Wu
+	sim.fluxMatrix[i][1][1] = 0
+	sim.fluxMatrix[i][1][2] = 1
+	sim.fluxMatrix[i][1][3] = 0
+	sim.fluxMatrix[i][1][4] = 0
+	sim.fluxMatrix[i][1][5] = 0
+	sim.fluxMatrix[i][1][6] = 0
+	sim.fluxMatrix[i][1][7] = 0
+	sim.fluxMatrix[i][1][8] = 0
+	sim.fluxMatrix[i][2][1] = (gamma-3)/2*ux^2 + (gamma-1)/2*(uy^2+uz^2)
+	sim.fluxMatrix[i][2][2] = (3-gamma)*ux
+	sim.fluxMatrix[i][2][3] = (1-gamma)*uy
+	sim.fluxMatrix[i][2][4] = (1-gamma)*uz
+	sim.fluxMatrix[i][2][5] = 0
+	sim.fluxMatrix[i][2][6] = (2-gamma)*By
+	sim.fluxMatrix[i][2][7] = (2-gamma)*Bz
+	sim.fluxMatrix[i][2][8] = gamma-1
+	sim.fluxMatrix[i][3][1] = -ux * uy
+	sim.fluxMatrix[i][3][2] = uy
+	sim.fluxMatrix[i][3][3] = ux
+	sim.fluxMatrix[i][3][4] = 0
+	sim.fluxMatrix[i][3][5] = 0
+	sim.fluxMatrix[i][3][6] = -By
+	sim.fluxMatrix[i][3][7] = 0
+	sim.fluxMatrix[i][3][8] = 0
+	sim.fluxMatrix[i][4][1] = -ux * uz
+	sim.fluxMatrix[i][4][2] = uz
+	sim.fluxMatrix[i][4][3] = 0
+	sim.fluxMatrix[i][4][4] = ux
+	sim.fluxMatrix[i][4][5] = 0
+	sim.fluxMatrix[i][4][6] = 0
+	sim.fluxMatrix[i][4][7] = -Bx
+	sim.fluxMatrix[i][4][8] = 0
+	sim.fluxMatrix[i][5][1] = 0
+	sim.fluxMatrix[i][5][2] = 0
+	sim.fluxMatrix[i][5][3] = 0
+	sim.fluxMatrix[i][5][4] = 0
+	sim.fluxMatrix[i][5][5] = 1
+	sim.fluxMatrix[i][5][6] = 0
+	sim.fluxMatrix[i][5][7] = 0
+	sim.fluxMatrix[i][5][8] = 0
+	sim.fluxMatrix[i][6][1] = (-By * ux + Bx * uy) / rho
+	sim.fluxMatrix[i][6][2] = By / rho
+	sim.fluxMatrix[i][6][3] = -Bx / rho
+	sim.fluxMatrix[i][6][4] = 0
+	sim.fluxMatrix[i][6][5] = 0
+	sim.fluxMatrix[i][6][6] = ux
+	sim.fluxMatrix[i][6][7] = 0
+	sim.fluxMatrix[i][6][8] = 0
+	sim.fluxMatrix[i][7][1] = (-Bz * ux + Bx * uz) / rho
+	sim.fluxMatrix[i][7][2] = Bz / rho
+	sim.fluxMatrix[i][7][3] = 0
+	sim.fluxMatrix[i][7][4] = -Bx / rho
+	sim.fluxMatrix[i][7][5] = 0
+	sim.fluxMatrix[i][7][6] = 0
+	sim.fluxMatrix[i][7][7] = ux
+	sim.fluxMatrix[i][7][8] = 0
+	sim.fluxMatrix[i][8][1] = -ux * (H * (gamma - 1) / 2 * uSq + Bx / rho * BdotU)
+	sim.fluxMatrix[i][8][2] = H - Bx^2 / rho - (gamma - 1) * ux^2
+	sim.fluxMatrix[i][8][3] = (1 - gamma) * ux * uy - Bx * By / rho
+	sim.fluxMatrix[i][8][4] = (1 - gamma) * ux * uz - Bx * Bz / rho
+	sim.fluxMatrix[i][8][5] = 0
+	sim.fluxMatrix[i][8][6] = (2 - gamma) * By * ux - Bx * uy
+	sim.fluxMatrix[i][8][7] = (2 - gamma) * Bz * ux - Bx * uz
+	sim.fluxMatrix[i][8][8] = gamma * ux
+
+	sim.eigenvalues[i][1] = ux - cf
+	sim.eigenvalues[i][2] = ux - cax
+	sim.eigenvalues[i][3] = ux - cs
+	sim.eigenvalues[i][4] = ux
+	sim.eigenvalues[i][5] = ux
+	sim.eigenvalues[i][6] = ux + cs
+	sim.eigenvalues[i][7] = ux + cax
+	sim.eigenvalues[i][8] = ux + cf
+
+	local bx = Bx / sqrtRho
+	local by = By / sqrtRho
+	local bz = Bz / sqrtRho
+	local bxSq = bx * bx
+	local bySq = by * by
+	local bzSq = bz * bz
+
+	local epsilon = 1e-20
+	local BT = By^2 + Bz^2
+
+	-- when by^2 + bz^2 ~= 0 ... (i.e. magnetic field tangent to normal exists)
+	local alpha_f, alpha_s, beta_y, beta_z
+	if BT > epsilon then
+		alpha_f = sqrt((cfSq - bxSq) / (cfSq - csSq))
+		--alpha_s = sqrt((bxSq - csSq) / (cfSq - csSq))/abs(bx) 
+		alpha_s = sqrt((cfSq - aSq) / (cfSq - csSq))/cf 
+		beta_y = By / sqrt(bySq + bzSq)
+		beta_z = Bz / sqrt(bySq + bzSq)
+		-- now TODO - multiply fast, slow, and Alfven eigenvectors by alpha_f, alpha_s, 1/sqrt(by^2 + bz^2)
+	else
+		alpha_f = 1
+		alpha_s = 1
+		beta_y = sqrt(.5)
+		beta_z = sqrt(.5)
+		-- and Cs^2 - bxSq = 0
+	end
+
+	-- h fast/slow, plus/minus
+	local hfp = cfSq / (gamma - 1) + cf * ux - (By * uy + Bz * uz) / rho * Bx * cf / (cfSq - bxSq) + (gamma - 2) / (gamma - 1) * (cfSq - aSq)
+	local hfm = cfSq / (gamma - 1) - cf * ux + (By * uy + Bz * uz) / rho * Bx * cf / (cfSq - bxSq) + (gamma - 2) / (gamma - 1) * (cfSq - aSq)
+	local alpha_s_hsp = alpha_s * (csSq / (gamma - 1) + cs * ux + (gamma - 2) / (gamma - 1) * (csSq - aSq)) + (beta_y * uy + beta_z * uz) * a / cf * alpha_f * sgnBx		-- - alpha_s * (By * uy + Bz * uz) / rho * Bx * cs / (csSq - bxSq)
+	local alpha_s_hsm = alpha_s * (csSq / (gamma - 1) - cs * ux + (gamma - 2) / (gamma - 1) * (csSq - aSq)) - (beta_y * uy + beta_z * uz) * a / cf * alpha_f * sgnBx		-- alpha_s * (By * uy + Bz * uz) / rho * Bx * cs / (csSq - bxSq)
+	-- g plus/minus
+	local gp_over_btSq = -(beta_z * uy - beta_y * uz) * sgnBx
+	local gm_over_btSq = (beta_z * uy + beta_y * uz) * sgnBx
+
+	--right eigenvectors
+	--fast -
+	sim.eigenvectors[i][1][1] = 1
+	sim.eigenvectors[i][2][1] = ux - cf
+	sim.eigenvectors[i][3][1] = uy + Bx * By * cf / (rho * (cfSq - bxSq))
+	sim.eigenvectors[i][4][1] = uz + Bx * Bz * cf / (rho * (cfSq - bxSq))
+	sim.eigenvectors[i][5][1] = 0
+	sim.eigenvectors[i][6][1] = By * cfSq / (rho * (cfSq - bxSq))
+	sim.eigenvectors[i][7][1] = Bz * cfSq / (rho * (cfSq - bxSq))
+	sim.eigenvectors[i][8][1] = .5 * uSq + hfm
+	for j=1,8 do
+		sim.eigenvectors[i][j][1] = sim.eigenvectors[i][j][1] * alpha_f
+	end
+	--alfven -
+	sim.eigenvectors[i][1][2] = 0
+	sim.eigenvectors[i][2][2] = 0
+	sim.eigenvectors[i][3][2] = beta_z * sgnBx
+	sim.eigenvectors[i][4][2] = -beta_y * sgnBx
+	sim.eigenvectors[i][5][2] = 0
+	sim.eigenvectors[i][6][2] = beta_z / sqrtRho
+	sim.eigenvectors[i][7][2] = -beta_y / sqrtRho
+	sim.eigenvectors[i][8][2] = gm_over_btSq
+	--slow -
+	sim.eigenvectors[i][1][3] = alpha_s
+	sim.eigenvectors[i][2][3] = alpha_s * (ux - cs)
+	sim.eigenvectors[i][3][3] = alpha_s * uy + rho * (-a / cf * beta_y * alpha_f * sgnBx)	-- (alpha_s * by * bx * cs / rho / (csSq - bxSq))
+	sim.eigenvectors[i][4][3] = alpha_s * uz + rho * (-a / cf * beta_z * alpha_f * sgnBx)	-- (alpha_s * bz * bx * cs / rho / (csSq - bxSq))
+	sim.eigenvectors[i][5][3] = 0
+	sim.eigenvectors[i][6][3] = -aSq / cfSq * beta_y / sqrtRho * alpha_f	-- alpha_s * by * csSq / sqrtRho / (csSq - bxSq)
+	sim.eigenvectors[i][7][3] = -aSq / cfSq * beta_z / sqrtRho * alpha_f	-- alpha_s * bz * csSq / sqrtRho / (csSq - bxSq)
+	sim.eigenvectors[i][8][3] = alpha_s * .5 * uSq + alpha_s_hsm
+	--entropy
+	sim.eigenvectors[i][1][4] = 1
+	sim.eigenvectors[i][2][4] = ux
+	sim.eigenvectors[i][3][4] = uy
+	sim.eigenvectors[i][4][4] = uz
+	sim.eigenvectors[i][5][4] = 0
+	sim.eigenvectors[i][6][4] = 0
+	sim.eigenvectors[i][7][4] = 0
+	sim.eigenvectors[i][8][4] = .5 * uSq
+	--zero
+	sim.eigenvectors[i][1][5] = 0
+	sim.eigenvectors[i][2][5] = 0
+	sim.eigenvectors[i][3][5] = 0
+	sim.eigenvectors[i][4][5] = 0
+	sim.eigenvectors[i][5][5] = 1
+	sim.eigenvectors[i][6][5] = 0
+	sim.eigenvectors[i][7][5] = 0
+	sim.eigenvectors[i][8][5] = 0
+	--slow +
+	sim.eigenvectors[i][1][6] = alpha_s
+	sim.eigenvectors[i][2][6] = alpha_s * (ux + cs)
+	sim.eigenvectors[i][3][6] = alpha_s * uy - rho * (-a / cf * beta_y * alpha_f * sgnBx)	-- (alpha_s * by * bx * cs / rho / (csSq - bxSq))
+	sim.eigenvectors[i][4][6] = alpha_s * uz - rho * (-a / cf * beta_z * alpha_f * sgnBx)	-- (alpha_s * bz * bx * cs / rho / (csSq - bxSq))
+	sim.eigenvectors[i][5][6] = 0
+	sim.eigenvectors[i][6][6] = -aSq / cfSq * beta_y / sqrtRho * alpha_f	-- alpha_s * by * csSq / sqrtRho / (csSq - bxSq)
+	sim.eigenvectors[i][7][6] = -aSq / cfSq * beta_z / sqrtRho * alpha_f	-- alpha_s * bz * csSq / sqrtRho / (csSq - bxSq)
+	sim.eigenvectors[i][8][6] = alpha_s * .5 * uSq + alpha_s_hsp
+	--alfven +
+	sim.eigenvectors[i][1][7] = 0
+	sim.eigenvectors[i][2][7] = 0
+	sim.eigenvectors[i][3][7] = -beta_z * sgnBx
+	sim.eigenvectors[i][4][7] = beta_y * sgnBx
+	sim.eigenvectors[i][5][7] = 0
+	sim.eigenvectors[i][6][7] = beta_z / sqrtRho
+	sim.eigenvectors[i][7][7] = -beta_y / sqrtRho
+	sim.eigenvectors[i][8][7] = gp_over_btSq
+	--fast +
+	sim.eigenvectors[i][1][8] = 1
+	sim.eigenvectors[i][2][8] = ux + cf
+	sim.eigenvectors[i][3][8] = uy - Bx * By * cf / (rho * (cfSq - bxSq))
+	sim.eigenvectors[i][4][8] = uz - Bx * Bz * cf / (rho * (cfSq - bxSq))
+	sim.eigenvectors[i][5][8] = 0
+	sim.eigenvectors[i][6][8] = By * cfSq / (rho * (cfSq - bxSq))
+	sim.eigenvectors[i][7][8] = Bz * cfSq / (rho * (cfSq - bxSq))
+	sim.eigenvectors[i][8][8] = .5 * uSq + hfp
+	for j=1,8 do
+		sim.eigenvectors[i][j][8] = sim.eigenvectors[i][j][8] * alpha_f
+	end
+
+	assert(finite(rho), "rho is not finite")
+	assert(finite(ux), "ux is not finite")
+	assert(finite(uy), "uy is not finite")
+	assert(finite(uz), "uz is not finite")
+	assert(finite(Bx), "Bx is not finite")
+	assert(finite(By), "By is not finite")
+	assert(finite(Bz), "Bz is not finite")
+	assert(finite(bx), "bx is not finite")
+	assert(finite(by), "by is not finite")
+	assert(finite(bz), "bz is not finite")
+	assert(finite(cs), "cs is not finite")
+	assert(finite(alpha_s_hsm), "alpha_s_hsm is not finite")
+	assert(finite(alpha_s_hsp), "alpha_s_hsp is not finite")
+
 	for j=1,8 do
 		for k=1,8 do
-			local sum = 0
-			for m=1,8 do
-				sum = sum + dU_dW[j][m]*R_A[k][m]
-			end
-			self.eigenvectors[i][j][k] = sum
+			assert(finite(sim.eigenvectors[i][j][k]), "eigenvectors["..i.."]["..j.."]["..k.."] is not finite")
 		end
 	end
-	for j=1,8 do
-		for k=1,8 do
-			local sum = 0
-			for m=1,8 do
-				sum = sum + L_A[j][m]*dW_dU[m][k]
-			end
-			self.eigenvectorsInverse[i][j][k] = sum
-		end
-	end
-	do
-		local totalError = 0
-		for j=1,8 do
-			for k=1,8 do
-				local sum = 0
-				for m=1,8 do
-					sum = sum + dU_dW[j][m] * dW_dU[m][k]
-				end
-				totalError = totalError + abs((j==k and 1 or 0) - sum)
-			end
-		end
-		self.primOrthoError[i] = totalError
-	end
-	do
-		local totalError = 0
-		for j=1,8 do
-			for k=1,8 do
-				local sum = 0
-				for m=1,8 do
-					sum = sum + L_A[j][m] * R_A[k][m]
-				end
-				totalError = totalError + abs((j==k and 1 or 0) - sum)
-			end
-		end
-		self.consOrthoError[i] = totalError
-	end	
+
+	-- use linear solver for eigenvector inverse
+	sim.eigenvectorsInverse[i] = nil
 end
 
 return MHD

@@ -5,7 +5,7 @@ local integrators = require 'integrators'
 local Solver = class()
 
 function Solver:init(args)
-	self.equation = assert(args.equation)
+	self.equation = assert(args.equation or self.equation)
 	
 	self.numStates = self.equation.numStates
 	
@@ -63,7 +63,16 @@ end
 
 function Solver:iterate()
 	self:boundaryMethod()
-	
+--[[
+print('new iter:')
+for i=1,self.gridsize do
+	io.write(self.xs[i])
+	for j=1,self.numStates do
+		io.write('\t',self.qs[i][j])
+	end
+	print()
+end
+--]]
 	local dt = self:calcDT()
 
 	self:integrateFlux(dt)
