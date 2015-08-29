@@ -26,9 +26,10 @@ do
 	local eKin = function(self,i) return .5*(ux(self,i)^2 + uy(self,i)^2 + uz(self,i)^2) end
 	local eInt = eHydro - eKin
 	local p = function(self,i) return eInt(self,i) / (self.equation.gamma - 1) end
+	--[[ full mhd
 	MHD.graphInfos = table{
-		{viewport={0/5, 0/4, 1/5, 1/4}, getter=function(self,i) return self.eigenbasisErrors[i] end, name='eigenbasis error', color={1,0,0}, range={-30, 30}},
-		{viewport={0/5, 1/4, 1/5, 1/4}, getter=function(self,i) return self.fluxMatrixErrors[i] end, name='reconstruction error', color={1,0,0}, range={-30, 30}},
+		{viewport={0/5, 0/4, 1/5, 1/4}, getter=function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end, name='eigenbasis error', color={1,0,0}, range={-30, 30}},
+		{viewport={0/5, 1/4, 1/5, 1/4}, getter=function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end, name='reconstruction error', color={1,0,0}, range={-30, 30}},
 		{viewport={1/5, 0/4, 1/5, 1/4}, getter=function(self,i) return rho(self,i) end, name='rho', color={1,0,1}},
 		{viewport={1/5, 1/4, 1/5, 1/4}, getter=function(self,i) return p(self,i) end, name='p', color={1,0,1}},
 		{viewport={2/5, 0/4, 1/5, 1/4}, getter=function(self,i) return ux(self,i) end, name='ux', color={0,1,0}},
@@ -43,20 +44,31 @@ do
 		{viewport={4/5, 3/4, 1/5, 1/4}, getter=function(self,i) return eHydro(self,i) end, name='eHydro', color={1,1,0}},
 		{viewport={3/5, 3/4, 1/5, 1/4}, getter=function(self,i) return EMag(self,i) end, name='EMag', color={1,1,0}},
 	}
+	--]]
+	-- [[ matching Euler
+	MHD.graphInfos = table{
+		{viewport={0/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][1] end, name='rho', color={1,0,1}},
+		{viewport={1/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][2] / self.qs[i][1] end, name='u', color={0,1,0}},
+		{viewport={2/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][8] / self.qs[i][1] end, name='E', color={.5,.5,1}},
+		{viewport={0/3, 1/2, 1/3, 1/2}, getter=function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
+		{viewport={1/3, 1/2, 1/3, 1/2}, getter=function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end, name='log reconstruction error', color={1,0,0}, range={-30, 30}},
+	}
+	--]]
 end
 MHD.graphInfoForNames = MHD.graphInfos:map(function(info,i)
 	return info, info.name
 end)
 
 function MHD:initCell(sim,i)
+	local gamma = self.gamma
 	local x = sim.xs[i]
-	local rho = x < 0 and .1 or 1
+	local rho = x < 0 and 1 or .1
 	local ux, uy, uz = 0, 0, 0
 	local Bx = 0	-- .75
 	local By = 0	-- x < 0 and 1 or -1
 	local Bz = 0
-	local p = 1		-- x < 0 and 1 or .1
-	local eInt = p / (self.gamma - 1)
+	local p = gamma-1		-- x < 0 and 1 or .1
+	local eInt = p / (gamma-1)
 	local eKin = .5*(ux*ux + uy*uy + uz*uz)
 	local EMag = .5*(Bx*Bx + By*By + Bz*Bz) / self.mu
 	local ETotal = rho*(eInt + eKin) + EMag 
