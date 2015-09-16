@@ -19,33 +19,35 @@ do
 	local By = function(self,i) return self.qs[i][6]/self.equation.mu end
 	local Bz = function(self,i) return self.qs[i][7]/self.equation.mu end
 	local ETotal = function(self,i) return self.qs[i][8] end
-	local eTotal = ETotal / rho
 	local EMag = .5*(Bx*Bx + By*By + Bz*Bz) / function(self,i) return self.equation.mu end
 	local EHydro = ETotal - EMag
-	local eHydro = EHydro / rho
-	local eKin = function(self,i) return .5*(ux(self,i)^2 + uy(self,i)^2 + uz(self,i)^2) end
-	local eInt = eHydro - eKin
-	local p = function(self,i) return eInt(self,i) / (self.equation.gamma - 1) end
-	--[[ full mhd
+	local EKin = .5 * rho * (ux^2 + uy^2 + uz^2)
+	local EInt = EHydro - EKin
+	local eInt = EInt / rho
+	local gamma = function(self,i) return (self.equation.gamma - 1) end
+	local p = eInt * gamma
+	local pStar = p + EMag
+	-- [[ full mhd
 	MHD.graphInfos = table{
-		{viewport={0/5, 0/4, 1/5, 1/4}, getter=function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end, name='eigenbasis error', color={1,0,0}, range={-30, 30}},
-		{viewport={0/5, 1/4, 1/5, 1/4}, getter=function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end, name='reconstruction error', color={1,0,0}, range={-30, 30}},
-		{viewport={1/5, 0/4, 1/5, 1/4}, getter=function(self,i) return rho(self,i) end, name='rho', color={1,0,1}},
-		{viewport={1/5, 1/4, 1/5, 1/4}, getter=function(self,i) return p(self,i) end, name='p', color={1,0,1}},
-		{viewport={2/5, 0/4, 1/5, 1/4}, getter=function(self,i) return ux(self,i) end, name='ux', color={0,1,0}},
-		{viewport={2/5, 1/4, 1/5, 1/4}, getter=function(self,i) return uy(self,i) end, name='uy', color={0,1,0}},
-		{viewport={2/5, 2/4, 1/5, 1/4}, getter=function(self,i) return uz(self,i) end, name='uz', color={0,1,0}},
-		{viewport={3/5, 0/4, 1/5, 1/4}, getter=function(self,i) return Bx(self,i) end, name='Bx', color={.5,.5,1}},
-		{viewport={3/5, 1/4, 1/5, 1/4}, getter=function(self,i) return By(self,i) end, name='By', color={.5,.5,1}},
-		{viewport={3/5, 2/4, 1/5, 1/4}, getter=function(self,i) return Bz(self,i) end, name='Bz', color={.5,.5,1}},
-		{viewport={4/5, 0/4, 1/5, 1/4}, getter=function(self,i) return eTotal(self,i) end, name='eTotal', color={1,1,0}},
-		{viewport={4/5, 1/4, 1/5, 1/4}, getter=function(self,i) return eKin(self,i) end, name='eKin', color={1,1,0}},
-		{viewport={4/5, 2/4, 1/5, 1/4}, getter=function(self,i) return eInt(self,i) end, name='eInt', color={1,1,0}},
-		{viewport={4/5, 3/4, 1/5, 1/4}, getter=function(self,i) return eHydro(self,i) end, name='eHydro', color={1,1,0}},
-		{viewport={3/5, 3/4, 1/5, 1/4}, getter=function(self,i) return EMag(self,i) end, name='EMag', color={1,1,0}},
+		{viewport={0/4, 2/4, 1/4, 1/4}, getter=function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end, name='eigenbasis error', color={1,0,0}, range={-30, 30}},
+		{viewport={0/4, 3/4, 1/4, 1/4}, getter=function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end, name='reconstruction error', color={1,0,0}, range={-30, 30}},
+		{viewport={0/4, 0/4, 1/4, 1/4}, getter=rho, name='rho', color={1,0,1}},
+		{viewport={0/4, 1/4, 1/4, 1/4}, getter=p, name='p', color={1,0,1}},
+		{viewport={1/4, 0/4, 1/4, 1/4}, getter=ux, name='ux', color={0,1,0}},
+		{viewport={1/4, 1/4, 1/4, 1/4}, getter=uy, name='uy', color={0,1,0}},
+		{viewport={1/4, 2/4, 1/4, 1/4}, getter=uz, name='uz', color={0,1,0}},
+		{viewport={1/4, 3/4, 1/4, 1/4}, getter=pStar, name='pStar', color={0,1,0}},
+		{viewport={2/4, 0/4, 1/4, 1/4}, getter=Bx, name='Bx', color={.5,.5,1}},
+		{viewport={2/4, 1/4, 1/4, 1/4}, getter=By, name='By', color={.5,.5,1}},
+		{viewport={2/4, 2/4, 1/4, 1/4}, getter=Bz, name='Bz', color={.5,.5,1}},
+		{viewport={3/4, 0/4, 1/4, 1/4}, getter=ETotal, name='ETotal', color={1,1,0}},
+		{viewport={3/4, 1/4, 1/4, 1/4}, getter=EKin, name='EKin', color={1,1,0}},
+		{viewport={3/4, 2/4, 1/4, 1/4}, getter=EInt, name='EInt', color={1,1,0}},
+		{viewport={3/4, 3/4, 1/4, 1/4}, getter=EHydro, name='EHydro', color={1,1,0}},
+		{viewport={2/4, 3/4, 1/4, 1/4}, getter=EMag, name='EMag', color={1,1,0}},
 	}
 	--]]
-	-- [[ matching Euler
+	--[[ matching Euler
 	MHD.graphInfos = table{
 		{viewport={0/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][1] end, name='rho', color={1,0,1}},
 		{viewport={1/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][2] / self.qs[i][1] end, name='u', color={0,1,0}},
@@ -62,28 +64,46 @@ end)
 function MHD:initCell(sim,i)
 	local gamma = self.gamma
 	local x = sim.xs[i]
-	local rho = x < 0 and 1 or .1
+	local rho = x < 0 and 1 or .125
 	local ux, uy, uz = 0, 0, 0
-	local Bx = 0	-- .75
-	local By = 0	-- x < 0 and 1 or -1
+	-- [[ Brio & Wu
+	local Bx = .75
+	local By = x < 0 and 1 or -1
 	local Bz = 0
-	local p = gamma-1		-- x < 0 and 1 or .1
+	--]]
+	--[[ some other tests
+	local Bx, By, Bz = 0, sin(pi/2*x), 0
+	--local Bx, By, Bz = 0, 1, 0	-- constant field works
+	--]]
+	--[[ Sod
+	local Bx, By, Bz = 0, 0, 0	-- zero field works
+	--]]
+	local p = x < 0 and 1 or .1
 	local eInt = p / (gamma-1)
+	local EInt = rho * eInt
 	local eKin = .5*(ux*ux + uy*uy + uz*uz)
+	local EKin = rho * eKin
 	local EMag = .5*(Bx*Bx + By*By + Bz*Bz) / self.mu
-	local ETotal = rho*(eInt + eKin) + EMag 
-	return {rho, rho*ux, rho*uy, rho*uz, Bx, By, Bz, ETotal}
+	local ETotal = EInt + EKin + EMag 
+	local mx, my, mz = rho * ux, rho * uy, rho * uz
+	return {rho, mx, my, mz, Bx, By, Bz, ETotal}
 end
 
 function MHD:stateToPrims(rho, mx, my, mz, Bx, By, Bz, ETotal)
 	local ux, uy, uz = mx / rho, my / rho, mz / rho
 	local EMag = .5*(Bx*Bx + By*By + Bz*Bz) / self.mu
+	assert(EMag < ETotal, "magnetic energy ("..EMag..") >= total energy ("..ETotal..")")
 	local EHydro = ETotal - EMag
-	local eHydro = EHydro / rho
+	assert(EHydro > 0, "densitized hydro energy is negative: "..EHydro)
 	local eKin = .5*(ux*ux + uy*uy + uz*uz)
-	local eInt = eHydro - eKin
-	local p = eInt / (self.gamma - 1)
-	return rho, ux, uy, uz, Bx, By, Bz, p
+	local EKin = rho * eKin
+	local EInt = EHydro - EKin
+	assert(EInt > 0, "densitized internal energy is negative: "..EInt)
+	local p = EInt*(self.gamma-1)
+	assert(p > 0, "static pressure is negative: "..p)
+	local pStar = p + EMag
+	assert(pStar > 0, "full pressure is negative: "..pStar)
+	return rho, ux, uy, uz, Bx, By, Bz, pStar
 end
 
 -- using "An Upwind Differing Scheme for the Equations of Ideal Magnetohydrodynamics" by Brio & Wu
@@ -91,9 +111,10 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local gamma = self.gamma	
 	local gammaMinusOne = gamma - 1
 
-	local rhoL, uxL, uyL, uzL, BxL, ByL, BzL, pL = self:stateToPrims(unpack(qL))
-	local rhoR, uxR, uyR, uzR, BxR, ByR, BzR, pR = self:stateToPrims(unpack(qR))
+	local rhoL, uxL, uyL, uzL, BxL, ByL, BzL, pStarL = self:stateToPrims(unpack(qL))
+	local rhoR, uxR, uyR, uzR, BxR, ByR, BzR, pStarR = self:stateToPrims(unpack(qR))
 
+	-- [[ average
 	local rho = .5*(rhoL + rhoR)
 	local ux = .5*(uxL + uxR)
 	local uy = .5*(uyL + uyR)
@@ -101,19 +122,38 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local Bx = .5*(BxL + BxR)
 	local By = .5*(ByL + ByR)
 	local Bz = .5*(BzL + BzR)
-	local p = .5*(pL + pR)
+	local pStar = .5*(pStarL + pStarR)
+	--]]
+	--[[ Roe averaging ... seems to be more stable when dealing with negative pressure (or magnetic energy getting too high)
+	local sqrtRhoL = sqrt(rhoL)
+	local sqrtRhoR = sqrt(rhoR)
+	local denom = 1 / (sqrtRhoL + sqrtRhoR)
+	local rho = sqrtRhoL * sqrtRhoR
+	local ux = (sqrtRhoL*uxL + sqrtRhoR*uxR)*denom
+	local uy = (sqrtRhoL*uyL + sqrtRhoR*uyR)*denom
+	local uz = (sqrtRhoL*uzL + sqrtRhoR*uzR)*denom
+	local Bx = (sqrtRhoL*BxL + sqrtRhoR*BxR)*denom
+	local By = (sqrtRhoL*ByL + sqrtRhoR*ByR)*denom
+	local Bz = (sqrtRhoL*BzL + sqrtRhoR*BzR)*denom
+	local pStar = (sqrtRhoL*pStarL + sqrtRhoR*pStarR)*denom
+	--]]
+	
+	local ETotal = sim.qs[i][8]
+	local H = (ETotal + pStar) / rho
 
 	local mu = self.mu
 	local BSq = Bx*Bx + By*By + Bz*Bz
 	local uSq = ux*ux + uy*uy + uz*uz
 	local BdotU = Bx*ux + By*uy + Bz*uz
+	local p = pStar - .5 * BSq
 	local caxSq = Bx*Bx / (mu*rho)
-	local cax = sqrt(caxSq)
-	local aSq = gamma*p / rho
+	local cax = sqrt(caxSq)	-- positive
+	--local aSq = gamma * p / rho
+	local aSq = (gamma - 1) * (H - uSq - BSq / rho) - (gamma - 2) * ((ByL-ByR)^2 + (BzL-BzR)^2)/(2*(math.sqrt(rhoL) + math.sqrt(rhoR)))
 	local a = sqrt(aSq)
 	local caSq = BSq / (mu*rho)
 	local ca = sqrt(caSq)
-	local aStarSq = aSq + caSq
+	local aStarSq = (gamma * p + BSq) / rho		-- aSq + caSq
 	local discr = sqrt(aStarSq * aStarSq - 4 * caxSq * aSq)
 	local cfSq = .5 * (aStarSq + discr)
 	local csSq = .5 * (aStarSq - discr)
@@ -121,10 +161,6 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local cs = sqrt(csSq)
 	local sgnBx = Bx >= 0 and 1 or -1
 	local sqrtRho = sqrt(rho)
-
-	local ETotal = sim.qs[i][8]
-	local PStar = p + .5 * BSq
-	local H = (ETotal + PStar) / rho
 
 	-- Brio & Wu
 	sim.fluxMatrix[i][1][1] = 0
@@ -135,20 +171,20 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	sim.fluxMatrix[i][1][6] = 0
 	sim.fluxMatrix[i][1][7] = 0
 	sim.fluxMatrix[i][1][8] = 0
-	sim.fluxMatrix[i][2][1] = (gamma-3)/2*ux^2 + (gamma-1)/2*(uy^2+uz^2)
+	sim.fluxMatrix[i][2][1] = (gamma-3)/2*ux^2 + (gamma-1)/2*(uy^2+uz^2) - (gamma-2)*((ByL-ByR)^2 + (BzL-BzR)^2)/(2*(math.sqrt(rhoL) + math.sqrt(rhoR)))
 	sim.fluxMatrix[i][2][2] = (3-gamma)*ux
 	sim.fluxMatrix[i][2][3] = (1-gamma)*uy
 	sim.fluxMatrix[i][2][4] = (1-gamma)*uz
 	sim.fluxMatrix[i][2][5] = 0
-	sim.fluxMatrix[i][2][6] = (2-gamma)*By
-	sim.fluxMatrix[i][2][7] = (2-gamma)*Bz
+	sim.fluxMatrix[i][2][6] = (2-gamma)*By*(rhoL+rhoR)/(2*rho)
+	sim.fluxMatrix[i][2][7] = (2-gamma)*Bz*(rhoL+rhoR)/(2*rho)
 	sim.fluxMatrix[i][2][8] = gamma-1
 	sim.fluxMatrix[i][3][1] = -ux * uy
 	sim.fluxMatrix[i][3][2] = uy
 	sim.fluxMatrix[i][3][3] = ux
 	sim.fluxMatrix[i][3][4] = 0
 	sim.fluxMatrix[i][3][5] = 0
-	sim.fluxMatrix[i][3][6] = -By
+	sim.fluxMatrix[i][3][6] = -Bx
 	sim.fluxMatrix[i][3][7] = 0
 	sim.fluxMatrix[i][3][8] = 0
 	sim.fluxMatrix[i][4][1] = -ux * uz
@@ -183,13 +219,13 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	sim.fluxMatrix[i][7][6] = 0
 	sim.fluxMatrix[i][7][7] = ux
 	sim.fluxMatrix[i][7][8] = 0
-	sim.fluxMatrix[i][8][1] = -ux * (H * (gamma - 1) / 2 * uSq + Bx / rho * BdotU)
+	sim.fluxMatrix[i][8][1] = -ux * H + (gamma - 1) * ux * uSq / 2 + Bx * BdotU / rho - ux * (gamma - 2) * ((ByL-ByR)^2 + (BzL-BzR)^2)/(2*(math.sqrt(rhoL) + math.sqrt(rhoR)))
 	sim.fluxMatrix[i][8][2] = H - Bx^2 / rho - (gamma - 1) * ux^2
 	sim.fluxMatrix[i][8][3] = (1 - gamma) * ux * uy - Bx * By / rho
 	sim.fluxMatrix[i][8][4] = (1 - gamma) * ux * uz - Bx * Bz / rho
 	sim.fluxMatrix[i][8][5] = 0
-	sim.fluxMatrix[i][8][6] = (2 - gamma) * By * ux - Bx * uy
-	sim.fluxMatrix[i][8][7] = (2 - gamma) * Bz * ux - Bx * uz
+	sim.fluxMatrix[i][8][6] = -Bx * uy - (gamma - 2) * By * ux * (rhoL + rhoR) / (2 * rho)
+	sim.fluxMatrix[i][8][7] = -Bx * uz - (gamma - 2) * Bz * ux * (rhoL + rhoR) / (2 * rho)
 	sim.fluxMatrix[i][8][8] = gamma * ux
 
 	sim.eigenvalues[i][1] = ux - cf
@@ -208,7 +244,7 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local bySq = by * by
 	local bzSq = bz * bz
 
-	local epsilon = 1e-20
+	local epsilon = 1e-12
 	local BT = By^2 + Bz^2
 
 	-- when by^2 + bz^2 ~= 0 ... (i.e. magnetic field tangent to normal exists)
@@ -247,9 +283,9 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	sim.eigenvectors[i][6][1] = By * cfSq / (rho * (cfSq - bxSq))
 	sim.eigenvectors[i][7][1] = Bz * cfSq / (rho * (cfSq - bxSq))
 	sim.eigenvectors[i][8][1] = .5 * uSq + hfm
-	for j=1,8 do
-		sim.eigenvectors[i][j][1] = sim.eigenvectors[i][j][1] * alpha_f
-	end
+--	for j=1,8 do
+--		sim.eigenvectors[i][j][1] = sim.eigenvectors[i][j][1] * alpha_f
+--	end
 	--alfven -
 	sim.eigenvectors[i][1][2] = 0
 	sim.eigenvectors[i][2][2] = 0
@@ -313,9 +349,9 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	sim.eigenvectors[i][6][8] = By * cfSq / (rho * (cfSq - bxSq))
 	sim.eigenvectors[i][7][8] = Bz * cfSq / (rho * (cfSq - bxSq))
 	sim.eigenvectors[i][8][8] = .5 * uSq + hfp
-	for j=1,8 do
-		sim.eigenvectors[i][j][8] = sim.eigenvectors[i][j][8] * alpha_f
-	end
+--	for j=1,8 do
+--		sim.eigenvectors[i][j][8] = sim.eigenvectors[i][j][8] * alpha_f
+--	end
 
 	assert(finite(rho), "rho is not finite")
 	assert(finite(ux), "ux is not finite")
@@ -327,7 +363,15 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	assert(finite(bx), "bx is not finite")
 	assert(finite(by), "by is not finite")
 	assert(finite(bz), "bz is not finite")
-	assert(finite(cs), "cs is not finite")
+	assert(p >= 0, "pressure is negative: "..tostring(p))
+	assert(finite(aStarSq), "aStarSq is not finite")
+	assert(finite(caxSq), "caxSq is not finite")
+	assert(finite(aSq), "aSq is not finite")
+	assert(aStarSq * aStarSq - 4 * caxSq * aSq >= 0, "discr is imaginary")
+	assert(finite(discr), "discr is not finite: "..tostring(discr))
+	assert(aStarSq >= discr, "aStarSq ("..tostring(aStarSq)..") is not >= discr ("..tostring(discr)..")")
+	assert(finite(csSq) and csSq >= 0, "csSq is not finite and positive: "..tostring(csSq))
+	assert(finite(cs), "cs is not finite: "..tostring(cs))
 	assert(finite(alpha_s_hsm), "alpha_s_hsm is not finite")
 	assert(finite(alpha_s_hsp), "alpha_s_hsp is not finite")
 
@@ -338,7 +382,7 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	end
 
 	-- use linear solver for eigenvector inverse
-	sim.eigenvectorsInverse[i] = nil
+--	sim.eigenvectorsInverse[i] = nil
 end
 
 return MHD

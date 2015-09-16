@@ -1,4 +1,6 @@
-local RoeBackwardEulerConjRes = require 'ext.class'(require 'roe')
+local class = require 'ext.class'
+local Roe = require 'roe'
+local RoeBackwardEulerConjRes = class(Roe)
 
 RoeBackwardEulerConjRes.fixed_dt = 1/50
 
@@ -91,7 +93,7 @@ function RoeBackwardEulerConjRes:integrateFlux(dt)
 			end
 			return y
 		end,
-		A_diag = (function()
+		ADiag = (function()
 			local n = self:newState()
 			for i=1,self.gridsize do
 				for j=1,self.numStates do

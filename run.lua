@@ -32,7 +32,7 @@ do
 	local K_xx = -h:diff(x,x) / g_xx^.5
 	local kappa = 1
 	local args = {
-		gridsize = 32,
+		gridsize = 200,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
 		fluxLimiter = fluxLimiters.donorCell,
@@ -62,10 +62,10 @@ do
 
 	-- [=[ compare different equations/formalisms 
 	--sims:insert(require'adm1d3var_roe'(args))		-- \_ these two are identical
-	--sims:insert(require'adm1d3to5var_roe'(args))	-- /
+	sims:insert(require'adm1d3to5var_roe'(args))	-- /
 	--sims:insert(require'adm1d5var_roe'(args))		--> this one, for 1st iter, calcs A_x half what it should
 	--sims:insert(require'bssnok1d_roe'(args))
-	sims:insert(require'adm3d_roe'(args))
+	--sims:insert(require'adm3d_roe'(args))
 	--sims:insert(require'bssnok1d_backwardeuler_newton'(args))
 	--]=]
 
@@ -228,7 +228,8 @@ do
 	local args = {
 		gridsize = 200,
 		domain = {xmin=-1, xmax=1},
-		boundaryMethod = boundaryMethods.mirror,
+		--boundaryMethod = boundaryMethods.mirror,
+		boundaryMethod = boundaryMethods.freeFlow,
 		--linearSolver = require 'linearsolvers'.conjres,		-- actually works
 		linearSolver = require 'linearsolvers'.conjgrad,	-- not so well
 		--linearSolver = require 'linearsolvers'.jacobi,	-- nope
@@ -246,11 +247,11 @@ do
 	--sims:insert(require 'euler1d_burgers'(args))
 	--sims:insert(require 'euler1d_hll'(args))
 	--sims:insert(require 'euler1d_roe'(args))
-	--sims:insert(require 'euler1d_roe_backwardeuler_linear'(args))
+	sims:insert(require 'euler1d_roe_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
-	sims:insert(require 'mhd_roe'(args))
+	--sims:insert(require 'mhd_roe'(args))
 	--]=]
 
 	--[=[ compare flux limiters

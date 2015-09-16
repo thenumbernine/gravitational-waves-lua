@@ -24,6 +24,8 @@ maxwell.lua is Maxwell equations described as hyperbolic equations in section 4.
 
 bssnok1d.lua is a hodge-podge of the BSSNOK partial wrt time and the hyperbolic formalism of BSSNOK described in Alcubierre's Hyperbolicity chapter.
 
+mhd.lua is based on "ATHENA: A NEW CODE FOR ASTROPHYSICAL MHD" 2008 by Stone, Gardiner, Teuben, Hawley, and Simon
+
 
 
 and then I started adding attempts at implicit solvers.

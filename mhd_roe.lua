@@ -5,14 +5,11 @@ local MHDRoe = class(Roe)
 
 MHDRoe.equation = require 'mhd'()
 
--- a,b,c,d 3x1 columns, A = [a,b,c], solves Ax=d
-local function cramerSolve(a,b,c,d)
-end
-
 -- A x = b
 -- x = A^-1 b
 -- returns x
-local function linearSolve(A, b)
+-- uses Gauss-Jordan method
+local function linearSolveGaussJordan(A, b)
 	local result = {unpack(b)}
 
 	local n = #A
@@ -75,18 +72,77 @@ end
 
 --[[
 -- testing
-print(unpack(linearSolve(
+print(unpack(linearSolveGaussJordan(
 	-- store row-major so Lua indexing matches math indexing
 	{
-		{1,0,0},
-		{0,1,2},
-		{0,1,0},
+		{3,0,0},
+		{2,1,0},
+		{1,0,1},
 	},
 		{1,2,3}
 )))
 os.exit()
 --]]
 
+-- solve for x in Ax=b using Gauss-Seidel iterative method
+local function linearSolveGaussSeidel(A, b)
+	local result = {unpack(b)}
+	local maxiter = 20
+	local n = #A
+	for iter=1,maxiter do
+		local lastResult = {unpack(result)}
+		for i=1,n do
+			local sum = 0
+			for j=1,n do
+				if j ~= i then
+					sum = sum + A[i][j] * result[j]
+				end
+			end
+			-- what if A[i][i] == 0 ?
+			result[i] = (b[i] - sum) / A[i][i]
+		end
+		local err = 0
+		for i=1,n do
+			local delta = result[i] - lastResult[i]
+			err = err + .5 * delta * delta
+		end
+		print('iter',i,'error',err)
+	end
+	return result
+end
+
+local function linearSolveConjGrad(A, b)
+	local n = #A
+	local function dot(a,b) return range(n):map(function(i) return a[i] * b[i] end):sum() end
+	local function norm(a) return dot(a,a) end
+	local maxiter = 100
+	local epsilon = 1e-10
+	local x = {unpack(b)}
+	local r = range(n):map(function(i) return b[i] - dot(A[i], x) end)
+	local r2 = norm(r)
+	if r2 < epsilon then return x end
+	local p = {unpack(r)}
+	for iter=1,maxiter do
+		local Ap = range(n):map(function(i) return dot(A[i], p) end)
+		local alpha = r2 / dot(p, Ap)
+		x = range(n):map(function(i) return x[i] + alpha * p[i] end)
+		local nr = range(n):map(function(i) return r[i] - alpha * Ap[i] end)
+		local nr2 = norm(nr)
+		local beta = nr2 / r2
+		if nr2 < epsilon then break end
+		r = nr
+		r2 = nr2
+		p = range(n):map(function(i) return r[i] + beta * p[i] end)
+	end
+	return x
+end
+
+-- TODO use linearsolvers.lua
+local linearSolve = linearSolveGaussJordan
+--local linearSolve = linearSolveGaussSeidel
+--local linearSolve = linearSolveConjGrad
+
+--[==[
 function MHDRoe:eigenfields(i, v)
 
 	-- eigenvector transform:
@@ -194,5 +250,6 @@ function MHDRoe:eigenfields(i, v)
 	return {c1, c2, c3, c4, c5, c6, c7}
 --]=]
 end
+--]==]
 
 return MHDRoe
