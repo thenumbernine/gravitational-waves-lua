@@ -98,7 +98,7 @@ local function dft_x(xs)
 end
 
 function EulerDFT:iterate()
-	self:boundaryMethod()
+	self:applyBoundary()
 	
 	local dt = self.fixed_dt
 	

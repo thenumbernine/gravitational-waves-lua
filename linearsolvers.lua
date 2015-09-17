@@ -26,7 +26,7 @@ local function jacobi(args)
 	return require 'LinearSolvers.Jacobi'{
 		A = args.A,
 		ADiag = args.ADiag,
-		b = args.b
+		b = args.b,
 		x0 = args.x0,
 		maxiter = args.maxiter or 100,
 		epsilon = args.epsilon or 1e-10,

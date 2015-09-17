@@ -22,7 +22,7 @@ function EulerBackwardEulerLinear:init(args)
 end
 
 function EulerBackwardEulerLinear:iterate()
-	self:boundaryMethod()
+	self:applyBoundary()
 	local dt = self:calcDT()
 	local gamma = self.equation.gamma
 	local q = self.qs

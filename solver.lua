@@ -61,8 +61,12 @@ function Solver:integrateFlux(dt)
 	end)
 end
 
+function Solver:applyBoundary()
+	self.boundaryMethod(self.qs)
+end
+
 function Solver:iterate()
-	self:boundaryMethod()
+	self:applyBoundary()
 --[[
 print('new iter:')
 for i=1,self.gridsize do

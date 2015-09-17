@@ -228,8 +228,8 @@ do
 	local args = {
 		gridsize = 200,
 		domain = {xmin=-1, xmax=1},
-		--boundaryMethod = boundaryMethods.mirror,
-		boundaryMethod = boundaryMethods.freeFlow,
+		boundaryMethod = boundaryMethods.mirror,
+		--boundaryMethod = boundaryMethods.freeFlow,
 		--linearSolver = require 'linearsolvers'.conjres,		-- actually works
 		linearSolver = require 'linearsolvers'.conjgrad,	-- not so well
 		--linearSolver = require 'linearsolvers'.jacobi,	-- nope
