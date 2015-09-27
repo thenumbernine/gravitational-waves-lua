@@ -7,9 +7,11 @@ local RoeBackwardEulerLinear = class(Roe)
 function RoeBackwardEulerLinear:init(args)
 	RoeBackwardEulerLinear.super.init(self, args)
 	self.linearSolver = args.linearSolver or require 'linearsolvers'.conjres
+	self.errorLogging = args.errorLogging
 end
 
-function RoeBackwardEulerLinear:integrateFlux(dt)	--calcDT extra params: getLeft, getRight, getLeft2, getRight2
+function RoeBackwardEulerLinear:integrateFlux(dt)
+	--calcDT extra params: getLeft, getRight, getLeft2, getRight2
 	-- the previous call in Solver:iterate is to self:calcDT
 	-- which calls self.equation:calcInterfaceEigenBasis, which fills the self.eigenvalues table
 
@@ -17,34 +19,12 @@ function RoeBackwardEulerLinear:integrateFlux(dt)	--calcDT extra params: getLeft
 	self:calcRTildes()
 	self:calcPhis(dt)
 
-	local zero = {}
-	for j=1,self.numStates do
-		zero[j] = 0
-	end
-	
+	-- function that returns deriv when provided a state vector
+	-- TODO make this consider getLeft/getRight ... which themselves are not modular wrt state vector
 	local function dq_dt(qs)
-		-- flux = ALeft * qs[i-1] + ARight * qs[i]
-		-- for matrixes ALeft & ARight
-		local function apply(i, q, s)
-			if i == 1 or i == self.gridsize+1 then return zero end
-			local qTilde = self:eigenfields(i, q)
-			local fluxTilde = {}
-			for j=1,self.numStates do
-				fluxTilde[j] = .5 * self.eigenvalues[i][j] * qTilde[j] * (1 + s * self.Phis[i][j])
-			end
-			return self:eigenfieldsInverse(i, fluxTilde)
-		end
-
-		local y = self:newState()
-		for i=1,self.gridsize do
-			local dx = self.ixs[i+1] - self.ixs[i]
-			local fluxLfromL, fluxLfromR = apply(i, qs[i-1], 1), apply(i, qs[i], -1)
-			local fluxRfromL, fluxRfromR = apply(i+1, qs[i], 1), apply(i+1, qs[i+1], -1)
-			for j=1,self.numStates do
-				y[i][j] = (fluxLfromL[j] + fluxLfromR[j] - fluxRfromL[j] - fluxRfromR[j]) / dx
-			end
-		end
-		return y
+		local getLeft = function(i) return qs[i-1] end
+		local getRight = function(i) return qs[i] end
+		return self:calcDeriv(getLeft, getRight)
 	end
 
 	-- [[ implicit via some linear solver
@@ -88,11 +68,13 @@ function RoeBackwardEulerLinear:integrateFlux(dt)	--calcDT extra params: getLeft
 			return n
 		end)(),
 		-- logging:
-		errorCallback = function(err, convergenceIteration)
+		errorCallback = self.errorLogging and function(err, convergenceIteration)
 			print(self.t, convergenceIteration, err)
 		end,
 	}
-	print()
+	if self.errorLogging then
+		print()
+	end
 	--]]
 	--[[ explicit - forward Euler - for debugging
 	self.qs = self.qs + dt * dq_dt(self.qs)

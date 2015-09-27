@@ -179,9 +179,12 @@ function Roe:calcRTildes(getLeft, getRight)
 	end
 end
 
+--[[
+compute Phi vector along interfaces
+Phi = diag(sign(v_i) + 1/2 phi * (dt/dx v_i - sign(v_i)))
+based on self.rTildes and self.eigenvalues
+--]]
 function Roe:calcPhis(dt)
-	-- compute Phi vector along interfaces
-	-- Phi = diag(sign(v_i) + 1/2 phi * (dt/dx v_i - sign(v_i)))
 	for i=2,self.gridsize do
 		local dx = self.xs[i] - self.xs[i-1]
 		for j=1,self.numStates do
@@ -191,6 +194,70 @@ function Roe:calcPhis(dt)
 			self.Phis[i][j] = theta + phi * (epsilon - theta)
 		end
 	end
+end
+
+--[[
+calc interface flux vector influence from left/right states
+not used by Roe (for efficiency's sake), but used by subclasses
+
+flux = ALeft * qs[i-1] + ARight * qs[i]
+for matrixes ALeft & ARight
+
+i = interface index
+qs = left/right q vector
+dir = direction sign (1 = from left, -1 = from right)
+--]]
+local zero
+function Roe:calcCellFluxForSide(i, qs, dir)
+	if not zero then
+		zero = {}
+		for j=1,self.numStates do
+			zero[j] = 0
+		end
+	end
+	if i == 1 or i == self.gridsize+1 then return zero end
+	local qTilde = self:eigenfields(i, qs)
+	local fluxTilde = {}
+	for j=1,self.numStates do
+		fluxTilde[j] = .5 * self.eigenvalues[i][j] * qTilde[j] * (1 + dir * self.Phis[i][j])
+	end
+	return self:eigenfieldsInverse(i, fluxTilde)
+end
+
+--[[
+calc interface flux vector
+getLeft and getRight would be convenient for applying this to MUSCL
+but I would also like an arbitrary state vector ...
+combining the two concepts means making qs a parameter of getLeft/getRight ...
+not used by Roe (for efficiency's sake), but used by subclasses
+--]]
+function Roe:calcCellFlux(i, getLeft, getRight)
+	local qL = getLeft and getLeft(i) or self.qs[i-1]
+	local qR = getRight and getRight(i) or self.qs[i]
+	local fluxFromL = self:calcCellFluxForSide(i, qL, 1)
+	local fluxFromR = self:calcCellFluxForSide(i, qR, -1)
+	local result = {}
+	for i=1,self.numStates do
+		result[i] = fluxFromL[i] + fluxFromR[i]
+	end
+	return result
+end
+
+--[[
+calc derivative of state
+not used by Roe (for efficiency's sake), but used by subclasses
+--]]
+function Roe:calcDeriv(getLeft, getRight)
+	local dq_dt = self:newState()
+	for i=1,self.gridsize do
+		local dx = self.ixs[i+1] - self.ixs[i]
+		local fluxL = self:calcCellFlux(i, getLeft, getRight)
+		local fluxR = self:calcCellFlux(i+1, getLeft, getRight)
+		for j=1,self.numStates do
+			dq_dt[i][j] = (fluxL[j] - fluxR[j]) / dx
+		end		
+	end
+	return dq_dt
 end
 
 function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
@@ -256,4 +323,3 @@ function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
 end
 
 return Roe
-

@@ -231,9 +231,9 @@ do
 		domain = {xmin=-1, xmax=1},
 		boundaryMethod = boundaryMethods.mirror,
 		--boundaryMethod = boundaryMethods.freeFlow,
-		--linearSolver = require 'linearsolvers'.conjres,		-- works
+		--linearSolver = require 'linearsolvers'.jacobi,	-- error -- TODO -- fixme
 		--linearSolver = require 'linearsolvers'.conjgrad,	-- works
-		linearSolver = require 'linearsolvers'.jacobi,	-- nope
+		linearSolver = require 'linearsolvers'.conjres,		-- works
 		--fluxLimiter = fluxLimiters.donorCell,
 		fluxLimiter = fluxLimiters.superbee,
 		--[=[
@@ -247,8 +247,8 @@ do
 	-- [=[ compare schemes
 	--sims:insert(require 'euler1d_burgers'(args))
 	--sims:insert(require 'euler1d_hll'(args))
-	--sims:insert(require 'euler1d_roe'(args))
-	sims:insert(require 'euler1d_roe_backwardeuler_linear'(args))
+	sims:insert(require 'euler1d_roe'(args))
+	--sims:insert(require 'euler1d_roe_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
