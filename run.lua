@@ -226,13 +226,14 @@ do
 	--local solverClass = require 'euler1d_burgers'
 	
 	local args = {
+		stopAtTime = .1,
 		gridsize = 200,
 		domain = {xmin=-1, xmax=1},
 		boundaryMethod = boundaryMethods.mirror,
 		--boundaryMethod = boundaryMethods.freeFlow,
-		--linearSolver = require 'linearsolvers'.conjres,		-- actually works
-		linearSolver = require 'linearsolvers'.conjgrad,	-- not so well
-		--linearSolver = require 'linearsolvers'.jacobi,	-- nope
+		--linearSolver = require 'linearsolvers'.conjres,		-- works
+		--linearSolver = require 'linearsolvers'.conjgrad,	-- works
+		linearSolver = require 'linearsolvers'.jacobi,	-- nope
 		--fluxLimiter = fluxLimiters.donorCell,
 		fluxLimiter = fluxLimiters.superbee,
 		--[=[
@@ -293,7 +294,7 @@ for _,sim in ipairs(sims) do
 		local r, g, b = math.random(), math.random(), math.random()
 		local l = math.sqrt(r^2 + g^2 + b^2)
 		sim.color = {r / l, g / l, b / l}
-		print(sim.name, unpack(sim.color))
+		--print(sim.name, unpack(sim.color))
 	end
 	sim:reset()
 end

@@ -15,8 +15,12 @@ function Solver:init(args)
 	self.fluxLimiter = assert(args.fluxLimiter)
 
 	self.integrator = args.integrator or integrators.ForwardEuler()
-	self.t = 0
-	self.cfl = .5
+	self.t = args.t or 0
+	self.iteration = args.iteration or 0
+	self.cfl = args.cfl or .5
+	self.fixed_dt = args.fixed_dt
+	self.stopAtTime = args.stopAtTime
+	
 	self.xs = {}
 	self.ixs = {}
 	self.qs = self:newState()
@@ -90,6 +94,7 @@ end
 	end
 	
 	self.t = self.t + dt
+	self.iteration = self.iteration + 1
 end
 
 function Solver:addSourceToDerivCell() end

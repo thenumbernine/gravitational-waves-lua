@@ -8,6 +8,7 @@ function Roe:init(args)
 
 	self.deltaQTildes = {}
 	self.rTildes = {}
+	self.Phis = {}
 	self.fluxMatrix = {}
 	self.eigenvectors = {}
 	self.eigenvectorsInverse = {}
@@ -58,7 +59,14 @@ function Roe:reset()
 			self.deltaQTildes[i][j] = 0
 		end
 	end
-	
+
+	for i=1,self.gridsize do
+		self.Phis[i] = {}
+		for j=1,self.numStates do
+			self.Phis[i][j] = 1
+		end
+	end
+
 	for i=1,self.gridsize+1 do
 		self.fluxMatrix[i] = {}
 		self.eigenvectors[i] = {}
@@ -171,6 +179,20 @@ function Roe:calcRTildes(getLeft, getRight)
 	end
 end
 
+function Roe:calcPhis(dt)
+	-- compute Phi vector along interfaces
+	-- Phi = diag(sign(v_i) + 1/2 phi * (dt/dx v_i - sign(v_i)))
+	for i=2,self.gridsize do
+		local dx = self.xs[i] - self.xs[i-1]
+		for j=1,self.numStates do
+			local phi = self.fluxLimiter(self.rTildes[i][j])
+			local theta = self.eigenvalues[i][j] >= 0 and 1 or -1
+			local epsilon = self.eigenvalues[i][j] * dt / dx
+			self.Phis[i][j] = theta + phi * (epsilon - theta)
+		end
+	end
+end
+
 function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
 
 	-- 2) calculate interface state difference in eigenbasis coordinates
@@ -178,10 +200,14 @@ function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
 
 	-- 3) slope limit on interface difference
 	self:calcRTildes(getLeft, getRight)
-	
+
+	-- 4) phis based on eigenvalues and flux limiter of rTildes
+	self:calcPhis(dt)
+	-- TODO make use of Phis below (take from roe_backwardeuler_linear)
+
 	local useFluxMatrix = false
 	
-	-- 4) transform back
+	-- 5) transform back
 	for i=2,self.gridsize do
 		local qL = getLeft and getLeft(i) or self.qs[i-1]
 		local qR = getRight and getRight(i) or self.qs[i]
