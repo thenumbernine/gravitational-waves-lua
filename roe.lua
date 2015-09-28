@@ -16,32 +16,6 @@ function Roe:init(args)
 	self.fluxMatrixErrors = {}
 end
 
-local function buildField(matrixField)
-	return function(self, i, v)
-		local m = self[matrixField][i]
-		local result = {}
-		for j=1,self.numStates do
-			local sum = 0
-			for k=1,self.numStates do
-				sum = sum + m[j][k] * v[k]
-			end
-			result[j] = sum
-		end
-		return result 
-	end
-end
-
---[[
-default implementation will dot with j'th row of eigenvectorsInverse[i]
-subclasses with sparse matrices (like ADM) will be able to override this and optimize away (those 37x37 matrices)
-
-another note: eigenfields never have input vectors.  they are made of state vaules, and their input is state values, so there's no need to define an inner product.
-...except the fact that some of the state variables are on the i'th entry, and some are of the i+1/2'th entry...
---]]
-Roe.fluxTransform = buildField'fluxMatrix'
-Roe.eigenfields = buildField'eigenvectorsInverse'
-Roe.eigenfieldsInverse = buildField'eigenvectors'
-
 function Roe:reset()
 	Roe.super.reset(self)
 
@@ -116,7 +90,7 @@ function Roe:calcDT(getLeft, getRight)
 			end
 
 			-- eigenCoords_k = invQ_kl basis_l
-			local eigenCoords = self:eigenfields(i, basis)
+			local eigenCoords = self.equation:eigenfields(self, i, basis)
 			for k=1,self.numStates do
 				assert(type(eigenCoords[k])=='number', "failed for coord "..k.." got type "..type(eigenCoords[k]))
 			end
@@ -128,13 +102,13 @@ function Roe:calcDT(getLeft, getRight)
 			end
 			
 			-- newbasis_k = Q_kl eigenCoords_l
-			local newbasis = self:eigenfieldsInverse(i, eigenCoords)
+			local newbasis = self.equation:eigenfieldsInverse(self, i, eigenCoords)
 			
 			-- newtransformed_k = Q_kl eigenScaled_l = Q_kl lambda_l eigenCoords_k
-			local newtransformed = self:eigenfieldsInverse(i, eigenScaled)
+			local newtransformed = self.equation:eigenfieldsInverse(self, i, eigenScaled)
 
 			-- transformed_k = A_kl basis_l
-			local transformed = self:fluxTransform(i, basis)
+			local transformed = self.equation:fluxTransform(self, i, basis)
 
 			for k=1,self.numStates do
 				eigenbasisError = eigenbasisError + math.abs(basis[k] - newbasis[k])
@@ -157,7 +131,7 @@ function Roe:calcDeltaQTildes(getLeft, getRight)
 		for j=1,self.numStates do
 			dq[j] = qR[j] - qL[j]
 		end
-		self.deltaQTildes[i] = self:eigenfields(i, dq)
+		self.deltaQTildes[i] = self.equation:eigenfields(self, i, dq)
 	end
 end
 
@@ -216,12 +190,12 @@ function Roe:calcCellFluxForSide(i, qs, dir)
 		end
 	end
 	if i == 1 or i == self.gridsize+1 then return zero end
-	local qTilde = self:eigenfields(i, qs)
+	local qTilde = self.equation:eigenfields(self, i, qs)
 	local fluxTilde = {}
 	for j=1,self.numStates do
 		fluxTilde[j] = .5 * self.eigenvalues[i][j] * qTilde[j] * (1 + dir * self.Phis[i][j])
 	end
-	return self:eigenfieldsInverse(i, fluxTilde)
+	return self.equation:eigenfieldsInverse(self, i, fluxTilde)
 end
 
 --[[
@@ -272,6 +246,7 @@ function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
 	self:calcPhis(dt)
 	-- TODO make use of Phis below (take from roe_backwardeuler_linear)
 
+--[=[ uses fluxes (and optionally the flux matrix)
 	local useFluxMatrix = false
 	
 	-- 5) transform back
@@ -295,17 +270,17 @@ function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
 		end
 		
 		if not useFluxMatrix then
-			local qAvgTildes = self:eigenfields(i, qAvg)
+			local qAvgTildes = self.equation:eigenfields(self, i, qAvg)
 			for j=1,self.numStates do
 				fluxTilde[j] = fluxTilde[j] + self.eigenvalues[i][j] * qAvgTildes[j]
 			end
 		end
 		
-		self.fluxes[i] = self:eigenfieldsInverse(i, fluxTilde)
+		self.fluxes[i] = self.equation:eigenfieldsInverse(self, i, fluxTilde)
 		
 		-- using the flux matrix itself allows for complete reconstruction even in the presence of zero-self.eigenvalues
 		if useFluxMatrix then
-			local fluxQs = self:fluxTransform(i, qAvg)
+			local fluxQs = self.equation:fluxTransform(self, i, qAvg)
 			for j=1,self.numStates do
 				self.fluxes[i][j] = self.fluxes[i][j] + fluxQs[j]
 			end
@@ -320,6 +295,10 @@ function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
 		end
 	end
 	return dq_dts
+--]=]
+-- [=[ doesn't use the flux vector (extra calculatiosn) but uses the same routine that the implicit solver uses
+	return self:calcDeriv(getLeft, getRight)
+--]=]
 end
 
 return Roe

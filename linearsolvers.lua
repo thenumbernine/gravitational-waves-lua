@@ -1,7 +1,8 @@
 local table = require 'ext.table'
-local ConjugateGradient = require 'LinearSolvers.ConjugateGradient'
-local LinearSolvers = require 'LinearSolvers.ConjugateResidual'
 local Jacobi = require 'LinearSolvers.Jacobi'
+local ConjugateGradient = require 'LinearSolvers.ConjugateGradient'
+local ConjugateResidual = require 'LinearSolvers.ConjugateResidual'
+local BiconjugateGradientStabilized = require 'LinearSolvers.BiconjugateGradientStabilized'
 
 local function prepArgs(args)
 	args = table(args)
@@ -19,14 +20,17 @@ local function prepArgs(args)
 end
 
 return {
+	jacobi = function(args)
+		return Jacobi(prepArgs(args))
+	end,
 	conjgrad = function(args)
 		return ConjugateGradient(prepArgs(args))
 	end,
 	conjres = function(args)
-		return LinearSolvers(prepArgs(args))
+		return ConjugateResidual(prepArgs(args))
 	end,
-	jacobi = function(args)
-		return Jacobi(prepArgs(args))
+	bicgstab = function(args)
+		return BiconjugateGradientStabilized(prepArgs(args))
 	end,
 }
 

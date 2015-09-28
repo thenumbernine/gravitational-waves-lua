@@ -111,8 +111,9 @@ fluxMatrix;
 
 local class = require 'ext.class'
 local table = require 'ext.table'
+local Equation = require 'equation'
 
-local ADM1D5Var = class()
+local ADM1D5Var = class(Equation)
 ADM1D5Var.name = 'ADM1D5Var'
 
 ADM1D5Var.numStates = 5 
@@ -175,6 +176,40 @@ function ADM1D5Var:initCell(sim,i)
 	return {alpha, g_xx, A_x, D_xxx, K_xx}
 end
 
+local function buildField(call)
+	return function(self, sim, i, v)
+		local v1, v2, v3, v4, v5 = unpack(v)
+		
+		local avgQ = {}
+		for j=1,sim.numStates do 
+			avgQ[j] = (sim.qs[i-1][j] + sim.qs[i][j]) / 2
+		end
+		local alpha, g_xx, A_x, D_xxx, K_xx = unpack(avgQ)
+		local f = self.calc.f(alpha)
+		return {call(alpha, f, g_xx, A_x, D_xxx, K_xx, v1, v2, v3, v4, v5)}
+	end
+end
+
+ADM1D5Var.fluxTransform = buildField(function(alpha, f, g_xx, A_x, D_xxx, K_xx, v1, v2, v3, v4, v5)
+	return 
+		0,
+		0,
+		v1*f*K_xx/g_xx - v2*alpha*f*K_xx/g_xx^2 + v5*alpha*f/g_xx,
+		v1*K_xx + v5*alpha,
+		v1*A_x + v3*alpha
+end)
+--[[fixme
+ADM1D5Var.eigenfields = buildField(function(alpha, f, g_xx, A_x, D_xxx, K_xx, v1, v2, v3, v4, v5)
+	return 
+		v1 * (g_xx * A_x / f - K_xx * sqrt(g_xx / f)) / (2 * alpha) + v3 * g_xx / (2 * f) - v5 * .5 * sqrt(g_xx / f),
+		v1 / alpha,
+		-v1 * (g_xx * A_x) / (alpha * f) - v3 * g_xx / f + v4,
+		v2,
+		v1 * (g_xx * A_x / f + K_xx * sqrt(g_xx / f)) / (2 * alpha) + v3 * g_xx / (2 * f) + v5 * .5 * sqrt(g_xx / f) 
+end),
+--]]
+
+
 function ADM1D5Var:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local avgQ = {}
 	for j=1,self.numStates do
@@ -210,6 +245,6 @@ function ADM1D5Var:calcInterfaceEigenBasis(sim,i,qL,qR)
 	}
 	-- note that because we have zero eigenvalues that the eigendecomposition cannot reconstruct the flux matrix
 end	
-	
+
 return ADM1D5Var
 

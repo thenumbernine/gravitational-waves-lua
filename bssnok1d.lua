@@ -150,7 +150,9 @@ invert(eigenvectors);
 --]]
 
 local class = require 'ext.class'
-local BSSNOK1D = class()
+local Equation = require 'equation'
+
+local BSSNOK1D = class(Equation)
 BSSNOK1D.numStates = 6
 
 function BSSNOK1D:init(args, ...)

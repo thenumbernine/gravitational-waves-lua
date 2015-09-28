@@ -10,8 +10,9 @@ E,t = -(m/rho*(E+p)),x
 --]]
 local table = require 'ext.table'
 local class = require 'ext.class'
+local Equation = require 'equation'
 
-local Euler1D = class()
+local Euler1D = class(Equation)
 
 Euler1D.numStates = 3
 Euler1D.gamma = 5/3	

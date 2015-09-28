@@ -116,6 +116,48 @@ ADM1D3Var.graphInfoForNames = ADM1D3Var.graphInfos:map(function(info,i)
 	return info, info.name
 end)
 
+local function buildField(call)
+	return function(self, sim, i, v)
+		local v1, v2, v3 = unpack(v)
+		
+		local avgQ = {}
+		for j=1,sim.numStates do 
+			avgQ[j] = (sim.qs[i-1][j] + sim.qs[i][j]) / 2
+		end
+		avgQ.alpha = (sim.qs[i-1].alpha + sim.qs[i].alpha) / 2
+		avgQ.g_xx = (sim.qs[i-1].g_xx + sim.qs[i].g_xx) / 2
+		
+		local A_x, D_xxx, KTilde_xx = unpack(avgQ)
+		local x = sim.ixs[i]
+		local alpha = avgQ.alpha
+		local g_xx = avgQ.g_xx
+		local f = self.calc.f(alpha)
+
+		return {call(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)}
+	end
+end
+
+ADM1D3Var.fluxTransform = buildField(function(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
+	return
+		v3 * alpha * f / sqrt(g_xx),
+		v3 * 2 * alpha / sqrt(g_xx),
+		v1 * alpha / sqrt(g_xx)
+end)
+
+ADM1D3Var.eigenfields = buildField(function(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
+	return
+		v1 / (2 * f) - v3 / (2 * sqrt(f)),
+		-2*v1/f + v2,
+		v1 / (2 * f) + v3 / (2 * sqrt(f))
+end)
+
+ADM1D3Var.eigenfieldsInverse = buildField(function(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
+	return
+		(v1 + v3) * f,
+		2 * v1 + v2 + 2 * v3,
+		sqrt(f) * (-v1 + v3)
+end)
+
 function ADM1D3Var:initCell(sim,i)
 	local x = sim.xs[i]
 	local alpha = self.calc.alpha(x)

@@ -4,8 +4,9 @@
 
 local class = require 'ext.class'
 local table = require 'ext.table'
+local Equation = require 'equation'
 
-local ADM1D3to5Var = class()
+local ADM1D3to5Var = class(Equation)
 ADM1D3to5Var.name = 'ADM1D3to5Var'
 
 ADM1D3to5Var.numStates = 5
@@ -58,6 +59,49 @@ ADM1D3to5Var.graphInfos = table{
 ADM1D3to5Var.graphInfoForNames = ADM1D3to5Var.graphInfos:map(function(info,i)
 	return info, info.name
 end)
+
+local function buildField(call)
+	return function(self, sim, i, v)
+		local avgQ = {}
+		for j=1,sim.numStates do 
+			avgQ[j] = (sim.qs[i-1][j] + sim.qs[i][j]) / 2
+		end
+		local alpha, g_xx, A_x, D_xxx, KTilde_xx = unpack(avgQ)		
+		local f = self.calc.f(alpha)
+		
+		return {call(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, unpack(v))}
+	end
+end
+
+ADM1D3to5Var.fluxTransform = buildField(function(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, ...)
+	local v1, v2, v3, v4, v5 = ... 
+	return
+		0,
+		0,
+		v5 * alpha * f / sqrt(g_xx),
+		v5 * 2 * alpha / sqrt(g_xx),
+		v3 * alpha / sqrt(g_xx)
+end)
+ADM1D3to5Var.eigenfields = buildField(function(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, ...)
+	local v1, v2, v3, v4, v5 = ... 
+	return
+		v3 / (2 * f) - v5 / (2 * sqrt(f)),	-- first column so it lines up with the min eigenvalue
+		v1,
+		v2,
+		-2*v3/f + v4,
+		v3 / (2 * f) + v5 / (2 * sqrt(f))
+end)
+ADM1D3to5Var.eigenfieldsInverse = buildField(function(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, ...)
+	local v1, v2, v3, v4, v5 = ...
+	return
+		v2,
+		v3,
+		(v1 + v5) * f,
+		2 * v1 + v4 + 2 * v5,
+		sqrt(f) * (-v1 + v5)
+end)
+
+
 
 function ADM1D3to5Var:initCell(sim,i)
 	local x = sim.xs[i]
