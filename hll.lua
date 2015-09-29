@@ -3,6 +3,11 @@ local SolverFV = require 'solverfv'
 
 local HLL = class(SolverFV)
 
+function HLL:init(args)
+	self.equation = assert(self.equation or args.equation)
+	HLL.super.init(self, args)
+end
+
 function HLL:calcDT(getLeft, getRight)
 	-- matches Roe, except without eigenvectors
 	for i=2,self.gridsize do

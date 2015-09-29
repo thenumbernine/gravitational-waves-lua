@@ -26,10 +26,8 @@ function Solver:init(args)
 	self.qs = self:newState()
 end
 
-Solver.State = require 'state' 
-
 function Solver:newState()
-	return self.State(self.gridsize, self.numStates)
+	return self.equation.State(self.gridsize, self.numStates)
 end
 
 function Solver:reset()
@@ -86,7 +84,10 @@ end
 	if self.postIterate then
 		self:postIterate(dt)
 	end
-	
+	if self.equation.postIterate then
+		self.equation:postIterate(self)
+	end
+
 	self.t = self.t + dt
 	self.iteration = self.iteration + 1
 end

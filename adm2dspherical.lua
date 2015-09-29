@@ -90,6 +90,7 @@ for lambda = alpha*sqrt(f/g_rr)
 local class = require 'ext.class'
 local table = require 'ext.table'
 local Equation = require 'equation'
+local symmath = require 'symmath'
 
 local ADM2DSpherical = class(Equation)
 	
@@ -97,8 +98,6 @@ ADM2DSpherical.numStates = 9
 
 -- initial conditions
 function ADM2DSpherical:init(args, ...)
-	local symmath = require 'symmath'
-
 	local r = assert(args.r)
 
 	local h = symmath.clone(assert(args.h)):simplify()
@@ -252,6 +251,24 @@ function ADM2DSpherical:sourceTerm(sim)
 		source[i][9] = alpha * P_r
 	end
 	return source
+end
+
+function ADM2DSpherical:postIterate(sim)
+	-- enforce constraint of V_r = 2 * D_rhh / g_hh
+	-- i.e. 1 = 2 * D_rhh / (g_hh * V_r)
+	for i=1,sim.gridsize do
+		--[[ direct assign:
+		sim.qs[i][9] = 2 * sim.qs[i][6] / sim.qs[i][3]
+		--]]
+		-- [[ geometric renormalization
+		local c = abs(2 * sim.qs[i][6] / (sim.qs[i][3] * sim.qs[i][9]))^(1/3)
+		sim.qs[i][3] = sim.qs[i][3] * c
+		sim.qs[i][6] = sim.qs[i][6] / c
+		sim.qs[i][9] = sim.qs[i][9] * c
+		-- 2 * (sim.qs[i][6] / cbrt(c)) / (sim.qs[i][3] * cbrt(c) * sim.qs[i][9] * cbrt(c))
+		-- = (2 * sim.qs[i][6] / (sim.qs[i][3] * sim.qs[i][9])) / c
+		-- = 1
+	end
 end
 
 return ADM2DSpherical

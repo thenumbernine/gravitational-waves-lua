@@ -2,6 +2,8 @@ local class = require 'ext.class'
 
 local Equation = class()
 
+Equation.State = require 'state' 
+
 local function buildField(matrixField)
 	return function(self, sim, i, v)
 		local m = sim[matrixField][i]

@@ -17,10 +17,19 @@ for k,v in pairs(math) do _G[k] = v end
 
 local symmath = require 'symmath'
 
+
+-- solvers:
+local HLL = require 'hll'
+local Roe = require 'roe'
+local RoeBackwardEulerLinear = require 'roe_backwardeuler_linear'
+-- equations:
+local Euler1D = require 'euler1d'
+
+
 -- setup
 local sims = table()
 
--- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+--[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -62,7 +71,7 @@ do
 
 	-- [=[ compare different equations/formalisms 
 	sims:insert(require'adm1d3var_roe'(args))		-- \_ these two are identical
-	sims:insert(require'adm1d3to5var_roe'(args))	-- /
+	--sims:insert(require'adm1d3to5var_roe'(args))	-- /
 	--sims:insert(require'adm1d5var_roe'(args))		--> this one, for 1st iter, calcs A_x half what it should
 	--sims:insert(require'bssnok1d_roe'(args))
 	--sims:insert(require'adm3d_roe'(args))
@@ -220,13 +229,10 @@ end
 --]]
 
 
---[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+-- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
-	local solverClass = require 'euler1d_roe'
-	--local solverClass = require 'euler1d_hll'
-	--local solverClass = require 'euler1d_burgers'
-	
 	local args = {
+		equation = Euler1D(),
 		--stopAtTime = .1,
 		gridsize = 200,
 		domain = {xmin=-1, xmax=1},
@@ -245,12 +251,14 @@ do
 		}
 		--]=]
 	}
-	
+
+	-- TO REMOVE: euler1d_roe, euler1d_hll, euler1d_roe_backwardeuler_linear
+
 	-- [=[ compare schemes
 	--sims:insert(require 'euler1d_burgers'(args))
-	--sims:insert(require 'euler1d_hll'(args))
-	sims:insert(require 'euler1d_roe'(args))
-	--sims:insert(require 'euler1d_roe_backwardeuler_linear'(args))
+	sims:insert(HLL(args))
+	sims:insert(Roe(args))
+	sims:insert(RoeBackwardEulerLinear(args))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
@@ -258,19 +266,19 @@ do
 	--]=]
 
 	--[=[ compare flux limiters
-	sims:insert(solverClass(table(args, {fluxLimiter = fluxLimiters.donorCell})))
-	sims:insert(solverClass(table(args, {fluxLimiter = fluxLimiters.LaxWendroff})))
-	sims:insert(solverClass(table(args, {fluxLimiter = fluxLimiters.MC})))
-	sims:insert(solverClass(table(args, {fluxLimiter = fluxLimiters.superbee})))
+	sims:insert(Roe(table(args, {fluxLimiter = fluxLimiters.donorCell})))
+	sims:insert(Roe(table(args, {fluxLimiter = fluxLimiters.LaxWendroff})))
+	sims:insert(Roe(table(args, {fluxLimiter = fluxLimiters.MC})))
+	sims:insert(Roe(table(args, {fluxLimiter = fluxLimiters.superbee})))
 	--]=]
 
 	--[=[ compare schemes
-	--sims:insert(solverClass(table(args, {scheme = schemes.EulerBurgers()})))
-	sims:insert(solverClass(table(args, {scheme = schemes.Roe()})))
-	--sims:insert(solverClass(table(args, {scheme = schemes.HLL()})))
-	sims:insert(solverClass(table(args, {scheme = schemes.EulerMUSCL{baseScheme = schemes.Roe()}})))
-	--sims:insert(solverClass(table(args, {scheme = schemes.EulerMUSCL{baseScheme = schemes.HLL()}})))
-	--sims:insert(solverClass(table(args, {scheme = schemes.HLLC()})))	-- TODO 
+	--sims:insert(Roe(table(args, {scheme = schemes.EulerBurgers()})))
+	sims:insert(Roe(table(args, {scheme = schemes.Roe()})))
+	--sims:insert(Roe(table(args, {scheme = schemes.HLL()})))
+	sims:insert(Roe(table(args, {scheme = schemes.EulerMUSCL{baseScheme = schemes.Roe()}})))
+	--sims:insert(Roe(table(args, {scheme = schemes.EulerMUSCL{baseScheme = schemes.HLL()}})))
+	--sims:insert(Roe(table(args, {scheme = schemes.HLLC()})))	-- TODO 
 	--]=]
 
 	--[=[

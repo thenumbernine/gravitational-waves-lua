@@ -4,6 +4,9 @@ local SolverFV = require 'solverfv'
 local Roe = class(SolverFV)
 
 function Roe:init(args)
+	-- one of these had better be defined ...
+	self.equation = assert(self.equation or args.equation)
+	
 	Roe.super.init(self, args)
 
 	self.deltaQTildes = {}
