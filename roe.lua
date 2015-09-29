@@ -181,15 +181,14 @@ i = interface index
 qs = left/right q vector
 dir = direction sign (1 = from left, -1 = from right)
 --]]
-local zero
 function Roe:calcCellFluxForSide(i, qs, dir)
-	if not zero then
-		zero = {}
+	if i == 1 or i == self.gridsize+1 then
+		local zero = {}
 		for j=1,self.numStates do
 			zero[j] = 0
 		end
+		return zero
 	end
-	if i == 1 or i == self.gridsize+1 then return zero end
 	local qTilde = self.equation:eigenfields(self, i, qs)
 	local fluxTilde = {}
 	for j=1,self.numStates do

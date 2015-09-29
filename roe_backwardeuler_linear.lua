@@ -34,7 +34,7 @@ function RoeBackwardEulerLinear:integrateFlux(dt)
 		x0 = qs:clone(),
 		-- [=[ backward Euler
 		epsilon = 1e-20,
-		maxiter = 200,
+		maxiter = 100,
 		b = qs:clone(),
 		A = function(qs)
 			qs = qs - dt * dq_dt(qs)

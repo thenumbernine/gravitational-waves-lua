@@ -227,7 +227,7 @@ do
 	--local solverClass = require 'euler1d_burgers'
 	
 	local args = {
-		stopAtTime = .1,
+		--stopAtTime = .1,
 		gridsize = 200,
 		domain = {xmin=-1, xmax=1},
 		boundaryMethod = boundaryMethods.mirror,

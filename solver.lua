@@ -77,10 +77,12 @@ end
 
 	self:integrateFlux(dt)
 
-	self:integrate(dt, function()
-		return self.equation:sourceTerm(self)
-	end)
-	
+	if self.equation.sourceTerm then
+		self:integrate(dt, function()
+			return self.equation:sourceTerm(self)
+		end)
+	end
+
 	if self.postIterate then
 		self:postIterate(dt)
 	end
