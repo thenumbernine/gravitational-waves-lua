@@ -23,8 +23,15 @@ local HLL = require 'hll'
 local Roe = require 'roe'
 local RoeBackwardEulerLinear = require 'roe_backwardeuler_linear'
 -- equations:
+local Maxwell = require 'maxwell'
 local Euler1D = require 'euler1d'
-
+local MHD = require 'mhd'
+local ADM1D3Var = require'adm1d3var'
+local ADM1D3to5Var = require'adm1d3to5var'
+local ADM1D5Var = require'adm1d5var'
+local BSSNOK1D = require 'bssnok1d'
+local ADM2DSpherical = require'adm2dspherical'
+local ADM3D = require 'adm3d'
 
 -- setup
 local sims = table()
@@ -45,6 +52,8 @@ do
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
 		fluxLimiter = fluxLimiters.donorCell,
+	}
+	local equationArgs = {
 		-- the symbolic math driving it:
 		x = x,	-- variable
 		alpha = 1,
@@ -70,12 +79,12 @@ do
 	}
 
 	-- [=[ compare different equations/formalisms 
-	sims:insert(require'adm1d3var_roe'(args))		-- \_ these two are identical
-	--sims:insert(require'adm1d3to5var_roe'(args))	-- /
-	--sims:insert(require'adm1d5var_roe'(args))		--> this one, for 1st iter, calcs A_x half what it should
-	--sims:insert(require'bssnok1d_roe'(args))
-	--sims:insert(require'adm3d_roe'(args))
-	--sims:insert(require'adm1d3to5var_roe_backwardeuler_linear'(args))
+	--sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
+	--sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
+	--sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
+	--sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
+	--sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
+	--sims:insert(RoeBackwardEulerLinear(table(args, {equation = ADM1D3to5Var(equationArgs)})))
 	--sims:insert(require'bssnok1d_backwardeuler_newton'(args))
 	--]=]
 
@@ -96,23 +105,25 @@ do
 	local r = symmath.var'r'
 	local alpha = symmath.var'alpha'
 	local h = 5 * symmath.exp(-((r - rc) / 10)^2)
-	sims:insert(require'adm2dspherical_roe'{
+	sims:insert(Roe{
 		gridsize = 200,
 		domain = {xmin=100, xmax=500},
 		boundaryMethod = boundaryMethods.freeFlow,
 		fluxLimiter = fluxLimiters.donorCell,
-		-- the symbolic math driving it:
-		r = r,
-		h = h,
-		g_rr = 1 - h:diff(r)^2,
-		g_hh = r^2,
-		alpha = 1,
-		-- Bona-Masso slicing conditions:
-		f_param = alpha,
-		f = 1,
-		--f = 1.69,
-		--f = .49,
-		--f = 1 + 1/alpha^2,
+		equation = ADM2DSpherical{
+			-- the symbolic math driving it:
+			r = r,
+			h = h,
+			g_rr = 1 - h:diff(r)^2,
+			g_hh = r^2,
+			alpha = 1,
+			-- Bona-Masso slicing conditions:
+			f_param = alpha,
+			f = 1,
+			--f = 1.69,
+			--f = .49,
+			--f = 1 + 1/alpha^2,
+		},
 	})
 end
 --]]
@@ -244,15 +255,13 @@ do
 		--linearSolver = require 'linearsolvers'.bicgstab,	-- working on this ...
 		--fluxLimiter = fluxLimiters.donorCell,
 		fluxLimiter = fluxLimiters.superbee,
-		--[=[
+		--[=[ TODO broken
 		scheme = require 'euler1d_muscl'{
 			baseScheme = require 'euler1d_burgers'(),
 			slopeLimiter = fluxLimiters.Fromm,
 		}
 		--]=]
 	}
-
-	-- TO REMOVE: euler1d_roe, euler1d_hll, euler1d_roe_backwardeuler_linear
 
 	-- [=[ compare schemes
 	--sims:insert(require 'euler1d_burgers'(args))
@@ -262,7 +271,7 @@ do
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
-	--sims:insert(require 'mhd_roe'(args))
+	--sims:insert(Roe(table(args, {equation = MHD()})))
 	--]=]
 
 	--[=[ compare flux limiters
@@ -273,11 +282,11 @@ do
 	--]=]
 
 	--[=[ compare schemes
-	--sims:insert(Roe(table(args, {scheme = schemes.EulerBurgers()})))
-	sims:insert(Roe(table(args, {scheme = schemes.Roe()})))
-	--sims:insert(Roe(table(args, {scheme = schemes.HLL()})))
-	sims:insert(Roe(table(args, {scheme = schemes.EulerMUSCL{baseScheme = schemes.Roe()}})))
-	--sims:insert(Roe(table(args, {scheme = schemes.EulerMUSCL{baseScheme = schemes.HLL()}})))
+	sims:insert(require 'euler1d_burgers'(args))
+	sims:insert(Roe(args))
+	sims:insert(HLL(args))
+	--sims:insert(require 'euler1d_muscl'(table(args, {baseScheme = Roe(args)})))	-- TODO I broke this
+	--sims:insert(require 'euler1d_muscl'(table(args, {baseScheme = HLL()})))	-- TODO I broke this
 	--sims:insert(Roe(table(args, {scheme = schemes.HLLC()})))	-- TODO 
 	--]=]
 
@@ -290,7 +299,8 @@ end
 --]]
 
 --[[
-sims:insert(require'maxwell_roe'{
+sims:insert(Roe{
+	equation = Maxwell(),
 	gridsize = 200,
 	domain = {xmin=-1, xmax=1},
 	boundaryMethod = boundaryMethods.freeFlow,

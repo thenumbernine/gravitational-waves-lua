@@ -9,6 +9,7 @@ Euler1DMUSCL.equation = require 'euler1d'()
 function Euler1DMUSCL:init(args)
 	-- baseScheme can be Roe or HLL
 	-- TODO should MUSCL-Roe be using eigenbasis-transformed states somewhere in there? 
+	-- TODO fix this -- i've reorganized it since now
 	self.baseScheme = args.baseScheme or require 'roe'()
 
 	-- limiter of ratio
