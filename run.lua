@@ -20,7 +20,7 @@ local symmath = require 'symmath'
 -- setup
 local sims = table()
 
--- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+--[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -281,8 +281,8 @@ do
 end
 --]]
 
---[[ TODO update this to separate out the solver
-sims:insert(require'maxwell'{
+-- [[
+sims:insert(require'maxwell_roe'{
 	gridsize = 200,
 	domain = {xmin=-1, xmax=1},
 	boundaryMethod = boundaryMethods.freeFlow,

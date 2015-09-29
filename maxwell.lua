@@ -1,16 +1,16 @@
 -- going by Trangenstein
 local class = require 'ext.class'
 local table = require 'ext.table'
+local Equation = require 'equation'
 
-local Maxwell = class()
+local Maxwell = class(Equation)
 
 Maxwell.numStates = 6	--E,B xyz
 
 local e0 = 1	-- permittivity
 local u0 = 1	-- permissivity
 
-function Maxwell:init(...)
-	Maxwell.super.init(self, ...)
+do
 	local get_state = function(self,i) return self.qs[i] end
 	local Ex = function(self,i) return self.qs[i][1] / e0 end
 	local Ey = function(self,i) return self.qs[i][2] / e0 end
@@ -20,7 +20,7 @@ function Maxwell:init(...)
 	local By = function(self,i) return self.qs[i][5] end
 	local Bz = function(self,i) return self.qs[i][6] end
 	local BSq = Bx^2 + By^2 + Bz^2
-	self.graphInfos = table{
+	Maxwell.graphInfos = table{
 		{viewport={0/4, 0/3, 1/4, 1/3}, getter=Ex, name='Ex', color={1,0,0}},
 		{viewport={1/4, 0/3, 1/4, 1/3}, getter=Ey, name='Ey', color={0,1,0}},
 		{viewport={2/4, 0/3, 1/4, 1/3}, getter=Ez, name='Ez', color={0,0,1}},
@@ -33,13 +33,13 @@ function Maxwell:init(...)
 		{viewport={1/4, 2/3, 1/4, 1/3}, getter=function(self,i) return math.log(self.fluxMatrixErrors[i]) end, name='log reconstruction error', color={1,0,0}, range={-30, 30}},
 		{viewport={3/4, 2/3, 1/4, 1/3}, getter=.5 * (ESq * e0 + BSq / u0), name='energy', color={0,.5,1}},
 	}
-	self.graphInfoForNames = self.graphInfos:map(function(info,i)
-		return info, info.name
-	end)
 end
+Maxwell.graphInfoForNames = Maxwell.graphInfos:map(function(info,i)
+	return info, info.name
+end)
 
-function Maxwell:initCell(i)
-	local x = self.xs[i]
+function Maxwell:initCell(sim, i)
+	local x = sim.xs[i]
 	local Ex = 0
 	local Ey = 0
 	local Ez = 1
@@ -49,19 +49,19 @@ function Maxwell:initCell(i)
 	return {Ex * e0, Ey * e0, Ez * e0, Bx, By, Bz}
 end
 
-function Maxwell:calcInterfaceEigenBasis(i,qL,qR)
+function Maxwell:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local avgQ = {}
-	for j=1,self.numStates do
+	for j=1,sim.numStates do
 		avgQ[j] = (qL[j] + qR[j]) / 2
 	end
 	local lambda = 1/sqrt(e0 * u0)
-	self.eigenvalues[i] = {-lambda, -lambda, 0, 0, lambda, lambda}
+	sim.eigenvalues[i] = {-lambda, -lambda, 0, 0, lambda, lambda}
 	local se = sqrt(e0/2)
 	local su = sqrt(u0/2)
 	local seu = sqrt(e0/u0)/u0
 	local ise = 1/se
 	local isu = 1/su
-	self.fluxTransform = function(self, i, v)
+	self.fluxTransform = function(self, sim, i, v)
 		return {
 			0,
 			seu * v[6],
@@ -71,7 +71,7 @@ function Maxwell:calcInterfaceEigenBasis(i,qL,qR)
 			v[2]/seu
 		}
 	end
-	self.eigenfields = function(self, i, v)
+	self.eigenfields = function(self, sim, i, v)
 		return {
 			ise * v[3] + isu * v[5],
 			-ise * v[2] + isu * v[6],
@@ -81,7 +81,7 @@ function Maxwell:calcInterfaceEigenBasis(i,qL,qR)
 			-ise * v[3] + isu * v[5]
 		}
 	end
-	self.eigenfieldsInverse = function(self, i, v)
+	self.eigenfieldsInverse = function(self, sim, i, v)
 		return {
 			-se * v[3] + se * v[4],
 			-se * v[2] + se * v[5],
@@ -105,4 +105,3 @@ function Maxwell:addSourceToDerivCell(dq_dts, i)
 end
 
 return Maxwell
-
