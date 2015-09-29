@@ -20,7 +20,7 @@ local symmath = require 'symmath'
 -- setup
 local sims = table()
 
---[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+-- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -61,12 +61,12 @@ do
 	}
 
 	-- [=[ compare different equations/formalisms 
-	--sims:insert(require'adm1d3var_roe'(args))		-- \_ these two are identical
-	--sims:insert(require'adm1d3to5var_roe'(args))	-- /
+	sims:insert(require'adm1d3var_roe'(args))		-- \_ these two are identical
+	sims:insert(require'adm1d3to5var_roe'(args))	-- /
 	--sims:insert(require'adm1d5var_roe'(args))		--> this one, for 1st iter, calcs A_x half what it should
 	--sims:insert(require'bssnok1d_roe'(args))
 	--sims:insert(require'adm3d_roe'(args))
-	sims:insert(require'adm1d3to5var_roe_backwardeuler_linear'(args))
+	--sims:insert(require'adm1d3to5var_roe_backwardeuler_linear'(args))
 	--sims:insert(require'bssnok1d_backwardeuler_newton'(args))
 	--]=]
 
@@ -281,7 +281,7 @@ do
 end
 --]]
 
--- [[
+--[[
 sims:insert(require'maxwell_roe'{
 	gridsize = 200,
 	domain = {xmin=-1, xmax=1},

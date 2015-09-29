@@ -133,11 +133,4 @@ function Euler1DMUSCL:postIterate(...)
 	end
 end
 
-function Euler1DMUSCL:addSourceToDeriv(...)
-	if self.baseScheme.addSourceToDeriv then
-		self.baseScheme:addSourceToDeriv(...)
-	end
-end
-
 return Euler1DMUSCL
-

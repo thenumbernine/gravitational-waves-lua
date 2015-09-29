@@ -89,8 +89,9 @@ for lambda = alpha*sqrt(f/g_rr)
 --]]
 local class = require 'ext.class'
 local table = require 'ext.table'
+local Equation = require 'equation'
 
-local ADM2DSpherical = class()
+local ADM2DSpherical = class(Equation)
 	
 ADM2DSpherical.numStates = 9
 
@@ -233,5 +234,24 @@ function ADM2DSpherical:calcInterfaceEigenBasis(sim,i,qL,qR)
 	}
 end
 
-return ADM2DSpherical
+function ADM2DSpherical:sourceTerm(sim)
+	local source = sim:newState()
+	for i=1,sim.gridsize do
+		local alpha, g_rr, g_hh, A_r, D_rrr, D_rhh, K_rr, K_hh, V_r = unpack(sim.qs[i])
+		local f = self.calc_f(alpha)
+		local tr_K = K_rr / g_rr + K_hh / g_hh
+		local S_rr = K_rr * (2 * K_hh / g_hh - K_rr / g_rr) + A_r * (D_rrr / g_rr - 2 * D_rhh / g_hh)
+					+ 2 * D_rhh / g_hh * (D_rrr / g_rr - D_rhh / g_hh) + 2 * A_r * V_r
+		local S_hh = K_rr * K_hh / g_rr - D_rrr * D_rhh / g_rr^2 + 1
+		local P_r = -2 / g_hh * (A_r * K_hh - D_rhh * (K_hh / g_hh - K_rr / g_rr))
+		source[i][1] = -alpha * alpha * f * tr_K 
+		source[i][2] = -2 * alpha * K_rr
+		source[i][3] = -2 * alpha * K_hh
+		source[i][7] = alpha * S_rr
+		source[i][8] = alpha * S_hh
+		source[i][9] = alpha * P_r
+	end
+	return source
+end
 
+return ADM2DSpherical

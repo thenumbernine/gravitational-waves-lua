@@ -264,5 +264,15 @@ function BSSNOK1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	}
 end
 
-return BSSNOK1D
+function BSSNOK1D:sourceTerm(sim)
+	local source = sim:newState()
+	for i=1,sim.gridsize do
+		local alpha, phi, A_x, Phi_x, K, ATilde_xx = unpack(sim.qs[i])
+		local f = self.calc.f(alpha)
+		source[i][1] = -alpha * alpha * f * K
+		source[i][2] = -alpha * K / 6
+	end
+	return source
+end
 
+return BSSNOK1D

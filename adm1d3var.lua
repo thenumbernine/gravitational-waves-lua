@@ -61,8 +61,9 @@ then use the nonlinear transforms to recover state variables
 --]]
 
 local class = require 'ext.class'
+local Equation = require 'equation'
 
-local ADM1D3Var = class()
+local ADM1D3Var = class(Equation)
 ADM1D3Var.name = 'ADM1D3Var'
 
 ADM1D3Var.numStates = 3
@@ -177,5 +178,19 @@ function ADM1D3Var:calcInterfaceEigenBasis(sim,i,qL,qR)
 	sim.eigenvalues[i] = {-lambda, 0, lambda}
 end
 
-return ADM1D3Var
+function ADM1D3Var:sourceTerm(sim)
+	local source = sim:newState()
+	for i=1,sim.gridsize do
+		local A_x, D_xxx, KTilde_xx = unpack(sim.qs[i])
+		local alpha = sim.qs[i].alpha
+		local g_xx = sim.qs[i].g_xx
+		local f = self.calc.f(alpha)
+		local dalpha_f = self.calc.dalpha_f(alpha)
+		
+		source[i].alpha = -alpha * alpha * f * KTilde_xx / (g_xx * sqrt(g_xx))
+		source[i].g_xx = -2 * alpha * KTilde_xx / sqrt(g_xx)
+	end
+	return source
+end
 
+return ADM1D3Var

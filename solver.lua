@@ -47,14 +47,6 @@ function Solver:reset()
 	end
 end
 
-function Solver:addSourceToDeriv()
-	local dq_dts = self:newState()
-	for i=1,self.gridsize do
-		self:addSourceToDerivCell(dq_dts, i)
-	end
-	return dq_dts
-end
-
 function Solver:integrate(dt, dq_dts)
 	self.qs = self.integrator:integrate(self.qs, dt, dq_dts)
 end
@@ -86,7 +78,7 @@ end
 	self:integrateFlux(dt)
 
 	self:integrate(dt, function()
-		return self:addSourceToDeriv()
+		return self.equation:sourceTerm(self)
 	end)
 	
 	if self.postIterate then
@@ -96,8 +88,6 @@ end
 	self.t = self.t + dt
 	self.iteration = self.iteration + 1
 end
-
-function Solver:addSourceToDerivCell() end
 
 return Solver
 

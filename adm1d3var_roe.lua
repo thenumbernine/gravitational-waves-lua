@@ -62,15 +62,4 @@ end
 
 ADM1D3VarRoe.State = State
 
-function ADM1D3VarRoe:addSourceToDerivCell(dq_dts, i)
-	local A_x, D_xxx, KTilde_xx = unpack(self.qs[i])
-	local alpha = self.qs[i].alpha
-	local g_xx = self.qs[i].g_xx
-	local f = self.equation.calc.f(alpha)
-	local dalpha_f = self.equation.calc.dalpha_f(alpha)
-	
-	dq_dts[i].alpha = dq_dts[i].alpha - alpha * alpha * f * KTilde_xx / (g_xx * sqrt(g_xx))
-	dq_dts[i].g_xx = dq_dts[i].g_xx - 2 * alpha * KTilde_xx / sqrt(g_xx)
-end
-
 return ADM1D3VarRoe

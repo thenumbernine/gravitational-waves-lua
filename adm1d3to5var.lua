@@ -125,5 +125,17 @@ function ADM1D3to5Var:calcInterfaceEigenBasis(sim,i,qL,qR)
 	sim.eigenvalues[i] = {-lambda, 0, 0, 0, lambda}
 end
 
-return ADM1D3to5Var
+function ADM1D3to5Var:sourceTerm(sim)
+	local source = sim:newState()
+	for i=1,sim.gridsize do
+		local alpha, g_xx, A_x, D_xxx, KTilde_xx = unpack(sim.qs[i])
+		local f = self.calc.f(alpha)
+		local dalpha_f = self.calc.dalpha_f(alpha)
+		
+		source[i][1] = -alpha * alpha * f * KTilde_xx / (g_xx * sqrt(g_xx))
+		source[i][2] = -2 * alpha * KTilde_xx / sqrt(g_xx)
+	end
+	return source
+end
 
+return ADM1D3to5Var

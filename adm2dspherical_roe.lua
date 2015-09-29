@@ -1,30 +1,14 @@
 local class = require 'ext.class'
 local table = require 'ext.table'
-
 local Roe = require 'roe'
+local ADM2DSpherical = require 'adm2dspherical'
 
 local ADM2DSphericalRoe = class(Roe)
 
 function ADM2DSphericalRoe:init(args)
 	args = table(args)
-	args.equation = require 'adm2dspherical'(args)
+	args.equation = ADM2DSpherical(args)
 	ADM2DSphericalRoe.super.init(self, args)
-end
-
-function ADM2DSphericalRoe:addSourceToDerivCell(dq_dts, i)
-	local alpha, g_rr, g_hh, A_r, D_rrr, D_rhh, K_rr, K_hh, V_r = unpack(self.qs[i])
-	local f = self.equation.calc_f(alpha)
-	local tr_K = K_rr / g_rr + K_hh / g_hh
-	local S_rr = K_rr * (2 * K_hh / g_hh - K_rr / g_rr) + A_r * (D_rrr / g_rr - 2 * D_rhh / g_hh)
-				+ 2 * D_rhh / g_hh * (D_rrr / g_rr - D_rhh / g_hh) + 2 * A_r * V_r
-	local S_hh = K_rr * K_hh / g_rr - D_rrr * D_rhh / g_rr^2 + 1
-	local P_r = -2 / g_hh * (A_r * K_hh - D_rhh * (K_hh / g_hh - K_rr / g_rr))
-	dq_dts[i][1] = dq_dts[i][1] - alpha * alpha * f * tr_K 
-	dq_dts[i][2] = dq_dts[i][2] - 2 * alpha * K_rr
-	dq_dts[i][3] = dq_dts[i][3] - 2 * alpha * K_hh
-	dq_dts[i][7] = dq_dts[i][7] + alpha * S_rr
-	dq_dts[i][8] = dq_dts[i][8] + alpha * S_hh
-	dq_dts[i][9] = dq_dts[i][9] + alpha * P_r
 end
 
 function ADM2DSphericalRoe:iterate(...)
