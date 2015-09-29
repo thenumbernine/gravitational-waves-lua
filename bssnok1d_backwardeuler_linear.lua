@@ -46,16 +46,16 @@ diff_t GammaTilde^i =
 
 --]]
 
-local BSSNOK1DBackwardEulerConjRes = require 'ext.class'(require 'solver')
+local BSSNOK1DBackwardEulerLinear = require 'ext.class'(require 'solver')
 
-function BSSNOK1DBackwardEulerConjRes:init(args)
+function BSSNOK1DBackwardEulerLinear:init(args)
 	args = require 'ext.table'(args)
 	args.equation = require 'bssnok1d'(args)
-	BSSNOK1DBackwardEulerConjRes.super.init(self, args)
+	BSSNOK1DBackwardEulerLinear.super.init(self, args)
 end
 
-function BSSNOK1DBackwardEulerConjRes:iterate()
+function BSSNOK1DBackwardEulerLinear:iterate()
 end
 
-return BSSNOK1DBackwardEulerConjRes
+return BSSNOK1DBackwardEulerLinear
 
