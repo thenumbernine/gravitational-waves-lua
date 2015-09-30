@@ -77,7 +77,7 @@ end
 
 	if self.equation.sourceTerm then
 		self:integrate(dt, function()
-			return self.equation:sourceTerm(self)
+			return self.equation:sourceTerm(self, self.qs)
 		end)
 	end
 

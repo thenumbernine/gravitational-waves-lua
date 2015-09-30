@@ -170,4 +170,3 @@ function EulerDFT:iterate()
 end
 
 return EulerDFT
-

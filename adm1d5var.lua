@@ -246,10 +246,10 @@ function ADM1D5Var:calcInterfaceEigenBasis(sim,i,qL,qR)
 	-- note that because we have zero eigenvalues that the eigendecomposition cannot reconstruct the flux matrix
 end	
 
-function ADM1D5Var:sourceTerm(sim)
+function ADM1D5Var:sourceTerm(sim, qs)
 	local source = sim:newState()
 	for i=1,sim.gridsize do
-		local alpha, g_xx, A_x, D_xxx, K_xx = unpack(sim.qs[i])
+		local alpha, g_xx, A_x, D_xxx, K_xx = unpack(qs[i])
 		local f = self.calc.f(alpha)
 		source[i][1] = -alpha * alpha * f * K_xx / g_xx
 		source[i][2] = -2 * alpha * K_xx

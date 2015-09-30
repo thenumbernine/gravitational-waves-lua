@@ -24,37 +24,27 @@ function RoeBackwardEulerLinear:integrateFlux(dt)
 	local function dq_dt(qs)
 		local getLeft = function(i) return qs[i-1] end
 		local getRight = function(i) return qs[i] end
-		return self:calcDeriv(getLeft, getRight)
+		-- this is only the flux deriv...
+		-- TODO rename this to "calcFluxDeriv"
+		local dq_dt = self:calcDeriv(getLeft, getRight)		
+		-- so we gotta add source terms as well ...
+		if self.equation.sourceTerm	then
+			dq_dt = dq_dt + self.equation:sourceTerm(self, qs)
+		end
+		if self.equation.postIterate then
+			self.equation:postIterate(self, qs)
+		end
+		return dq_dt
 	end
 
 	-- [[ implicit via some linear solver
 	local qs = self.qs
-	self.qs = self.linearSolver{
+
+	local linearSolverArgs = {
 		--maxiter = 1000,
 		x0 = qs:clone(),
-		-- [=[ backward Euler
 		epsilon = 1e-20,
 		maxiter = 100,
-		b = qs:clone(),
-		A = function(qs)
-			qs = qs - dt * dq_dt(qs)
-			self.boundaryMethod(qs)
-			return qs
-		end,
-		--]=]
-		--[=[ crank-nicolson - converges faster
-		epsilon = 1e-50,
-		b = (function(qs)
-			qs = qs + .5 * dt * dq_dt(qs)
-			self.boundaryMethod(qs)
-			return qs
-		end)(qs),
-		A = function(qs)
-			qs = qs - .5 * dt * dq_dt(qs)
-			self.boundaryMethod(qs)
-			return qs
-		end,
-		--]=]
 		-- mostly true ... mostly ...
 		-- not true for any 2nd derivative terms
 		-- this method is only used for Jacobi method, so I don't really care
@@ -72,6 +62,29 @@ function RoeBackwardEulerLinear:integrateFlux(dt)
 			print(self.t, convergenceIteration, err)
 		end,
 	}
+	
+	-- [=[ backward Euler
+	linearSolverArgs.b = qs:clone()
+	linearSolverArgs.A = function(qs)
+		qs = qs - dt * dq_dt(qs)
+		self.boundaryMethod(qs)
+		return qs
+	end
+	--]=]
+	--[=[ crank-nicolson - converges faster
+	linearSolverArgs.b = (function(qs)
+		qs = qs + .5 * dt * dq_dt(qs)
+		self.boundaryMethod(qs)
+		return qs
+	end)(qs)
+	linearSolverArgs.A = function(qs)
+		qs = qs - .5 * dt * dq_dt(qs)
+		self.boundaryMethod(qs)
+		return qs
+	end
+	--]=]
+
+	self.qs = self.linearSolver(linearSolverArgs)
 	if self.errorLogging then
 		print()
 	end

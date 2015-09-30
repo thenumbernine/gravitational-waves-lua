@@ -36,7 +36,7 @@ local ADM3D = require 'adm3d'
 -- setup
 local sims = table()
 
---[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+-- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -80,11 +80,11 @@ do
 
 	-- [=[ compare different equations/formalisms 
 	--sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
-	--sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
+	sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
 	--sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
 	--sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
-	--sims:insert(RoeBackwardEulerLinear(table(args, {equation = ADM1D3to5Var(equationArgs)})))
+	sims:insert(RoeBackwardEulerLinear(table(args, {equation = ADM1D3to5Var(equationArgs)})))
 	--sims:insert(require'bssnok1d_backwardeuler_newton'(args))
 	--]=]
 
@@ -155,37 +155,39 @@ do
 	local hyy = hy:diff(y)
 	local hyz = hy:diff(z)
 	local hzz = hz:diff(z)
-	sims:insert(require'adm3d'{
+	sims:insert(Roe{
 		gridsize = 100,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
 		fluxLimiter = fluxLimiters.donorCell,
-		-- the symbolic math driving it:
-		x = x,
-		y = y,
-		z = z,
-		alpha = 1,
-		-- g = delta'_ij' - h',i' * h',j',
-		g_xx = 1 - hx * hx,
-		g_xy = -hx * hy,
-		g_xz = -hx * hz,
-		g_yy = 1 - hy * hy,
-		g_yz = -hy * hz,
-		g_zz = 1 - hz * hz,
-		-- K = -h',ij' / sqrt_det_g,
-		K_xx = -hxx / sqrt_det_g,
-		K_xy = -hxy / sqrt_det_g,
-		K_xz = -hxz / sqrt_det_g,
-		K_yy = -hyy / sqrt_det_g,
-		K_yz = -hyz / sqrt_det_g,
-		K_zz = -hzz / sqrt_det_g,
-		-- Bona-Masso slicing conditions:
-		f_param = alpha,	
-		--f = 1,
-		--f = 1.69,
-		--f = .49,
-		--f = 1/3,
-		f = 1 + 1/alpha^2,
+		equation = ADM3D{
+			-- the symbolic math driving it:
+			x = x,
+			y = y,
+			z = z,
+			alpha = 1,
+			-- g = delta'_ij' - h',i' * h',j',
+			g_xx = 1 - hx * hx,
+			g_xy = -hx * hy,
+			g_xz = -hx * hz,
+			g_yy = 1 - hy * hy,
+			g_yz = -hy * hz,
+			g_zz = 1 - hz * hz,
+			-- K = -h',ij' / sqrt_det_g,
+			K_xx = -hxx / sqrt_det_g,
+			K_xy = -hxy / sqrt_det_g,
+			K_xz = -hxz / sqrt_det_g,
+			K_yy = -hyy / sqrt_det_g,
+			K_yz = -hyz / sqrt_det_g,
+			K_zz = -hzz / sqrt_det_g,
+			-- Bona-Masso slicing conditions:
+			f_param = alpha,	
+			--f = 1,
+			--f = 1.69,
+			--f = .49,
+			--f = 1/3,
+			f = 1 + 1/alpha^2,
+		},
 	})
 end
 --]]
@@ -202,45 +204,47 @@ do
 	local R = 1	-- parameter
 	local sigma = 1 -- parameter
 	local f = (symmath.tanh(sigma * (rs + R)) - symmath.tanh(sigma * (rs - R))) / (2 * symmath.tanh(sigma * R))
-	sims:insert(require'adm3d'{
+	sims:insert(Roe{
 		gridsize = 100,
 		domain = {xmin=-10, xmax=10},
 		boundaryMethod = boundaryMethods.freeFlow,
 		fluxLimiter = fluxLimiters.donorCell,
-		-- the symbolic math driving it:
-		x = x,
-		y = y,
-		z = z,
-		alpha = 1,
-		-- hmm... beta is important ... so I need to incorporate lapse into my 3D ADM
-		-- beta^x = -vs * f(rs(t))
-		-- g = delta'_ij'
-		g_xx = 1,
-		g_xy = 0,
-		g_xz = 0,
-		g_yy = 1,
-		g_yz = 0,
-		g_zz = 1,
-		-- K_ij = -alpha Gamma^t_ij, which I have precomputed for the Alcubierre warp bubble
-		K_xx = -(vs * f:diff(x) + vs:diff(x) * f),
-		K_xy = -(vs * f:diff(y) + vs:diff(y) * f) / 2,
-		K_xz = -(vs * f:diff(z) + vs:diff(z) * f) / 2,
-		K_yy = 0,
-		K_yz = 0,
-		K_zz = 0,
-		-- Bona-Masso slicing conditions:
-		f_param = alpha,	
-		--f = 1,
-		--f = 1.69,
-		--f = .49,
-		--f = 1/3,
-		f = 1 + 1/alpha^2,
+		equation = ADM3D{
+			-- the symbolic math driving it:
+			x = x,
+			y = y,
+			z = z,
+			alpha = 1,
+			-- hmm... beta is important ... so I need to incorporate lapse into my 3D ADM
+			-- beta^x = -vs * f(rs(t))
+			-- g = delta'_ij'
+			g_xx = 1,
+			g_xy = 0,
+			g_xz = 0,
+			g_yy = 1,
+			g_yz = 0,
+			g_zz = 1,
+			-- K_ij = -alpha Gamma^t_ij, which I have precomputed for the Alcubierre warp bubble
+			K_xx = -(vs * f:diff(x) + vs:diff(x) * f),
+			K_xy = -(vs * f:diff(y) + vs:diff(y) * f) / 2,
+			K_xz = -(vs * f:diff(z) + vs:diff(z) * f) / 2,
+			K_yy = 0,
+			K_yz = 0,
+			K_zz = 0,
+			-- Bona-Masso slicing conditions:
+			f_param = alpha,	
+			--f = 1,
+			--f = 1.69,
+			--f = .49,
+			--f = 1/3,
+			f = 1 + 1/alpha^2,
+		},
 	})
 end
 --]]
 
 
--- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+--[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
 	local args = {
 		equation = Euler1D(),
@@ -262,12 +266,12 @@ do
 		}
 		--]=]
 	}
-
+	
 	-- [=[ compare schemes
-	--sims:insert(require 'euler1d_burgers'(args))
+	sims:insert(require 'euler1d_burgers'(args))
 	sims:insert(HLL(args))
 	sims:insert(Roe(args))
-	sims:insert(RoeBackwardEulerLinear(args))
+	--sims:insert(RoeBackwardEulerLinear(args))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))

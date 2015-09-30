@@ -94,10 +94,10 @@ function Maxwell:calcInterfaceEigenBasis(sim,i,qL,qR)
 end
 
 local sigma = 1	-- conductivity
-function Maxwell:sourceTerm(sim)
+function Maxwell:sourceTerm(sim, qs)
 	local source = sim:newState()
 	for i=1,sim.gridsize do
-		local eEx, eEy, eEz, Bx, By, Bz = unpack(sim.qs[i])
+		local eEx, eEy, eEz, Bx, By, Bz = unpack(qs[i])
 		local Ex = eEx / e0
 		local Ey = eEy / e0
 		local Ez = eEz / e0

@@ -233,10 +233,10 @@ function ADM2DSpherical:calcInterfaceEigenBasis(sim,i,qL,qR)
 	}
 end
 
-function ADM2DSpherical:sourceTerm(sim)
+function ADM2DSpherical:sourceTerm(sim, qs)
 	local source = sim:newState()
 	for i=1,sim.gridsize do
-		local alpha, g_rr, g_hh, A_r, D_rrr, D_rhh, K_rr, K_hh, V_r = unpack(sim.qs[i])
+		local alpha, g_rr, g_hh, A_r, D_rrr, D_rhh, K_rr, K_hh, V_r = unpack(qs[i])
 		local f = self.calc_f(alpha)
 		local tr_K = K_rr / g_rr + K_hh / g_hh
 		local S_rr = K_rr * (2 * K_hh / g_hh - K_rr / g_rr) + A_r * (D_rrr / g_rr - 2 * D_rhh / g_hh)
@@ -253,20 +253,20 @@ function ADM2DSpherical:sourceTerm(sim)
 	return source
 end
 
-function ADM2DSpherical:postIterate(sim)
+function ADM2DSpherical:postIterate(sim, qs)
 	-- enforce constraint of V_r = 2 * D_rhh / g_hh
 	-- i.e. 1 = 2 * D_rhh / (g_hh * V_r)
 	for i=1,sim.gridsize do
 		--[[ direct assign:
-		sim.qs[i][9] = 2 * sim.qs[i][6] / sim.qs[i][3]
+		qs[i][9] = 2 * qs[i][6] / qs[i][3]
 		--]]
 		-- [[ geometric renormalization
-		local c = abs(2 * sim.qs[i][6] / (sim.qs[i][3] * sim.qs[i][9]))^(1/3)
-		sim.qs[i][3] = sim.qs[i][3] * c
-		sim.qs[i][6] = sim.qs[i][6] / c
-		sim.qs[i][9] = sim.qs[i][9] * c
-		-- 2 * (sim.qs[i][6] / cbrt(c)) / (sim.qs[i][3] * cbrt(c) * sim.qs[i][9] * cbrt(c))
-		-- = (2 * sim.qs[i][6] / (sim.qs[i][3] * sim.qs[i][9])) / c
+		local c = abs(2 * qs[i][6] / (qs[i][3] * qs[i][9]))^(1/3)
+		qs[i][3] = qs[i][3] * c
+		qs[i][6] = qs[i][6] / c
+		qs[i][9] = qs[i][9] * c
+		-- 2 * (qs[i][6] / cbrt(c)) / (qs[i][3] * cbrt(c) * qs[i][9] * cbrt(c))
+		-- = (2 * qs[i][6] / (qs[i][3] * qs[i][9])) / c
 		-- = 1
 	end
 end

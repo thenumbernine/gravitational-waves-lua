@@ -520,17 +520,17 @@ function ADM3D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	}
 end
 
-function ADM3D:sourceTerm(sim)
+function ADM3D:sourceTerm(sim, qs)
 	local source = sim:newState()
 	for i=1,sim.gridsize do
-		local alpha = sim.qs[i][1]
-		local g_xx, g_xy, g_xz, g_yy, g_yz, g_zz = unpack(sim.qs[i], 2, 7)
-		local A_x, A_y, A_z = unpack(sim.qs[i], 8, 10)
-		local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(sim.qs[i], 11, 16)
-		local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(sim.qs[i], 17, 22)
-		local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(sim.qs[i], 23, 28)
-		local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = unpack(sim.qs[i], 29, 34)
-		local V_x, V_y, V_z = unpack(sim.qs[i], 35, 37)
+		local alpha = qs[i][1]
+		local g_xx, g_xy, g_xz, g_yy, g_yz, g_zz = unpack(qs[i], 2, 7)
+		local A_x, A_y, A_z = unpack(qs[i], 8, 10)
+		local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(qs[i], 11, 16)
+		local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(qs[i], 17, 22)
+		local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(qs[i], 23, 28)
+		local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = unpack(qs[i], 29, 34)
+		local V_x, V_y, V_z = unpack(qs[i], 35, 37)
 		local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = mat33.inv(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz)
 		local f = self.calc.f(alpha)
 
@@ -559,26 +559,26 @@ end
 function ADM3D:postIterate(sim)
 	for i=1,sim.gridsize do
 		-- [[ direct assign (seems like this would be constantly overwriting the V_k source term contribution
-		local g_xx, g_xy, g_xz, g_yy, g_yz, g_zz = unpack(sim.qs[i], 2, 7)
-		local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(sim.qs[i], 11, 16)
-		local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(sim.qs[i], 17, 22)
-		local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(sim.qs[i], 23, 28)
+		local g_xx, g_xy, g_xz, g_yy, g_yz, g_zz = unpack(qs[i], 2, 7)
+		local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(qs[i], 11, 16)
+		local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(qs[i], 17, 22)
+		local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(qs[i], 23, 28)
 		local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = mat33.inv(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz)
-		sim.qs[i][35] = 
+		qs[i][35] = 
 			(D_xxy - D_yxx) * gUxy
 			+ (D_xxz - D_zxx) * gUxz
 			+ (D_xyy - D_yxy) * gUyy
 			+ (D_xyz - D_yxz) * gUyz
 			+ (D_xyz - D_zxy) * gUyz
 			+ (D_xzz - D_zxz) * gUzz
-		sim.qs[i][36] = 
+		qs[i][36] = 
 			(D_yxx - D_xxy) * gUxx
 			+ (D_yxy - D_xyy) * gUxy
 			+ (D_yxz - D_xyz) * gUxz
 			+ (D_yxz - D_zxy) * gUxz
 			+ (D_yyz - D_zyy) * gUyz
 			+ (D_yzz - D_zyz) * gUzz
-		sim.qs[i][37] = 
+		qs[i][37] = 
 			(D_zxx - D_xxz) * gUxx
 			+ (D_zxy - D_xyz) * gUxy
 			+ (D_zxy - D_yxz) * gUxy
