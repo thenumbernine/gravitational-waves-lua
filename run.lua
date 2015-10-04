@@ -272,8 +272,8 @@ do
 	-- [=[ compare schemes
 	--sims:insert(require 'euler1d_burgers'(args))
 	--sims:insert(HLL(args))
-	--sims:insert(Roe(args))
-	sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .1})))
+	sims:insert(Roe(args))
+	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .01})))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))

@@ -49,9 +49,9 @@ function Solver:integrate(dt, dq_dts)
 	self.qs = self.integrator:integrate(self.qs, dt, dq_dts)
 end
 
-function Solver:integrateFlux(dt)
+function Solver:integrateFlux(dt, getLeft, getRight)
 	self:integrate(dt, function()
-		return self:calcFlux(dt)
+		return self:calcFlux(dt, getLeft, getRight)
 	end)
 end
 
@@ -71,9 +71,12 @@ for i=1,self.gridsize do
 	print()
 end
 --]]
-	local dt = self:calcDT()
+	local getLeft = function(sim,i) return sim.qs[i-1] end
+	local getRight = function(sim,i) return sim.qs[i] end
+	
+	local dt = self:calcDT(getLeft, getRight)
 
-	self:integrateFlux(dt)
+	self:integrateFlux(dt, getLeft, getRight)
 
 	if self.equation.sourceTerm then
 		self:integrate(dt, function()

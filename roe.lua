@@ -63,8 +63,8 @@ function Roe:calcDT(getLeft, getRight)
 	-- Roe solver:
 	-- 1) calculate eigenbasis at interface with Roe-weighted average of states
 	for i=2,self.gridsize do
-		local qL = getLeft and getLeft(i) or self.qs[i-1]
-		local qR = getRight and getRight(i) or self.qs[i]
+		local qL = getLeft and getLeft(self,i) or self.qs[i-1]
+		local qR = getRight and getRight(self,i) or self.qs[i]
 		
 		self.equation:calcInterfaceEigenBasis(self,i,qL,qR)
 
@@ -127,8 +127,8 @@ end
 
 function Roe:calcDeltaQTildes(getLeft, getRight)
 	for i=2,self.gridsize do
-		local qL = getLeft and getLeft(i) or self.qs[i-1]
-		local qR = getRight and getRight(i) or self.qs[i]
+		local qL = getLeft and getLeft(self,i) or self.qs[i-1]
+		local qR = getRight and getRight(self,i) or self.qs[i]
 		
 		local dq = {}
 		for j=1,self.numStates do
@@ -140,8 +140,8 @@ end
 
 function Roe:calcRTildes(getLeft, getRight)
 	for i=2,self.gridsize do
-		local qL = getLeft and getLeft(i) or self.qs[i-1]
-		local qR = getRight and getRight(i) or self.qs[i]
+		local qL = getLeft and getLeft(self,i) or self.qs[i-1]
+		local qR = getRight and getRight(self,i) or self.qs[i]
 		for j=1,self.numStates do
 			if self.deltaQTildes[i][j] == 0 then
 				self.rTildes[i][j] = 0
@@ -208,8 +208,8 @@ combining the two concepts means making qs a parameter of getLeft/getRight ...
 not used by Roe (for efficiency's sake), but used by subclasses
 --]]
 function Roe:calcCellFlux(i, getLeft, getRight)
-	local qL = getLeft and getLeft(i) or self.qs[i-1]
-	local qR = getRight and getRight(i) or self.qs[i]
+	local qL = getLeft and getLeft(self,i) or self.qs[i-1]
+	local qR = getRight and getRight(self,i) or self.qs[i]
 	local fluxFromL = self:calcCellFluxForSide(i, qL, 1)
 	local fluxFromR = self:calcCellFluxForSide(i, qR, -1)
 	local result = {}
@@ -253,8 +253,8 @@ function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
 	
 	-- 5) transform back
 	for i=2,self.gridsize do
-		local qL = getLeft and getLeft(i) or self.qs[i-1]
-		local qR = getRight and getRight(i) or self.qs[i]
+		local qL = getLeft and getLeft(self,i) or self.qs[i-1]
+		local qR = getRight and getRight(self,i) or self.qs[i]
 
 		local qAvg = {}
 		for j=1,self.numStates do

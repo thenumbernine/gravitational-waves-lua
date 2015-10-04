@@ -22,8 +22,8 @@ function RoeImplicitLinearized:integrateFlux(dt)
 	-- function that returns deriv when provided a state vector
 	-- TODO make this consider getLeft/getRight ... which themselves are not modular wrt state vector
 	local function dq_dt(qs)
-		local getLeft = function(i) return qs[i-1] end
-		local getRight = function(i) return qs[i] end
+		local getLeft = function(sim,i) return qs[i-1] end
+		local getRight = function(sim,i) return qs[i] end
 		-- this is only the flux deriv... right?  or does it include the source term as well?
 		return self:calcDeriv(getLeft, getRight)		
 	end
@@ -34,8 +34,8 @@ function RoeImplicitLinearized:integrateFlux(dt)
 	local linearSolverArgs = {
 		--maxiter = 1000,
 		x0 = qs:clone(),
-		epsilon = 1e-50,
-		maxiter = 10000,
+		epsilon = 1e-20,
+		maxiter = 300,
 		-- mostly true ... mostly ...
 		-- not true for any 2nd derivative terms
 		-- this method is only used for Jacobi method, so I don't really care
