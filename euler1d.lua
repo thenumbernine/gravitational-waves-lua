@@ -204,5 +204,18 @@ function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	--]]
 end
 
-return Euler1D
+--[[ do something to prove source terms are working ...
+function Euler1D:sourceTerm(sim, qs)
+	local source = sim:newState()
+	for i=1,sim.gridsize do
+		local x = sim.xs[i]
+		local rho = qs[i][1]
+		local v = math.abs(x) < .1 and -.01 or 0
+		qs[i][2] = qs[i][2] + rho * v
+		qs[i][3] = qs[i][3] + .5 * rho * v * v
+	end
+	return source
+end
+--]]
 
+return Euler1D

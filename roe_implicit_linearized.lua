@@ -1,16 +1,16 @@
 local class = require 'ext.class'
 local Roe = require 'roe'
-local RoeBackwardEulerLinear = class(Roe)
+local RoeImplicitLinearized = class(Roe)
 
---RoeBackwardEulerLinear.fixed_dt = 1/200
+--RoeImplicitLinearized.fixed_dt = 1/200
 
-function RoeBackwardEulerLinear:init(args)
-	RoeBackwardEulerLinear.super.init(self, args)
+function RoeImplicitLinearized:init(args)
+	RoeImplicitLinearized.super.init(self, args)
 	self.linearSolver = args.linearSolver or require 'linearsolvers'.conjres
 	self.errorLogging = args.errorLogging
 end
 
-function RoeBackwardEulerLinear:integrateFlux(dt)
+function RoeImplicitLinearized:integrateFlux(dt)
 	--calcDT extra params: getLeft, getRight, getLeft2, getRight2
 	-- the previous call in Solver:iterate is to self:calcDT
 	-- which calls self.equation:calcInterfaceEigenBasis, which fills the self.eigenvalues table
@@ -24,27 +24,18 @@ function RoeBackwardEulerLinear:integrateFlux(dt)
 	local function dq_dt(qs)
 		local getLeft = function(i) return qs[i-1] end
 		local getRight = function(i) return qs[i] end
-		-- this is only the flux deriv...
-		-- TODO rename this to "calcFluxDeriv"
-		local dq_dt = self:calcDeriv(getLeft, getRight)		
-		-- so we gotta add source terms as well ...
-		if self.equation.sourceTerm	then
-			dq_dt = dq_dt + self.equation:sourceTerm(self, qs)
-		end
-		if self.equation.postIterate then
-			self.equation:postIterate(self, qs)
-		end
-		return dq_dt
+		-- this is only the flux deriv... right?  or does it include the source term as well?
+		return self:calcDeriv(getLeft, getRight)		
 	end
 
-	-- [[ implicit via some linear solver
+-- [[ implicit via some linear solver
 	local qs = self.qs
 
 	local linearSolverArgs = {
 		--maxiter = 1000,
 		x0 = qs:clone(),
-		epsilon = 1e-20,
-		maxiter = 100,
+		epsilon = 1e-50,
+		maxiter = 10000,
 		-- mostly true ... mostly ...
 		-- not true for any 2nd derivative terms
 		-- this method is only used for Jacobi method, so I don't really care
@@ -66,6 +57,12 @@ function RoeBackwardEulerLinear:integrateFlux(dt)
 	-- [=[ backward Euler
 	linearSolverArgs.b = qs:clone()
 	linearSolverArgs.A = function(qs)
+		-- if this is a linearized implicit solver
+		-- then the matrix should be computed before invoking the iterative solver
+		-- which means the matrix coeffiicents shouldn't be changing per-iteration
+		-- which means dq_dt() should be based on the initial state and not the iterative state
+		--qs = qs - dt * dq_dt(self.qs)
+		-- ... but 
 		qs = qs - dt * dq_dt(qs)
 		self.boundaryMethod(qs)
 		return qs
@@ -88,10 +85,10 @@ function RoeBackwardEulerLinear:integrateFlux(dt)
 	if self.errorLogging then
 		print()
 	end
-	--]]
-	--[[ explicit - forward Euler - for debugging
+--]]
+--[[ explicit - forward Euler - for debugging
 	self.qs = self.qs + dt * dq_dt(self.qs)
-	--]]
+--]]
 end
 
-return RoeBackwardEulerLinear
+return RoeImplicitLinearized

@@ -21,7 +21,7 @@ local symmath = require 'symmath'
 -- solvers:
 local HLL = require 'hll'
 local Roe = require 'roe'
-local RoeBackwardEulerLinear = require 'roe_backwardeuler_linear'
+local RoeImplicitLinearized = require 'roe_implicit_linearized'
 -- equations:
 local Maxwell = require 'maxwell'
 local Euler1D = require 'euler1d'
@@ -36,7 +36,7 @@ local ADM3D = require 'adm3d'
 -- setup
 local sims = table()
 
--- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+--[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -84,7 +84,9 @@ do
 	--sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
 	--sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
-	sims:insert(RoeBackwardEulerLinear(table(args, {equation = ADM1D3to5Var(equationArgs)})))
+	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D3to5Var(equationArgs)})))
+	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D5Var(equationArgs)})))
+	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM3D(equationArgs)})))
 	--sims:insert(require'bssnok1d_backwardeuler_newton'(args))
 	--]=]
 
@@ -244,7 +246,7 @@ end
 --]]
 
 
---[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+-- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
 	local args = {
 		equation = Euler1D(),
@@ -268,10 +270,10 @@ do
 	}
 	
 	-- [=[ compare schemes
-	sims:insert(require 'euler1d_burgers'(args))
-	sims:insert(HLL(args))
-	sims:insert(Roe(args))
-	--sims:insert(RoeBackwardEulerLinear(args))
+	--sims:insert(require 'euler1d_burgers'(args))
+	--sims:insert(HLL(args))
+	--sims:insert(Roe(args))
+	sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .1})))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))

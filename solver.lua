@@ -85,7 +85,7 @@ end
 		self:postIterate(dt)
 	end
 	if self.equation.postIterate then
-		self.equation:postIterate(self)
+		self.equation:postIterate(self, self.qs)
 	end
 
 	self.t = self.t + dt

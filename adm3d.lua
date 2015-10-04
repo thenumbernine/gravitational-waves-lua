@@ -556,7 +556,7 @@ function ADM3D:sourceTerm(sim, qs)
 end
 
 -- enforce constraint V_k = (D_kmn - D_mnk) g^mn
-function ADM3D:postIterate(sim)
+function ADM3D:postIterate(sim, qs)
 	for i=1,sim.gridsize do
 		-- [[ direct assign (seems like this would be constantly overwriting the V_k source term contribution
 		local g_xx, g_xy, g_xz, g_yy, g_yz, g_zz = unpack(qs[i], 2, 7)
