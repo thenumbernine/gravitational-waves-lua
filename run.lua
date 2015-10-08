@@ -272,7 +272,8 @@ do
 	-- [=[ compare schemes
 	--sims:insert(require 'euler1d_burgers'(args))
 	--sims:insert(HLL(args))
-	sims:insert(Roe(args))
+	--sims:insert(Roe(args))
+	sims:insert(Roe(table(args, {usePPM=true})))
 	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .01})))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
@@ -550,6 +551,41 @@ function TestApp:update(...)
 					gl.glEnd()
 				end
 			end
+-- [[ special PPM hack
+			local channel = 2
+			local ppmCount = 0
+			local ppmYs = table()
+			gl.glColor3f(1,1,0)
+			gl.glBegin(gl.GL_LINE_STRIP)
+			for n=0,#sim.xs*10 do
+				local x = (xmax - xmin) / (#sim.xs*10) * n + xmin
+				-- getter ... abstracts the index of the state variable ...
+				local y = sim:getPPM(x,channel)
+				if y then
+					ppmYs:insert(y)
+					ppmCount = ppmCount + 1
+					gl.glVertex2f(x,y)
+				end
+			end
+			gl.glEnd()
+			--print(unpack(ppmYs,1,10))
+			--print(ppmCount) 
+			if sim.ppm_iqs then
+				gl.glColor3f(0,1,0)
+				gl.glBegin(gl.GL_LINES)
+				for i=1,sim.gridsize do
+					gl.glVertex2f(sim.ixs[i], sim.ppm_qLs[i][channel])
+					gl.glVertex2f(sim.ixs[i+1], sim.ppm_qRs[i][channel])
+				end
+				gl.glEnd()
+				gl.glColor3f(1,0,1)
+				gl.glBegin(gl.GL_POINTS)
+				for i=1,sim.gridsize do
+					gl.glVertex2f(sim.ixs[i],sim.ppm_iqs[i][channel])
+				end
+				gl.glEnd()
+			end
+--]]
 			gl.glPointSize(1)
 			
 			if self.font then

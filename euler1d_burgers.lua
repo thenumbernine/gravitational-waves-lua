@@ -64,10 +64,10 @@ function Euler1DBurgers:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
 	local gamma = self.equation.gamma
 
 	for i=3,self.gridsize-1 do
-		local qL2 = getLeft2 and getLeft2(i) or self.qs[i-2]
-		local qL = getLeft and getLeft(i) or self.qs[i-1]
-		local qR = getRight and getRight(i) or self.qs[i]
-		local qR2 = getRight2 and getRight2(i) or self.qs[i+1]
+		local qL2 = getLeft2 and getLeft2(self,i) or self.qs[i-2]
+		local qL = getLeft and getLeft(self,i) or self.qs[i-1]
+		local qR = getRight and getRight(self,i) or self.qs[i]
+		local qR2 = getRight2 and getRight2(self,i) or self.qs[i+1]
 		local uL = qL[2] / qL[1]
 		local uR = qR[2] / qR[1]
 		local iu = .5 * (uL + uR)
@@ -79,10 +79,11 @@ function Euler1DBurgers:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
 					and ((qL[j] - qL2[j]) / dq) 
 					or ((qR2[j] - qR[j]) / dq))
 			local phi = self.fluxLimiter(r)
-			self.fluxes[i][j] = 
-				iu * (iu >= 0 and self.qs[i-1][j] or self.qs[i][j])
+			local theta = iu >= 0 and 1 or -1
+			self.fluxes[i][j] =
+				.5 * iu * ((1 + theta) * qL[j] + (1 - theta) * qR[j])
 				-- why does a + make things worse, and a - make things *much* smoother?  (original: http://www.mpia.de/homes/dullemon/lectures/fluiddynamics/Chapter_4.pdf says + )
-				- dq * phi * .5 * abs(iu) * (1 - abs(iu * dt/dx))
+				+ .5 * dq * phi * abs(iu) * (1 - abs(iu * dt/dx))
 		end
 	end
 

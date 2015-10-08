@@ -238,20 +238,19 @@ end
 
 function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
 
-	-- 2) calculate interface state difference in eigenbasis coordinates
+	-- calculate interface state difference in eigenbasis coordinates
 	self:calcDeltaQTildes(getLeft, getRight)
 
-	-- 3) slope limit on interface difference
+	-- slope limit on interface difference
 	self:calcRTildes(getLeft, getRight)
 
-	-- 4) phis based on eigenvalues and flux limiter of rTildes
+	-- phis based on eigenvalues and flux limiter of rTildes
 	self:calcPhis(dt)
-	-- TODO make use of Phis below (take from roe_backwardeuler_linear)
 
 --[=[ uses fluxes (and optionally the flux matrix)
 	local useFluxMatrix = false
 	
-	-- 5) transform back
+	-- transform back
 	for i=2,self.gridsize do
 		local qL = getLeft and getLeft(self,i) or self.qs[i-1]
 		local qR = getRight and getRight(self,i) or self.qs[i]
@@ -298,7 +297,7 @@ function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
 	end
 	return dq_dts
 --]=]
--- [=[ doesn't use the flux vector (extra calculatiosn) but uses the same routine that the implicit solver uses
+-- [=[ doesn't use the flux vector (extra calculations) but uses the same routine that the implicit solver uses
 	return self:calcDeriv(getLeft, getRight)
 --]=]
 end

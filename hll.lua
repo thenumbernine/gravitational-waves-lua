@@ -11,8 +11,8 @@ end
 function HLL:calcDT(getLeft, getRight)
 	-- matches Roe, except without eigenvectors
 	for i=2,self.gridsize do
-		local qL = getLeft and getLeft(i) or self.qs[i-1]
-		local qR = getRight and getRight(i) or self.qs[i]
+		local qL = getLeft and getLeft(self,i) or self.qs[i-1]
+		local qR = getRight and getRight(self,i) or self.qs[i]
 		self.equation:calcInterfaceEigenvalues(self, qL, qR, self.eigenvalues[i])
 	end
 
@@ -26,8 +26,8 @@ function HLL:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
 	
 	for i=2,self.gridsize do
 		-- TODO use qL and qR to allow compatability with MUSCL
-		local qL = getLeft and getLeft(i) or self.qs[i-1]
-		local qR = getRight and getRight(i) or self.qs[i]
+		local qL = getLeft and getLeft(self,i) or self.qs[i-1]
+		local qR = getRight and getRight(self,i) or self.qs[i]
 		
 		local sL = self.eigenvalues[i][1]
 		local sR = self.eigenvalues[i][self.numStates]
