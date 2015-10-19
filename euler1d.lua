@@ -19,17 +19,21 @@ Euler1D.gamma = 5/3
 
 Euler1D.graphInfos = table{
 	{viewport={0/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][1] end, name='rho', color={1,0,1}},
---[[ regular
-	{viewport={1/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][2] / self.qs[i][1] end, name='u', color={0,1,0}},
-	{viewport={2/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][3] / self.qs[i][1] end, name='E', color={.5,.5,1}},
---]]
--- [[ PPM
-	{viewport={1/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][2] end, name='rho u', color={0,1,0}},
-	{viewport={2/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][3] end, name='rho E', color={.5,.5,1}},
---]]
 	{viewport={0/3, 1/2, 1/3, 1/2}, getter=function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
 	{viewport={1/3, 1/2, 1/3, 1/2}, getter=function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end, name='log reconstruction error', color={1,0,0}, range={-30, 30}},
 }
+if DEBUG_PPM then
+	Euler1D.graphInfos:append{
+		{viewport={1/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][2] end, name='rho u', color={0,1,0}},
+		{viewport={2/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][3] end, name='rho E', color={.5,.5,1}},
+	}
+else
+	Euler1D.graphInfos:append{
+		{viewport={1/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][2] / self.qs[i][1] end, name='u', color={0,1,0}},
+		{viewport={2/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][3] / self.qs[i][1] end, name='E', color={.5,.5,1}},
+	}
+end
+
 Euler1D.graphInfoForNames = Euler1D.graphInfos:map(function(info,i)
 	return info, info.name
 end)

@@ -1,5 +1,7 @@
 #!/usr/bin/env luajit
 
+--DEBUG_PPM=true
+
 local class = require 'ext.class'
 local table = require 'ext.table'
 
@@ -541,8 +543,8 @@ function TestApp:update(...)
 			gl.glPointSize(2)
 			if #sim.ys > 0 then
 				for _,mode in ipairs{
-					--gl.GL_POINTS,
-					gl.GL_LINE_STRIP
+					gl.GL_LINE_STRIP,
+					DEBUG_PPM and gl.GL_POINTS
 				} do
 					gl.glBegin(mode)
 					for i=1,sim.gridsize do
@@ -552,6 +554,7 @@ function TestApp:update(...)
 				end
 			end
 -- [[ special PPM hack
+if DEBUG_PPM then
 			local channel = 2
 			local ppmCount = 0
 			local ppmYs = table()
@@ -585,6 +588,7 @@ function TestApp:update(...)
 				end
 				gl.glEnd()
 			end
+end
 --]]
 			gl.glPointSize(1)
 			
