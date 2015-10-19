@@ -275,12 +275,12 @@ do
 	--sims:insert(require 'euler1d_burgers'(args))
 	--sims:insert(HLL(args))
 	--sims:insert(Roe(args))
-	sims:insert(Roe(table(args, {usePPM=true})))
+	--sims:insert(Roe(table(args, {usePPM=true})))
 	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .01})))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
-	--sims:insert(Roe(table(args, {equation = MHD()})))
+	sims:insert(Roe(table(args, {equation = MHD()})))
 	--]=]
 
 	--[=[ compare flux limiters
