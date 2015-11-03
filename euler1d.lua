@@ -13,7 +13,7 @@ local class = require 'ext.class'
 local Equation = require 'equation'
 
 local Euler1D = class(Equation)
-
+Euler1D.name = 'Euler 1D'
 Euler1D.numStates = 3
 Euler1D.gamma = 5/3	
 
@@ -96,7 +96,7 @@ function Euler1D:calcInterfaceEigenvalues(sim, qL, qR, S)
 	local EL = qL[3] / rhoL
 	local eIntL = EL - .5 * uL^2
 	local PL = (gamma - 1) * rhoL * eIntL
-	local HL = EL + PL / rhoL
+	local hL = EL + PL / rhoL
 	local weightL = sqrt(rhoL)
 	
 	local rhoR = qR[1]
@@ -104,13 +104,13 @@ function Euler1D:calcInterfaceEigenvalues(sim, qL, qR, S)
 	local ER = qR[3] / rhoR
 	local eIntR = ER - .5 * uR^2
 	local PR = (gamma - 1) * rhoR * eIntR
-	local HR = ER + PR / rhoR
+	local hR = ER + PR / rhoR
 	local weightR = sqrt(rhoR)
 	
 	local u = (weightL * uL + weightR * uR) / (weightL + weightR)
-	local H = (weightL * HL + weightR * HR) / (weightL + weightR)
+	local h = (weightL * hL + weightR * hR) / (weightL + weightR)
 	
-	local Cs = sqrt((gamma - 1) * (H - .5 * u^2))
+	local Cs = sqrt((gamma - 1) * (h - .5 * u^2))
 	
 	S[1] = u - Cs
 	S[2] = u
@@ -129,7 +129,7 @@ function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local EL = qL[3] / rhoL
 	local eIntL = EL - .5 * uL^2
 	local PL = (gamma - 1) * rhoL * eIntL
-	local HL = EL + PL / rhoL
+	local hL = EL + PL / rhoL
 	local weightL = sqrt(rhoL)
 	
 	local rhoR = qR[1]
@@ -137,15 +137,15 @@ function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local ER = qR[3] / rhoR
 	local eIntR = ER - .5 * uR^2
 	local PR = (gamma - 1) * rhoR * eIntR
-	local HR = ER + PR / rhoR
+	local hR = ER + PR / rhoR
 	local weightR = sqrt(rhoR)
 	
 	local rho = sqrt(weightL * weightR)
 	local u = (weightL * uL + weightR * uR) / (weightL + weightR)
-	local H = (weightL * HL + weightR * HR) / (weightL + weightR)
+	local h = (weightL * hL + weightR * hR) / (weightL + weightR)
 	local E = (weightL * EL + weightR * ER) / (weightL + weightR)
 	
-	local Cs = sqrt((gamma - 1) * (H - .5 * u^2))
+	local Cs = sqrt((gamma - 1) * (h - .5 * u^2))
 	
 	local F = sim.fluxMatrix[i]
 	F[1][1] = 0
@@ -155,7 +155,7 @@ function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	F[2][2] = (3-gamma)*u
 	F[2][3] = gamma-1
 	F[3][1] = -u*(gamma*E + (1-gamma)*u*u)
-	F[3][2] = H + (1-gamma) * u*u
+	F[3][2] = h + (1-gamma) * u*u
 	F[3][3] = gamma * u
 	
 	local S = sim.eigenvalues[i]
@@ -170,9 +170,9 @@ function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	U[2][1] = u - Cs
 	U[2][2] = u
 	U[2][3] = u + Cs
-	U[3][1] = H - Cs * u
+	U[3][1] = h - Cs * u
 	U[3][2] = .5 * u*u
-	U[3][3] = H + Cs * u
+	U[3][3] = h + Cs * u
 	
 	-- [[ symbolically
 	local V = sim.eigenvectorsInverse[i]

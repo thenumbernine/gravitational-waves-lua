@@ -7,6 +7,8 @@ function Roe:init(args)
 	-- one of these had better be defined ...
 	self.equation = assert(self.equation or args.equation)
 	
+	self.name = self.equation.name .. ' Roe'
+	
 	Roe.super.init(self, args)
 
 	self.deltaQTildes = {}

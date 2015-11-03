@@ -273,14 +273,19 @@ do
 	
 	-- [=[ compare schemes
 	--sims:insert(require 'euler1d_burgers'(args))
+	sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='exact', sampleMethod='alt'})))
+	sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='exact'})))
+	sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='pvrs'})))
+	sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})))
+	sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
-	--sims:insert(Roe(args))
+	sims:insert(Roe(args))
 	--sims:insert(Roe(table(args, {usePPM=true})))
 	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .01})))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
-	sims:insert(Roe(table(args, {equation = MHD()})))
+	--sims:insert(Roe(table(args, {equation = MHD()})))
 	--]=]
 
 	--[=[ compare flux limiters
@@ -417,10 +422,17 @@ function TestApp:update(...)
 		end
 	end
 
-	for _,sim in ipairs(sims) do
-		if self.doIteration then
+	if self.doIteration then
+		-- [[ iterate the furthest back
+		sims:inf(function(a,b)
+			return a.t < b.t
+		end):iterate()
+		--]]
+		--[[ iterate all
+		for _,sim in ipairs(sims) do
 			sim:iterate()
 		end
+		--]]
 	end
 
 	if self.doIteration == 'once' then
@@ -594,7 +606,7 @@ end
 			
 			if self.font then
 				local fontSizeX = (xmax - xmin) * .05
-				local fontSizeY = (ymax - ymin) * .1
+				local fontSizeY = (ymax - ymin) * .05
 				local ystep = ystep * 2
 				for y=floor(ymin/ystep)*ystep,ceil(ymax/ystep)*ystep,ystep do
 					self.font:draw{
@@ -614,6 +626,28 @@ end
 				}
 			end
 		
+		end
+
+		gl.glViewport(0,0,w,h)
+		gl.glMatrixMode(gl.GL_PROJECTION)
+		gl.glLoadIdentity()
+		gl.glOrtho(0, w/h, 0, 1, -1, 1)
+		gl.glMatrixMode(gl.GL_MODELVIEW)
+		gl.glLoadIdentity()
+
+		if self.font then
+			local maxlen = 2*#sims:map(function(sim) return sim.name end):sup()
+			for i,sim in ipairs(sims) do
+				local fontSizeX = .02
+				local fontSizeY = .02
+				self.font:draw{
+					pos={w/h-maxlen*fontSizeX,fontSizeY*(i+1)},
+					text=sim.name,
+					color = {sim.color[1],sim.color[2],sim.color[3],1},
+					fontSize={fontSizeX, -fontSizeY},
+					multiLine=false,
+				}
+			end
 		end
 	end
 	if self.reportError then
