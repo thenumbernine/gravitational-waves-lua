@@ -51,12 +51,6 @@ function Solver:integrate(dt, dq_dts)
 	self.qs = self.integrator:integrate(self.qs, dt, dq_dts)
 end
 
-function Solver:integrateFlux(dt, getLeft, getRight)
-	self:integrate(dt, function()
-		return self:calcFlux(dt, getLeft, getRight)
-	end)
-end
-
 function Solver:applyBoundary()
 	self.boundaryMethod(self.qs)
 end
@@ -78,6 +72,16 @@ function Solver:getPPM(xi,j)
 	end	
 end
 --]]
+
+function Solver:step(dt, getLeft, getRight)
+	self:integrate(dt, function()
+		local dq_dt = self:calcFlux(dt, getLeft, getRight)
+		if self.equation.sourceTerm then
+			dq_dt = dq_dt + self.equation:sourceTerm(self, self.qs)
+		end
+		return dq_dt
+	end)
+end
 
 function Solver:iterate()
 	self:applyBoundary()
@@ -132,13 +136,7 @@ end
 
 	local dt = self:calcDT(getLeft, getRight)
 
-	self:integrateFlux(dt, getLeft, getRight)
-
-	if self.equation.sourceTerm then
-		self:integrate(dt, function()
-			return self.equation:sourceTerm(self, self.qs)
-		end)
-	end
+	self:step(dt, getLeft, getRight)
 
 	if self.postIterate then
 		self:postIterate(dt)
@@ -146,7 +144,7 @@ end
 	if self.equation.postIterate then
 		self.equation:postIterate(self, self.qs)
 	end
-
+	
 	self.t = self.t + dt
 	self.iteration = self.iteration + 1
 end

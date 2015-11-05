@@ -46,7 +46,6 @@ function EulerBackwardEulerLinear:iterate()
 			end
 			return y
 		end,
-		ADiag = q:clone(),
 	}
 end
 

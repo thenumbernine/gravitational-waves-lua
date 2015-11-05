@@ -64,7 +64,7 @@ local class = require 'ext.class'
 local Equation = require 'equation'
 
 local ADM1D3Var = class(Equation)
-ADM1D3Var.name = 'ADM1D3Var'
+ADM1D3Var.name = 'ADM 1D 3-Var'
 
 ADM1D3Var.numStates = 3
 
@@ -169,7 +169,7 @@ end)
 
 local function buildField(call)
 	return function(self, sim, i, v)
-		local v1, v2, v3 = unpack(v)
+		local v1, v2, v3 = table.unpack(v)
 		
 		local avgQ = {}
 		for j=1,sim.numStates do 
@@ -178,7 +178,7 @@ local function buildField(call)
 		avgQ.alpha = (sim.qs[i-1].alpha + sim.qs[i].alpha) / 2
 		avgQ.g_xx = (sim.qs[i-1].g_xx + sim.qs[i].g_xx) / 2
 		
-		local A_x, D_xxx, KTilde_xx = unpack(avgQ)
+		local A_x, D_xxx, KTilde_xx = table.unpack(avgQ)
 		local x = sim.ixs[i]
 		local alpha = avgQ.alpha
 		local g_xx = avgQ.g_xx
@@ -231,7 +231,7 @@ end
 function ADM1D3Var:sourceTerm(sim, qs)
 	local source = sim:newState()
 	for i=1,sim.gridsize do
-		local A_x, D_xxx, KTilde_xx = unpack(qs[i])
+		local A_x, D_xxx, KTilde_xx = table.unpack(qs[i])
 		local alpha = qs[i].alpha
 		local g_xx = qs[i].g_xx
 		local f = self.calc.f(alpha)

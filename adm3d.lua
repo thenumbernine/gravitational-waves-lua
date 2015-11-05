@@ -38,6 +38,7 @@ local mat33 = require 'mat33'
 local symmath = require 'symmath'
 
 local ADM3D = class(Equation)
+ADM3D.name = 'ADM3D'
 
 --[[
 alpha,

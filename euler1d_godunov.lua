@@ -43,8 +43,7 @@ function Euler1DGodunov:calcDT(getLeft, getRight)
 			local q = self.qs[i]
 			local rho = q[1]
 			local u = q[2] / rho
-			local P = (gamma - 1) * (q[3] - .5 * q[2] * u)
-			local c = math.sqrt(gamma * P / rho)
+			local c = math.sqrt(gamma * (gamma - 1) * (q[3] / rho - .5 * u * u))
 
 			local dx = self.ixs[i+1] - self.ixs[i]
 			local dum = dx / (c + math.abs(u))
@@ -70,7 +69,7 @@ function Euler1DGodunov:reset()
 	end
 end
 
-function Euler1DGodunov:integrateFlux(dt, getLeft, getRight)
+function Euler1DGodunov:calcFlux(dt, getLeft, getRight)
 	local gamma = self.equation.gamma
 	local x_t = 0
 
@@ -101,23 +100,14 @@ function Euler1DGodunov:integrateFlux(dt, getLeft, getRight)
 		self.fluxes[i][3] = (gamma / (gamma - 1) * P + .5 * rho * u * u) * u
 	end
 	
-	--[[
 	local dq_dts = self:newState()
 	for i=1,self.gridsize do
 		local dx = self.ixs[i+1] - self.ixs[i]
 		for j=1,self.numStates do
-			dq_dts[i][j] = dq_dts[i][j] - (self.fluxes[i+1][j] - self.fluxes[i][j]) / dx
+			dq_dts[i][j] = (self.fluxes[i][j] - self.fluxes[i+1][j]) / dx
 		end
 	end
 	return dq_dts
-	--]]
-	
-	for i=1,self.gridsize do
-		local dx = self.ixs[i+1] - self.ixs[i]
-		for j=1,self.numStates do
-			self.qs[i][j] = self.qs[i][j] - dt/dx * (self.fluxes[i+1][j] - self.fluxes[i][j])
-		end
-	end
 end
 
 function Euler1DGodunov:calcPressureAndVelocityPVRS(rhoL, uL, PL, cL, rhoR, uR, PR, cR)
@@ -249,14 +239,14 @@ function Euler1DGodunov:guessPressure(rhoL, uL, PL, cL, rhoR, uR, PR, cR)
 		if ppv < pmin then
 --		  select two-rarefaction riemann solver
 			local pq  = (PL / PR) ^ ((gamma - 1) / (2 * gamma))
-			um  = (pq * uL / cL + uR / cR + (2 / (gamma - 1)) * (pq - 1)) / (pq / cL + 1 / cR)
-			ptl = 1 + .5 * (gamma - 1) * (uL - um) / cL
-			ptr = 1 + .5 * (gamma - 1) * (um - uR) / cR
+			local um  = (pq * uL / cL + uR / cR + (2 / (gamma - 1)) * (pq - 1)) / (pq / cL + 1 / cR)
+			local ptl = 1 + .5 * (gamma - 1) * (uL - um) / cL
+			local ptr = 1 + .5 * (gamma - 1) * (um - uR) / cR
 			return .5 * (PL * ptl ^ ((2 * gamma) / (gamma - 1)) + PR * ptr ^ ((2 * gamma) / (gamma - 1)))
 		else
 --		  select two-shock riemann solver with pvrs as estimate
-			gel = math.sqrt((2 / (gamma + 1) / rhoL) / ((gamma - 1) / (gamma + 1) * PL + ppv))
-			ger = math.sqrt((2 / (gamma + 1) / rhoR) / ((gamma - 1) / (gamma + 1) * PR + ppv))
+			local gel = math.sqrt((2 / (gamma + 1) / rhoL) / ((gamma - 1) / (gamma + 1) * PL + ppv))
+			local ger = math.sqrt((2 / (gamma + 1) / rhoR) / ((gamma - 1) / (gamma + 1) * PR + ppv))
 			return (gel * PL + ger * PR - (uR - uL)) / (gel + ger)
 		end
 	end

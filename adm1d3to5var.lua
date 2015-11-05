@@ -7,7 +7,7 @@ local table = require 'ext.table'
 local Equation = require 'equation'
 
 local ADM1D3to5Var = class(Equation)
-ADM1D3to5Var.name = 'ADM1D3to5Var'
+ADM1D3to5Var.name = 'ADM 1D 3-to-5-Var'
 
 ADM1D3to5Var.numStates = 5
 
