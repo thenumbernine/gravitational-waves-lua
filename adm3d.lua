@@ -14,23 +14,34 @@ g_yz = y z rs / (r^2 (r - rs))
 
 ...
 
-eigenfields:
+	flux-less terms:
+
+partial_t alpha = -alpha^2 f tr K
+partial_t g_ij = -2 alpha K_ij
+
+	flux terms:
+
+partial_t A_k + alpha f g^ij partial_k K_ij = -alpha tr K (f + alpha f') A_k + 2 alpha f K^ij D_kij
+partial_t D_kij + alpha partial_k K_ij = -alpha A_k K_ij
+partial_t K_ij + alpha (g^km partial_k D_mij + 1/2 (delta^k_i partial_k A_j + delta^k_j partial_k A_i) + delta^k_i partial_k V_j + delta^k_j partial_k V_i) = alpha S_ij - alpha lambda^k_ij A_k + 2 alpha D_mij D_k^km
+partial_t V_k = alpha P_k
+
+	eigenfields:
 
 lambda = 0:
 	alpha
 	g_ij
+	V_i
 	A_x'
 	D_x'ij
-	V_i
 	A_x - f D_x^m_m
 
 lambda = +- alpha sqrt(g^xx):
-	K_ix' +- sqrt(g_xx) (D_xix' + delta^x_i V_x' / g^xx) for x' != x (what does that mean? what is x'?)
+	K_ix' +- sqrt(g_xx) (D_xix' + delta^x_i V_x' / g^xx) for x' != x
 
 lambda = +- alpha sqrt(f g^xx):
 	sqrt(f) tr(K) +- sqrt(g_xx) (A_x + 2 V^x / g^xx)
 
-eigenvector decomposition
 --]]
 local class = require 'ext.class'
 local Equation = require 'equation'
@@ -323,10 +334,11 @@ function ADM3D:eigenfields(sim, i, v)
 	-- 	and deferring differences or averages til after eigenfields() is called (assuming it is a linear function)
 	-- this also has an issue with eigenfieldsInverse(), which is called on a flux vector, i.e. at cell interface, which would probably need the average of cells for that input
 
+
 	return {
 		((((-(2 * gUxz * v[37])) - (gUxx * v[8])) + (math.sqrt(f) * (gUxx ^ (3 / 2)) * v[29]) + (math.sqrt(f) * gUxy * v[30] * math.sqrt(gUxx)) + (math.sqrt(f) * gUxz * v[31] * math.sqrt(gUxx)) + (math.sqrt(f) * gUyy * v[32] * math.sqrt(gUxx)) + (math.sqrt(f) * gUyz * v[33] * math.sqrt(gUxx)) + (((math.sqrt(f) * gUzz * v[34] * math.sqrt(gUxx)) - (2 * gUxx * v[35])) - (2 * gUxy * v[36]))) / math.sqrt(gUxx)),
-		(((-((gUxx ^ (3 / 2)) * v[12])) + ((v[30] * gUxx) - (v[36]))) / gUxx),
-		(((-((gUxx ^ (3 / 2)) * v[13])) + ((v[31] * gUxx) - (v[37]))) / gUxx),
+		(((-(gUxx * v[12])) + ((v[30] * math.sqrt(gUxx)) - v[36])) / math.sqrt(gUxx)),
+		(((-(gUxx * v[13])) + ((v[31] * math.sqrt(gUxx)) - v[37])) / math.sqrt(gUxx)),
 		((-(math.sqrt(gUxx) * v[14])) + v[32]),
 		((-(math.sqrt(gUxx) * v[15])) + v[33]),
 		((-(math.sqrt(gUxx) * v[16])) + v[34]),
@@ -354,13 +366,13 @@ function ADM3D:eigenfields(sim, i, v)
 		v[35],
 		v[36],
 		v[37],
-		(((((((v[8] - (f * gUxx * v[11])) - (f * gUxy * v[12])) - (f * gUxz * v[13])) - (f * gUyy * v[14])) - (f * gUyz * v[15])) - (f * gUzz * v[16]))),
+		((((((v[8] - (f * gUxx * v[11])) - (f * gUxy * v[12])) - (f * gUxz * v[13])) - (f * gUyy * v[14])) - (f * gUyz * v[15])) - (f * gUzz * v[16])),
 		((((gUxx ^ (3 / 2)) * v[12]) + (v[30] * gUxx) + v[36]) / gUxx),
 		((((gUxx ^ (3 / 2)) * v[13]) + (v[31] * gUxx) + v[37]) / gUxx),
 		((math.sqrt(gUxx) * v[14]) + v[32]),
 		((math.sqrt(gUxx) * v[15]) + v[33]),
 		((math.sqrt(gUxx) * v[16]) + v[34]),
-		((((gUxx ^ (3 / 2)) * v[8]) + (math.sqrt(f) * (gUxx ^ 2) * v[29]) + (math.sqrt(f) * gUxy * v[30] * gUxx) + (math.sqrt(f) * gUxz * v[31] * gUxx) + (math.sqrt(f) * gUyy * v[32] * gUxx) + (math.sqrt(f) * gUyz * v[33] * gUxx) + (math.sqrt(f) * gUzz * v[34] * gUxx) + (2 * v[35])) / gUxx)
+		(((2 * gUxz * v[37]) + (gUxx * v[8]) + (math.sqrt(f) * (gUxx ^ (3 / 2)) * v[29]) + (math.sqrt(f) * gUxy * v[30] * math.sqrt(gUxx)) + (math.sqrt(f) * gUxz * v[31] * math.sqrt(gUxx)) + (math.sqrt(f) * gUyy * v[32] * math.sqrt(gUxx)) + (math.sqrt(f) * gUyz * v[33] * math.sqrt(gUxx)) + (math.sqrt(f) * gUzz * v[34] * math.sqrt(gUxx)) + (2 * gUxx * v[35]) + (2 * gUxy * v[36])) / math.sqrt(gUxx))
 	}
 end
 
@@ -383,23 +395,22 @@ function ADM3D:eigenfieldsInverse(sim, i, v)
 	local gUxx, gUxy, gUxz, gUyy, gUyz, gUzz = mat33.inv(g_xx, g_xy, g_xz, g_yy, g_yz, g_zz)
 	local f = self.calc.f(alpha)
 
-	return {
-		v[7],
+	return {v[7],
 		v[8],
 		v[9],
 		v[10],
 		v[11],
 		v[12],
 		v[13],
-		(((-(v[37] * gUxx)) + (2 * gUxz * v[30] * math.sqrt(gUxx)) + (2 * gUxy * v[29] * math.sqrt(gUxx)) + (v[1] * gUxx) + (2 * v[28]) + (2 * (gUxx ^ (3 / 2)) * v[28])) / (-(2 * (gUxx ^ (3 / 2))))),
+		(((-v[37]) + (4 * gUxz * v[30] * (1 / math.sqrt(gUxx))) + (4 * gUxy * v[29] * (1 / math.sqrt(gUxx))) + (4 * v[28] * math.sqrt(gUxx)) + v[1]) / (-(2 * math.sqrt(gUxx)))),
 		v[14],
 		v[15],
-		(((-(v[37] * gUxx)) + (gUzz * v[36] * gUxx * f) + (gUyz * v[35] * gUxx * f) + (gUyy * v[34] * gUxx * f) + (gUxz * v[33] * gUxx * f) + (gUxy * v[32] * gUxx * f) + (2 * v[31] * (gUxx ^ (3 / 2))) + ((2 * gUxz * math.sqrt(gUxx) * v[30]) - (2 * gUxz * f * v[30])) + (((((((2 * gUxy * math.sqrt(gUxx) * v[29]) - (2 * gUxy * f * v[29])) - (gUzz * v[6] * f * gUxx)) - (gUyz * v[5] * f * gUxx)) - (gUyy * v[4] * f * gUxx)) - (gUxz * v[3] * f * gUxx)) - (gUxy * v[2] * f * gUxx)) + (v[1] * gUxx) + (2 * v[28]) + (2 * (gUxx ^ (3 / 2)) * v[28])) / (-(2 * (gUxx ^ (5 / 2)) * f))),
-		(((-(v[32] * gUxx)) + (v[2] * gUxx) + (2 * v[29])) / (-(2 * (gUxx ^ (3 / 2))))),
-		(((-(v[33] * gUxx)) + (v[3] * gUxx) + (2 * v[30])) / (-(2 * (gUxx ^ (3 / 2))))),
-		(((-(v[34])) + v[4]) / (-(2 * math.sqrt(gUxx)))),
-		(((-(v[35])) + v[5]) / (-(2 * math.sqrt(gUxx)))),
-		(((-(v[36])) + v[6]) / (-(2 * math.sqrt(gUxx)))),
+		(((-(v[37] * gUxx)) + (gUzz * v[36] * gUxx * f) + (gUyz * v[35] * gUxx * f) + (gUyy * v[34] * gUxx * f) + (gUxz * v[33] * gUxx * f) + (gUxy * v[32] * gUxx * f) + (2 * v[31] * (gUxx ^ (3 / 2))) + (((4 * gUxz * math.sqrt(gUxx) * v[30]) - (gUxz * f * math.sqrt(gUxx) * v[30])) - (gUxz * f * v[30])) + ((((((4 * v[28] * (gUxx ^ (3 / 2))) - (gUzz * v[6] * f * gUxx)) - (gUyz * v[5] * f * gUxx)) - (gUyy * v[4] * f * gUxx)) - (gUxz * v[3] * f * gUxx)) - (gUxy * v[2] * f * gUxx)) + (v[1] * gUxx) + (((4 * gUxy * math.sqrt(gUxx) * v[29]) - (gUxy * f * math.sqrt(gUxx) * v[29])) - (gUxy * f * v[29]))) / (-(2 * (gUxx ^ (5 / 2)) * f))),
+		(((-(v[32] * gUxx)) + (v[2] * gUxx) + v[29] + (math.sqrt(gUxx) * v[29])) / (-(2 * (gUxx ^ (3 / 2))))),
+		(((-(v[33] * gUxx)) + (v[3] * gUxx) + v[30] + (math.sqrt(gUxx) * v[30])) / (-(2 * (gUxx ^ (3 / 2))))),
+		(((-v[34]) + v[4]) / (-(2 * math.sqrt(gUxx)))),
+		(((-v[35]) + v[5]) / (-(2 * math.sqrt(gUxx)))),
+		(((-v[36]) + v[6]) / (-(2 * math.sqrt(gUxx)))),
 		v[16],
 		v[17],
 		v[18],
@@ -412,9 +423,9 @@ function ADM3D:eigenfieldsInverse(sim, i, v)
 		v[25],
 		v[26],
 		v[27],
-		((((((((v[37] * gUxx) - (gUzz * v[36] * gUxx * math.sqrt(f))) - (gUyz * v[35] * gUxx * math.sqrt(f))) - (gUyy * v[34] * gUxx * math.sqrt(f))) - (gUxz * v[33] * gUxx * math.sqrt(f))) - (gUxy * v[32] * gUxx * math.sqrt(f))) + (2 * gUxz * v[30] * math.sqrt(gUxx)) + ((((((2 * gUxy * v[29] * math.sqrt(gUxx)) - (gUzz * v[6] * math.sqrt(f) * gUxx)) - (gUyz * v[5] * math.sqrt(f) * gUxx)) - (gUyy * v[4] * math.sqrt(f) * gUxx)) - (gUxz * v[3] * math.sqrt(f) * gUxx)) - (gUxy * v[2] * math.sqrt(f) * gUxx)) + ((v[1] * gUxx) - (2 * v[28])) + (2 * (gUxx ^ (3 / 2)) * v[28])) / (2 * (gUxx ^ 2) * math.sqrt(f))),
-		((v[32] + v[2]) / 2),
-		((v[33] + v[3]) / 2),
+		((((((((v[37] * gUxx) - (gUzz * v[36] * gUxx * math.sqrt(f))) - (gUyz * v[35] * gUxx * math.sqrt(f))) - (gUyy * v[34] * gUxx * math.sqrt(f))) - (gUxz * v[33] * gUxx * math.sqrt(f))) - (gUxy * v[32] * gUxx * math.sqrt(f))) + (((((((gUxz * v[30] * math.sqrt(f)) - (gUxz * math.sqrt(gUxx) * v[30] * math.sqrt(f))) - (gUzz * v[6] * math.sqrt(f) * gUxx)) - (gUyz * v[5] * math.sqrt(f) * gUxx)) - (gUyy * v[4] * math.sqrt(f) * gUxx)) - (gUxz * v[3] * math.sqrt(f) * gUxx)) - (gUxy * v[2] * math.sqrt(f) * gUxx)) + (v[1] * gUxx) + ((gUxy * v[29] * math.sqrt(f)) - (gUxy * math.sqrt(gUxx) * v[29] * math.sqrt(f)))) / (2 * (gUxx ^ 2) * math.sqrt(f))),
+		(((v[32] * gUxx) + ((v[2] * gUxx) - v[29]) + (math.sqrt(gUxx) * v[29])) / (2 * gUxx)),
+		(((v[33] * gUxx) + ((v[3] * gUxx) - v[30]) + (math.sqrt(gUxx) * v[30])) / (2 * gUxx)),
 		((v[34] + v[4]) / 2),
 		((v[35] + v[5]) / 2),
 		((v[36] + v[6]) / 2),
