@@ -93,7 +93,7 @@ do
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D5Var(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM3D(equationArgs)})))
 	--sims:insert(require'bssnok1d_backwardeuler_linear'(table(args, equationArgs)))
-	sims:insert(require'bssnok1d_original_backwardeuler_linear'(table(args, equationArgs)))
+	--sims:insert(require'bssnok1d_original_backwardeuler_linear'(table(args, equationArgs)))
 	--sims:insert(require'bssnok1d_backwardeuler_newton'(args))
 	--]=]
 
