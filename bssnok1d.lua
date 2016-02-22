@@ -153,6 +153,7 @@ local class = require 'ext.class'
 local Equation = require 'equation'
 
 local BSSNOK1D = class(Equation)
+BSSNOK1D.name = 'BSSNOK 1D Hyperbolic'
 BSSNOK1D.numStates = 6
 
 function BSSNOK1D:init(args, ...)

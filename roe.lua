@@ -7,6 +7,8 @@ function Roe:init(args)
 	-- one of these had better be defined ...
 	self.equation = assert(self.equation or args.equation)
 	
+	self.name = self.equation.name .. ' Roe'
+	
 	Roe.super.init(self, args)
 
 	self.deltaQTildes = {}
@@ -181,10 +183,10 @@ flux = ALeft * qs[i-1] + ARight * qs[i]
 for matrixes ALeft & ARight
 
 i = interface index
-qs = left/right q vector
+q = left/right q vector
 dir = direction sign (1 = from left, -1 = from right)
 --]]
-function Roe:calcCellFluxForSide(i, qs, dir)
+function Roe:calcCellFluxForSide(i, q, dir)
 	if i == 1 or i == self.gridsize+1 then
 		local zero = {}
 		for j=1,self.numStates do
@@ -192,7 +194,7 @@ function Roe:calcCellFluxForSide(i, qs, dir)
 		end
 		return zero
 	end
-	local qTilde = self.equation:eigenfields(self, i, qs)
+	local qTilde = self.equation:eigenfields(self, i, q)
 	local fluxTilde = {}
 	for j=1,self.numStates do
 		fluxTilde[j] = .5 * self.eigenvalues[i][j] * qTilde[j] * (1 + dir * self.Phis[i][j])

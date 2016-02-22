@@ -1,5 +1,7 @@
 #!/usr/bin/env luajit
 
+--DEBUG_PPM=true
+
 local class = require 'ext.class'
 local table = require 'ext.table'
 
@@ -52,6 +54,9 @@ do
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
 		fluxLimiter = fluxLimiters.donorCell,
+		linearSolver = require 'linearsolvers'.conjres,
+		linearSolverEpsilon = 1e-10,
+		linearSolverMaxIter = 100,
 	}
 	local equationArgs = {
 		-- the symbolic math driving it:
@@ -87,6 +92,8 @@ do
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D3to5Var(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D5Var(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM3D(equationArgs)})))
+	--sims:insert(require'bssnok1d_backwardeuler_linear'(table(args, equationArgs)))
+	sims:insert(require'bssnok1d_original_backwardeuler_linear'(table(args, equationArgs)))
 	--sims:insert(require'bssnok1d_backwardeuler_newton'(args))
 	--]=]
 
@@ -271,9 +278,14 @@ do
 	
 	-- [=[ compare schemes
 	--sims:insert(require 'euler1d_burgers'(args))
+	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='exact', sampleMethod='alt'})))
+	sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='exact'})))
+	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='pvrs'})))
+	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})))
+	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
-	--sims:insert(Roe(args))
-	sims:insert(Roe(table(args, {usePPM=true})))
+	sims:insert(Roe(args))
+	--sims:insert(Roe(table(args, {usePPM=true})))
 	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .01})))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
@@ -415,10 +427,17 @@ function TestApp:update(...)
 		end
 	end
 
-	for _,sim in ipairs(sims) do
-		if self.doIteration then
+	if self.doIteration then
+		-- [[ iterate the furthest back
+		sims:inf(function(a,b)
+			return a.t < b.t
+		end):iterate()
+		--]]
+		--[[ iterate all
+		for _,sim in ipairs(sims) do
 			sim:iterate()
 		end
+		--]]
 	end
 
 	if self.doIteration == 'once' then
@@ -541,8 +560,8 @@ function TestApp:update(...)
 			gl.glPointSize(2)
 			if #sim.ys > 0 then
 				for _,mode in ipairs{
-					--gl.GL_POINTS,
-					gl.GL_LINE_STRIP
+					gl.GL_LINE_STRIP,
+					DEBUG_PPM and gl.GL_POINTS
 				} do
 					gl.glBegin(mode)
 					for i=1,sim.gridsize do
@@ -552,6 +571,7 @@ function TestApp:update(...)
 				end
 			end
 -- [[ special PPM hack
+if DEBUG_PPM then
 			local channel = 2
 			local ppmCount = 0
 			local ppmYs = table()
@@ -585,12 +605,13 @@ function TestApp:update(...)
 				end
 				gl.glEnd()
 			end
+end
 --]]
 			gl.glPointSize(1)
 			
 			if self.font then
 				local fontSizeX = (xmax - xmin) * .05
-				local fontSizeY = (ymax - ymin) * .1
+				local fontSizeY = (ymax - ymin) * .05
 				local ystep = ystep * 2
 				for y=floor(ymin/ystep)*ystep,ceil(ymax/ystep)*ystep,ystep do
 					self.font:draw{
@@ -610,6 +631,41 @@ function TestApp:update(...)
 				}
 			end
 		
+		end
+
+		gl.glViewport(0,0,w,h)
+		gl.glMatrixMode(gl.GL_PROJECTION)
+		gl.glLoadIdentity()
+		gl.glOrtho(0, w/h, 0, 1, -1, 1)
+		gl.glMatrixMode(gl.GL_MODELVIEW)
+		gl.glLoadIdentity()
+
+		if self.font then
+			local strings = sims:map(function(sim)
+				return {
+					text = ('(%.3f) '):format(sim.t)..sim.name,
+					color = sim.color,
+				}
+			end)
+			local fontSizeX = .02
+			local fontSizeY = .02
+			local maxlen = strings:map(function(string)
+				return self.font:draw{
+					text = string.text,
+					fontSize = {fontSizeX, -fontSizeY},
+					dontRender = true,
+					multiLine = false,
+				}
+			end):inf()
+			for i,string in ipairs(strings) do
+				self.font:draw{
+					pos = {w/h-maxlen,fontSizeY*(i+1)},
+					text = string.text,
+					color = {string.color[1],string.color[2],string.color[3],1},
+					fontSize = {fontSizeX, -fontSizeY},
+					multiLine = false,
+				}
+			end
 		end
 	end
 	if self.reportError then

@@ -46,16 +46,94 @@ diff_t GammaTilde^i =
 
 --]]
 
-local BSSNOK1DBackwardEulerLinear = require 'ext.class'(require 'solver')
+local class = require 'ext.class'
+local table = require 'ext.table'
+local SolverFV = require 'solverfv'
+local BSSNOK1D = require 'bssnok1d'
+
+local BSSNOK1DBackwardEulerLinear = class(SolverFV)
+BSSNOK1DBackwardEulerLinear.name = 'BSSNOK 1D Backward Euler Linear'
 
 function BSSNOK1DBackwardEulerLinear:init(args)
-	args = require 'ext.table'(args)
-	args.equation = require 'bssnok1d'(args)
+	args = table(args)
+	args.equation = BSSNOK1D(args)
+	self.linearSolver = args.linearSolver or require 'linearsolvers'.conjres
+	self.fluxMatrix = {}
+	self.eigenvectors = {}
+	self.eigenvectorsInverse = {}
+	self.eigenbasisErrors = {}
+	self.fluxMatrixErrors = {}
 	BSSNOK1DBackwardEulerLinear.super.init(self, args)
 end
 
-function BSSNOK1DBackwardEulerLinear:iterate()
+function BSSNOK1DBackwardEulerLinear:calcDT(getLeft, getRight)
+	for i=2,self.gridsize do
+		local qL = getLeft and getLeft(self,i) or self.qs[i-1]
+		local qR = getRight and getRight(self,i) or self.qs[i]
+		self.equation:calcInterfaceEigenBasis(self,i,qL,qR)
+	end
+	BSSNOK1DBackwardEulerLinear.super.calcDT(self, getLeft, getRight)
+end
+
+function BSSNOK1DBackwardEulerLinear:step(dt, getLeft, getRight)
+	local function calc_dq_dt(qs)
+		local dq_dt = self:newState() 
+		-- [=[
+		for i=1,self.gridsize do
+			local alpha, phi, A_x, Phi_x, K, ATilde_xx = table.unpack(qs[i])
+			local f = self.equation.calc.f(alpha)
+			local dalpha_f = self.equation.calc.dalpha_f(alpha)
+			
+			--alpha,t = -alpha^2 f K
+			dq_dt[i][1] = dq_dt[i][1] - alpha * alpha * f * K
+			--phi,t = -alpha K / 6
+			dq_dt[i][2] = dq_dt[i][2] - alpha * K / 6
+			
+			local dx = self.ixs[i+1] - self.ixs[i]
+			if i>1 then
+				--A_x,t = -alpha K f,alpha partial_x alpha - alpha f partial_x K
+				dq_dt[i][3] = dq_dt[i][3] + alpha * K * dalpha_f * qs[i-1][1] / (2 * dx)
+				dq_dt[i][3] = dq_dt[i][3] + alpha * f * qs[i-1][5] / (2 * dx)
+				--Phi_x,t = -alpha/6 partial_x K
+				dq_dt[i][4] = dq_dt[i][4] + alpha / 6 * qs[i-1][5] / (2 * dx)
+				--K,t = -alpha exp(-4 phi) partial_x A_x
+				dq_dt[i][5] = dq_dt[i][5] + alpha * math.exp(-4 * phi) * qs[i-1][3] / (2 * dx)
+				--ATilde_xx,t = -alpha exp(-4 phi) partial_x A_x - 2 alpha exp(-4 phi) partial_x Phi_x
+				dq_dt[i][6] = dq_dt[i][6] + alpha * math.exp(-4 * phi) * qs[i-1][3] / (2 * dx)
+				dq_dt[i][6] = dq_dt[i][6] + 2 * alpha * math.exp(-4 * phi) * qs[i-1][4] / (2 * dx)
+			end
+			if i<self.gridsize then
+				--A_x,t = -alpha K f,alpha partial_x alpha - alpha f partial_x K
+				dq_dt[i][3] = dq_dt[i][3] - alpha * K * dalpha_f * qs[i+1][1] / (2 * dx)
+				dq_dt[i][3] = dq_dt[i][3] - alpha * f * qs[i+1][5] / (2 * dx)
+				--Phi_x,t = -alpha/6 partial_x K
+				dq_dt[i][4] = dq_dt[i][4] - alpha / 6 * qs[i+1][5] / (2 * dx)
+				--K,t = -alpha exp(-4 phi) partial_x A_x
+				dq_dt[i][5] = dq_dt[i][5] - alpha * math.exp(-4 * phi) * qs[i+1][3] / (2 * dx)
+				--ATilde_xx,t = -alpha exp(-4 phi) partial_x A_x - 2 alpha exp(-4 phi) partial_x Phi_x
+				dq_dt[i][6] = dq_dt[i][6] - alpha * math.exp(-4 * phi) * qs[i+1][3] / (2 * dx)
+				dq_dt[i][6] = dq_dt[i][6] - 2 * alpha * math.exp(-4 * phi) * qs[i+1][4] / (2 * dx)
+			end
+		end
+		--]=]
+		return dq_dt
+	end
+
+	--[=[ forward euler
+	self.qs = self.qs + dt * calc_dq_dt(self.qs)
+	--]=]
+	-- [=[ backward euler
+	local qs = self.qs
+	self.qs = self.linearSolver{
+		b = qs:clone(),
+		x0 = qs:clone(),
+		A = function(qs)
+			qs = qs - dt * calc_dq_dt(qs)
+			--self.boundaryMethod(qs)
+			return qs
+		end,
+	}
+	--]=]
 end
 
 return BSSNOK1DBackwardEulerLinear
-
