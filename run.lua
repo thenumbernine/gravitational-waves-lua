@@ -46,8 +46,8 @@ do
 	local H = 5
 	local sigma = 10
 	local h = H * symmath.exp(-(x - xc)^2 / sigma^2)
-	local g_xx = 1 - h:diff(x)^2
-	local K_xx = -h:diff(x,x) / g_xx^.5
+	local gamma_xx = 1 - h:diff(x)^2
+	local K_xx = -h:diff(x,x) / gamma_xx^.5
 	local kappa = 1
 	local args = {
 		gridsize = 200,
@@ -71,9 +71,9 @@ do
 			* symmath.sqrt((1+h:diff(x))/(1-h:diff(x)))
 		),
 		--]=]
-		g_xx = g_xx,	-- g_xx
+		gamma_xx = gamma_xx,	-- gamma_xx
 		-- A_x = d/dx alpha
-		-- D_xxx = 1/2 d/dx g_xx
+		-- D_xxx = 1/2 d/dx gamma_xx
 		K_xx = K_xx,	-- K_xx
 		-- Bona-Masso slicing conditions:
 		f_param = alpha,
@@ -123,8 +123,8 @@ do
 			-- the symbolic math driving it:
 			r = r,
 			h = h,
-			g_rr = 1 - h:diff(r)^2,
-			g_hh = r^2,
+			gamma_rr = 1 - h:diff(r)^2,
+			gamma_hh = r^2,
 			alpha = 1,
 			-- Bona-Masso slicing conditions:
 			f_param = alpha,
@@ -176,12 +176,12 @@ do
 			z = z,
 			alpha = 1,
 			-- g = delta'_ij' - h',i' * h',j',
-			g_xx = 1 - hx * hx,
-			g_xy = -hx * hy,
-			g_xz = -hx * hz,
-			g_yy = 1 - hy * hy,
-			g_yz = -hy * hz,
-			g_zz = 1 - hz * hz,
+			gamma_xx = 1 - hx * hx,
+			gamma_xy = -hx * hy,
+			gamma_xz = -hx * hz,
+			gamma_yy = 1 - hy * hy,
+			gamma_yz = -hy * hz,
+			gamma_zz = 1 - hz * hz,
 			-- K = -h',ij' / sqrt_det_g,
 			K_xx = -hxx / sqrt_det_g,
 			K_xy = -hxy / sqrt_det_g,
@@ -227,12 +227,12 @@ do
 			-- hmm... beta is important ... so I need to incorporate lapse into my 3D ADM
 			-- beta^x = -vs * f(rs(t))
 			-- g = delta'_ij'
-			g_xx = 1,
-			g_xy = 0,
-			g_xz = 0,
-			g_yy = 1,
-			g_yz = 0,
-			g_zz = 1,
+			gamma_xx = 1,
+			gamma_xy = 0,
+			gamma_xz = 0,
+			gamma_yy = 1,
+			gamma_yz = 0,
+			gamma_zz = 1,
 			-- K_ij = -alpha Gamma^t_ij, which I have precomputed for the Alcubierre warp bubble
 			K_xx = -(vs * f:diff(x) + vs:diff(x) * f),
 			K_xy = -(vs * f:diff(y) + vs:diff(y) * f) / 2,

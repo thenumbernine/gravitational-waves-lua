@@ -2,21 +2,21 @@
 based on the book "Introduction to 3+1 Numerical Relativity" and on the paper "Introduction to Numerical Relativity", both by Alcubierre
 
 A_x = (ln alpha),x = alpha,x / alpha
-D_xxx = (ln g_xx),x = g_xx,x / g_xx
-KTilde_xx = sqrt(g_xx) K_xx
+D_xxx = (ln gamma_xx),x = gamma_xx,x / gamma_xx
+KTilde_xx = sqrt(gamma_xx) K_xx
 
 alpha,x = A_x alpha
-g_xx,x = g_xx D_xxx
-K_xx = KTilde_xx / sqrt(g_xx)
+gamma_xx,x = gamma_xx D_xxx
+K_xx = KTilde_xx / sqrt(gamma_xx)
 
 A_x,t + (alpha f K_xx),x = 0
 D_xxx,t + (2 alpha K_xx),x = 0
-K_xx,t + (alpha A_x / g_xx),x = alpha (K_xx^2 - A_x D_xxx / (2 g_xx))
+K_xx,t + (alpha A_x / gamma_xx),x = alpha (K_xx^2 - A_x D_xxx / (2 gamma_xx))
 
 ...rewritten for KTilde_xx...
-A_x,t + (alpha f KTilde_xx / sqrt(g_xx)),x = 0
-D_xxx,t + (2 alpha KTilde_xx / sqrt(g_xx)),x = 0
-KTilde_xx,t + (alpha A_x / sqrt(g_xx)),x = 0
+A_x,t + (alpha f KTilde_xx / sqrt(gamma_xx)),x = 0
+D_xxx,t + (2 alpha KTilde_xx / sqrt(gamma_xx)),x = 0
+KTilde_xx,t + (alpha A_x / sqrt(gamma_xx)),x = 0
 
 now we look at eigenvectors ...
 
@@ -28,9 +28,9 @@ assume(alpha>0,f>0);
 /* [wxMaxima: input   end   ] */
 /* [wxMaxima: input   start ] */
 F : matrix(
-[0, 0, alpha *f/sqrt(g_xx)],
-[0, 0, 2*alpha/sqrt(g_xx)],
-[alpha/sqrt(g_xx), 0, 0]
+[0, 0, alpha *f/sqrt(gamma_xx)],
+[0, 0, 2*alpha/sqrt(gamma_xx)],
+[alpha/sqrt(gamma_xx), 0, 0]
 );
 /* [wxMaxima: input   end   ] */
 /* [wxMaxima: input   start ] */
@@ -74,7 +74,7 @@ function State:init(...)
 	State.super.init(self, ...)
 	for i=1,#self do
 		self[i].alpha = 0
-		self[i].g_xx = 0
+		self[i].gamma_xx = 0
 	end
 end
 
@@ -82,7 +82,7 @@ function State:clone()
 	local dst = State.super.clone(self)
 	for i=1,#self do
 		dst[i].alpha = self[i].alpha
-		dst[i].g_xx = self[i].g_xx
+		dst[i].gamma_xx = self[i].gamma_xx
 	end
 	return dst
 end
@@ -94,7 +94,7 @@ function State.__add(a,b)
 			c[i][j] = a[i][j] + b[i][j]
 		end
 		c[i].alpha = a[i].alpha + b[i].alpha
-		c[i].g_xx = a[i].g_xx + b[i].g_xx
+		c[i].gamma_xx = a[i].gamma_xx + b[i].gamma_xx
 	end
 	return c
 end
@@ -110,7 +110,7 @@ function State.__mul(a,b)
 			c[i][j] = aij * bij
 		end
 		c[i].alpha = (type(a) == 'number' and a or a[i].alpha) * (type(b) == 'number' and b or b[i].alpha)
-		c[i].g_xx = (type(a) == 'number' and a or a[i].g_xx) * (type(b) == 'number' and b or b[i].g_xx)
+		c[i].gamma_xx = (type(a) == 'number' and a or a[i].gamma_xx) * (type(b) == 'number' and b or b[i].gamma_xx)
 	end
 	return c
 end
@@ -130,12 +130,12 @@ function ADM1D3Var:init(args, ...)
 	local x = assert(args.x)
 
 	-- parameters that are symbolic functions -- based on coordinates 
-	local exprs = table{'alpha', 'g_xx', 'K_xx'}:map(function(name)
+	local exprs = table{'alpha', 'gamma_xx', 'K_xx'}:map(function(name)
 		return makesym(name), name
 	end)
 
 	-- derived functions
-	exprs.dx_g_xx = exprs.g_xx:diff(x):simplify()
+	exprs.dx_gamma_xx = exprs.gamma_xx:diff(x):simplify()
 	exprs.dx_alpha = exprs.alpha:diff(x):simplify()
 
 	-- convert from symbolic functions to Lua functions
@@ -156,10 +156,10 @@ end
 ADM1D3Var.graphInfos = table{
 	{viewport={0/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i].alpha end, name='alpha', color={1,0,1}},
 	{viewport={0/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] end, name='A_x', color={0,1,0}},
-	{viewport={1/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i].g_xx end, name='g_xx', color={.5,.5,1}},
+	{viewport={1/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i].gamma_xx end, name='gamma_xx', color={.5,.5,1}},
 	{viewport={1/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][2] end, name='D_xxx', color={1,1,0}},
-	{viewport={2/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][3] / math.sqrt(self.qs[i].g_xx) end, name='K_xx', color={0,1,1}},
-	{viewport={2/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i].alpha * math.sqrt(self.qs[i].g_xx) end, name='volume', color={0,1,1}},
+	{viewport={2/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][3] / math.sqrt(self.qs[i].gamma_xx) end, name='K_xx', color={0,1,1}},
+	{viewport={2/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i].alpha * math.sqrt(self.qs[i].gamma_xx) end, name='volume', color={0,1,1}},
 	{viewport={0/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
 	{viewport={1/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.fluxMatrixErrors[i]) end, name='log reconstuction error', color={1,0,0}, range={-30, 30}},
 }
@@ -176,33 +176,33 @@ local function buildField(call)
 			avgQ[j] = (sim.qs[i-1][j] + sim.qs[i][j]) / 2
 		end
 		avgQ.alpha = (sim.qs[i-1].alpha + sim.qs[i].alpha) / 2
-		avgQ.g_xx = (sim.qs[i-1].g_xx + sim.qs[i].g_xx) / 2
+		avgQ.gamma_xx = (sim.qs[i-1].gamma_xx + sim.qs[i].gamma_xx) / 2
 		
 		local A_x, D_xxx, KTilde_xx = table.unpack(avgQ)
 		local x = sim.ixs[i]
 		local alpha = avgQ.alpha
-		local g_xx = avgQ.g_xx
+		local gamma_xx = avgQ.gamma_xx
 		local f = self.calc.f(alpha)
 
-		return {call(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)}
+		return {call(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)}
 	end
 end
 
-ADM1D3Var.fluxTransform = buildField(function(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
+ADM1D3Var.fluxTransform = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
 	return
-		v3 * alpha * f / sqrt(g_xx),
-		v3 * 2 * alpha / sqrt(g_xx),
-		v1 * alpha / sqrt(g_xx)
+		v3 * alpha * f / sqrt(gamma_xx),
+		v3 * 2 * alpha / sqrt(gamma_xx),
+		v1 * alpha / sqrt(gamma_xx)
 end)
 
-ADM1D3Var.eigenfields = buildField(function(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
+ADM1D3Var.eigenfields = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
 	return
 		v1 / (2 * f) - v3 / (2 * sqrt(f)),
 		-2*v1/f + v2,
 		v1 / (2 * f) + v3 / (2 * sqrt(f))
 end)
 
-ADM1D3Var.eigenfieldsInverse = buildField(function(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
+ADM1D3Var.eigenfieldsInverse = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
 	return
 		(v1 + v3) * f,
 		2 * v1 + v2 + 2 * v3,
@@ -212,19 +212,19 @@ end)
 function ADM1D3Var:initCell(sim,i)
 	local x = sim.xs[i]
 	local alpha = self.calc.alpha(x)
-	local g_xx = self.calc.g_xx(x)
+	local gamma_xx = self.calc.gamma_xx(x)
 	local A_x = self.calc.dx_alpha(x) / self.calc.alpha(x)
-	local D_xxx = 1/2 * self.calc.dx_g_xx(x)
+	local D_xxx = 1/2 * self.calc.dx_gamma_xx(x)
 	local K_xx = self.calc.K_xx(x) 
-	local KTilde_xx = K_xx / sqrt(g_xx)
-	return {alpha=alpha, g_xx=g_xx, A_x, D_xxx, KTilde_xx}
+	local KTilde_xx = K_xx / sqrt(gamma_xx)
+	return {alpha=alpha, gamma_xx=gamma_xx, A_x, D_xxx, KTilde_xx}
 end
 
 function ADM1D3Var:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local alpha = (qL.alpha + qR.alpha) / 2
-	local g_xx = (qL.g_xx + qR.g_xx) / 2
+	local gamma_xx = (qL.gamma_xx + qR.gamma_xx) / 2
 	local f = self.calc.f(alpha)
-	local lambda = alpha * sqrt(f / g_xx)
+	local lambda = alpha * sqrt(f / gamma_xx)
 	sim.eigenvalues[i] = {-lambda, 0, lambda}
 end
 
@@ -233,12 +233,12 @@ function ADM1D3Var:sourceTerm(sim, qs)
 	for i=1,sim.gridsize do
 		local A_x, D_xxx, KTilde_xx = table.unpack(qs[i])
 		local alpha = qs[i].alpha
-		local g_xx = qs[i].g_xx
+		local gamma_xx = qs[i].gamma_xx
 		local f = self.calc.f(alpha)
 		local dalpha_f = self.calc.dalpha_f(alpha)
 		
-		source[i].alpha = -alpha * alpha * f * KTilde_xx / (g_xx * sqrt(g_xx))
-		source[i].g_xx = -2 * alpha * KTilde_xx / sqrt(g_xx)
+		source[i].alpha = -alpha * alpha * f * KTilde_xx / (gamma_xx * sqrt(gamma_xx))
+		source[i].gamma_xx = -2 * alpha * KTilde_xx / sqrt(gamma_xx)
 	end
 	return source
 end

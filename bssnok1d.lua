@@ -4,7 +4,7 @@ going by Alcubierre's book, with some help from the 5-var system in his paper at
 p.85 non-hyperbolic description:
 partial_t gammaTilde_ij = -2 alpha ATilde_ij
 partial_t phi = -1/6 alpha K
-partial_t ATilde_ij = exp(-4 phi) ( -D_i D_j alpha + alpha R_ij + 4 pi alpha (g_ij (S - rho) - 2 S_ij))^TF + alpha (K ATilde_ij - 2 ATilde_ik ATilde^k_j)
+partial_t ATilde_ij = exp(-4 phi) ( -D_i D_j alpha + alpha R_ij + 4 pi alpha (gamma_ij (S - rho) - 2 S_ij))^TF + alpha (K ATilde_ij - 2 ATilde_ik ATilde^k_j)
 partial_t K = -D_i D^i alpha + alpha (ATilde_ij ATilde^ij + 1/3 K^2) + 4 pi alpha (rho + S)
 partial_t Gamma^i = -2 ATilde^ij partial_j alpha + 2 alpha (GammaTilde^i_jk ATilde^jk + 6 ATilde^ij partial_j phi - 2/3 gammaTilde^ij partial_j K - 8 pi jTilde^i)
 ... taking Bona-Masso lapse: partial_t alpha = -alpha^2 f K
@@ -17,7 +17,7 @@ dTilde_ijk = 1/2 partial_k gammaTilde_ij
 
 relations:
 K = K^i_i = gamma^ij K_ij
-ATilde_ij = exp(-4 phi) (K_ij - 1/3 K g_ij) = conformal trace-free extrinsic curvature
+ATilde_ij = exp(-4 phi) (K_ij - 1/3 K gamma_ij) = conformal trace-free extrinsic curvature
 GammaTilde^i = gammaTilde^jk connTilde^i_jk
 
 how do we recover phi from the state?
@@ -32,10 +32,10 @@ so do like for alpha and keep track of phi and Phi_x separate
 
 1D relations:
 	ND: exp(-phi) = psi <=> phi = -ln psi = -ln (gamma^(1/12) = -1/12 ln gamma
-phi = -1/12 ln g_xx
-gammaTilde_xx = exp(-12 phi) g_xx			<- isn't this usually exp(-4 phi)?  courtesy of 1/12 * 3 spatial dimensions = 1/4?
-...gammaTilde_xx = exp(-ln g_xx) g_xx 
-...gammaTilde_xx = g_xx / g_xx
+phi = -1/12 ln gamma_xx
+gammaTilde_xx = exp(-12 phi) gamma_xx			<- isn't this usually exp(-4 phi)?  courtesy of 1/12 * 3 spatial dimensions = 1/4?
+...gammaTilde_xx = exp(-ln gamma_xx) gamma_xx 
+...gammaTilde_xx = gamma_xx / gamma_xx
 ...gammaTilde_xx = 1
 dTilde_xxx = 1/2 partial_x gammaTilde_xx
 ...dTilde_xxx = 1/2 partial_x 1
@@ -165,16 +165,16 @@ function BSSNOK1D:init(args, ...)
 	local x = assert(args.x)
 	
 	-- parameters that are symbolic functions -- based on coordinates 
-	local stateExprs = table{'alpha', 'g_xx', 'K_xx'}:map(function(name)
+	local stateExprs = table{'alpha', 'gamma_xx', 'K_xx'}:map(function(name)
 		return makesym(name), name
 	end)
 
 	-- derived functions
 	stateExprs.A_x = (stateExprs.alpha:diff(x) / stateExprs.alpha):simplify()
-	stateExprs.phi = -symmath.log(stateExprs.g_xx)/4
+	stateExprs.phi = -symmath.log(stateExprs.gamma_xx)/4
 	stateExprs.Phi_x = stateExprs.phi:diff(x):simplify()
-	stateExprs.K = (stateExprs.K_xx / stateExprs.g_xx):simplify()
-	stateExprs.ATilde_xx = symmath.exp(-4 * stateExprs.phi) * (stateExprs.K_xx - stateExprs.K/3 * stateExprs.g_xx)
+	stateExprs.K = (stateExprs.K_xx / stateExprs.gamma_xx):simplify()
+	stateExprs.ATilde_xx = symmath.exp(-4 * stateExprs.phi) * (stateExprs.K_xx - stateExprs.K/3 * stateExprs.gamma_xx)
 	
 	-- convert from symbolic functions to Lua functions
 	self.calc = stateExprs:map(function(expr, name)
@@ -191,9 +191,9 @@ function BSSNOK1D:init(args, ...)
 	self.calc.dalpha_f = dalpha_f:compile{args.f_param}
 end
 
---phi = -1/(4*n) ln g_xx
--- exp(-4n phi) = g_xx for n=1
--- volume = sqrt(g_xx) = sqrt(exp(-4n phi)) = exp(-2n phi)
+--phi = -1/(4*n) ln gamma_xx
+-- exp(-4n phi) = gamma_xx for n=1
+-- volume = sqrt(gamma_xx) = sqrt(exp(-4n phi)) = exp(-2n phi)
 BSSNOK1D.graphInfos = table{
 	{viewport={0/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] end, name='alpha', color={1,0,1}},
 	{viewport={0/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][3] end, name='A_x', color={0,1,0}},

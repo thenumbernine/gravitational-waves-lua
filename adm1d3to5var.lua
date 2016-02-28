@@ -1,5 +1,5 @@
 --[[
-3-var system extrapolated to 5-vars so the integration of alpha and g_xx are not separate
+3-var system extrapolated to 5-vars so the integration of alpha and gamma_xx are not separate
 --]]
 
 local class = require 'ext.class'
@@ -23,13 +23,13 @@ function ADM1D3to5Var:init(args, ...)
 	local x = assert(args.x)
 	
 	-- parameters that are symbolic functions -- based on coordinates 
-	local exprs = table{'alpha', 'g_xx', 'K_xx'}:map(function(name)
+	local exprs = table{'alpha', 'gamma_xx', 'K_xx'}:map(function(name)
 		return makesym(name), name
 	end)
 	
 	-- derived functions
 	exprs.dx_alpha = exprs.alpha:diff(x):simplify()
-	exprs.dx_g_xx = exprs.g_xx:diff(x):simplify()
+	exprs.dx_gamma_xx = exprs.gamma_xx:diff(x):simplify()
 	
 	-- convert from symbolic functions to Lua functions
 	self.calc = exprs:map(function(expr, name)
@@ -49,7 +49,7 @@ end
 ADM1D3to5Var.graphInfos = table{
 	{viewport={0/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] end, name='alpha', color={1,0,1}},
 	{viewport={0/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][3] end, name='A_x', color={0,1,0}},
-	{viewport={1/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][2] end, name='g_xx', color={.5,.5,1}},
+	{viewport={1/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][2] end, name='gamma_xx', color={.5,.5,1}},
 	{viewport={1/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][4] end, name='D_xxx', color={1,1,0}},
 	{viewport={2/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][5] / math.sqrt(self.qs[i][2]) end, name='K_xx', color={0,1,1}},
 	{viewport={2/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] * math.sqrt(self.qs[i][2]) end, name='volume', color={0,1,1}},
@@ -66,23 +66,23 @@ local function buildField(call)
 		for j=1,sim.numStates do 
 			avgQ[j] = (sim.qs[i-1][j] + sim.qs[i][j]) / 2
 		end
-		local alpha, g_xx, A_x, D_xxx, KTilde_xx = unpack(avgQ)		
+		local alpha, gamma_xx, A_x, D_xxx, KTilde_xx = unpack(avgQ)		
 		local f = self.calc.f(alpha)
 		
-		return {call(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, unpack(v))}
+		return {call(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, unpack(v))}
 	end
 end
 
-ADM1D3to5Var.fluxTransform = buildField(function(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, ...)
+ADM1D3to5Var.fluxTransform = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, ...)
 	local v1, v2, v3, v4, v5 = ... 
 	return
 		0,
 		0,
-		v5 * alpha * f / sqrt(g_xx),
-		v5 * 2 * alpha / sqrt(g_xx),
-		v3 * alpha / sqrt(g_xx)
+		v5 * alpha * f / sqrt(gamma_xx),
+		v5 * 2 * alpha / sqrt(gamma_xx),
+		v3 * alpha / sqrt(gamma_xx)
 end)
-ADM1D3to5Var.eigenfields = buildField(function(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, ...)
+ADM1D3to5Var.eigenfields = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, ...)
 	local v1, v2, v3, v4, v5 = ... 
 	return
 		v3 / (2 * f) - v5 / (2 * sqrt(f)),	-- first column so it lines up with the min eigenvalue
@@ -91,7 +91,7 @@ ADM1D3to5Var.eigenfields = buildField(function(alpha, f, g_xx, A_x, D_xxx, KTild
 		-2*v3/f + v4,
 		v3 / (2 * f) + v5 / (2 * sqrt(f))
 end)
-ADM1D3to5Var.eigenfieldsInverse = buildField(function(alpha, f, g_xx, A_x, D_xxx, KTilde_xx, ...)
+ADM1D3to5Var.eigenfieldsInverse = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, ...)
 	local v1, v2, v3, v4, v5 = ...
 	return
 		v2,
@@ -106,12 +106,12 @@ end)
 function ADM1D3to5Var:initCell(sim,i)
 	local x = sim.xs[i]
 	local alpha = self.calc.alpha(x)
-	local g_xx = self.calc.g_xx(x)
+	local gamma_xx = self.calc.gamma_xx(x)
 	local A_x = self.calc.dx_alpha(x) / self.calc.alpha(x)
-	local D_xxx = 1/2 * self.calc.dx_g_xx(x)
+	local D_xxx = 1/2 * self.calc.dx_gamma_xx(x)
 	local K_xx = self.calc.K_xx(x)
-	local KTilde_xx = K_xx / sqrt(g_xx)
-	return {alpha, g_xx, A_x, D_xxx, KTilde_xx}
+	local KTilde_xx = K_xx / sqrt(gamma_xx)
+	return {alpha, gamma_xx, A_x, D_xxx, KTilde_xx}
 end
 
 function ADM1D3to5Var:calcInterfaceEigenBasis(sim,i,qL,qR)
@@ -119,21 +119,21 @@ function ADM1D3to5Var:calcInterfaceEigenBasis(sim,i,qL,qR)
 	for j=1,self.numStates do 
 		avgQ[j] = (qL[j] + qR[j]) / 2
 	end
-	local alpha, g_xx, A_x, D_xxx, KTilde_xx = unpack(avgQ)
+	local alpha, gamma_xx, A_x, D_xxx, KTilde_xx = unpack(avgQ)
 	local f = self.calc.f(alpha)
-	local lambda = alpha * sqrt(f / g_xx)		
+	local lambda = alpha * sqrt(f / gamma_xx)		
 	sim.eigenvalues[i] = {-lambda, 0, 0, 0, lambda}
 end
 
 function ADM1D3to5Var:sourceTerm(sim, qs)
 	local source = sim:newState()
 	for i=1,sim.gridsize do
-		local alpha, g_xx, A_x, D_xxx, KTilde_xx = unpack(qs[i])
+		local alpha, gamma_xx, A_x, D_xxx, KTilde_xx = unpack(qs[i])
 		local f = self.calc.f(alpha)
 		local dalpha_f = self.calc.dalpha_f(alpha)
 		
-		source[i][1] = -alpha * alpha * f * KTilde_xx / (g_xx * sqrt(g_xx))
-		source[i][2] = -2 * alpha * KTilde_xx / sqrt(g_xx)
+		source[i][1] = -alpha * alpha * f * KTilde_xx / (gamma_xx * sqrt(gamma_xx))
+		source[i][2] = -2 * alpha * KTilde_xx / sqrt(gamma_xx)
 	end
 	return source
 end
