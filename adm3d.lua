@@ -560,7 +560,7 @@ gammaUxy * K_xz + gammaUyy * K_yz + gammaUyz * K_zz,
 },{gammaUxz * K_xx + gammaUyz * K_xy + gammaUzz * K_xz,
 gammaUxz * K_xy + gammaUyz * K_yy + gammaUzz * K_yz,
 gammaUxz * K_xz + gammaUyz * K_yz + gammaUzz * K_zz,
-},}
+},};
 local trK = KUL[1][1] + KUL[2][2] + KUL[3][3]
 local KSqSymLL = {
 K_xx * KUL[1][1] + K_xy * KUL[2][1] + K_xz * KUL[3][1],
@@ -569,7 +569,7 @@ K_xx * KUL[1][3] + K_xy * KUL[2][3] + K_xz * KUL[3][3],
 K_xy * KUL[1][2] + K_yy * KUL[2][2] + K_yz * KUL[3][2],
 K_xy * KUL[1][3] + K_yy * KUL[2][3] + K_yz * KUL[3][3],
 K_xz * KUL[1][3] + K_yz * KUL[2][3] + K_zz * KUL[3][3],
-}
+};
 local DLUL = {
 {{D_xxx * gammaUxx + D_xxy * gammaUxy + D_xxz * gammaUxz,
 D_xxy * gammaUxx + D_xyy * gammaUxy + D_xyz * gammaUxz,
@@ -598,17 +598,17 @@ D_zxz * gammaUxy + D_zyz * gammaUyy + D_zzz * gammaUyz,
 },{D_zxx * gammaUxz + D_zxy * gammaUyz + D_zxz * gammaUzz,
 D_zxy * gammaUxz + D_zyy * gammaUyz + D_zyz * gammaUzz,
 D_zxz * gammaUxz + D_zyz * gammaUyz + D_zzz * gammaUzz,
-},},}
+},},};
 local D1L = {
 DLUL[1][1][1] + DLUL[1][2][2] + DLUL[1][3][3],
 DLUL[2][1][1] + DLUL[2][2][2] + DLUL[2][3][3],
 DLUL[3][1][1] + DLUL[3][2][2] + DLUL[3][3][3],
-}
+};
 local D3L = {
 DLUL[1][1][1] + DLUL[2][2][1] + DLUL[3][3][1],
 DLUL[1][1][2] + DLUL[2][2][2] + DLUL[3][3][2],
 DLUL[1][1][3] + DLUL[2][2][3] + DLUL[3][3][3],
-}
+};
 local DUUL = {
 {{DLUL[1][1][1] * gammaUxx + DLUL[2][1][1] * gammaUxy + DLUL[3][1][1] * gammaUxz,
 DLUL[1][1][2] * gammaUxx + DLUL[2][1][2] * gammaUxy + DLUL[3][1][2] * gammaUxz,
@@ -637,7 +637,7 @@ DLUL[1][2][3] * gammaUxz + DLUL[2][2][3] * gammaUyz + DLUL[3][2][3] * gammaUzz,
 },{DLUL[1][3][1] * gammaUxz + DLUL[2][3][1] * gammaUyz + DLUL[3][3][1] * gammaUzz,
 DLUL[1][3][2] * gammaUxz + DLUL[2][3][2] * gammaUyz + DLUL[3][3][2] * gammaUzz,
 DLUL[1][3][3] * gammaUxz + DLUL[2][3][3] * gammaUyz + DLUL[3][3][3] * gammaUzz,
-},},}
+},},};
 local D12SymLL = {
 D_xxx * DUUL[1][1][1] + D_xxy * DUUL[1][2][1] + D_xxz * DUUL[1][3][1] + D_yxx * DUUL[2][1][1] + D_yxy * DUUL[2][2][1] + D_yxz * DUUL[2][3][1] + D_zxx * DUUL[3][1][1] + D_zxy * DUUL[3][2][1] + D_zxz * DUUL[3][3][1],
 D_xxy * DUUL[1][1][1] + D_xyy * DUUL[1][2][1] + D_xyz * DUUL[1][3][1] + D_yxy * DUUL[2][1][1] + D_yyy * DUUL[2][2][1] + D_yyz * DUUL[2][3][1] + D_zxy * DUUL[3][1][1] + D_zyy * DUUL[3][2][1] + D_zyz * DUUL[3][3][1],
@@ -645,7 +645,7 @@ D_xxz * DUUL[1][1][1] + D_xyz * DUUL[1][2][1] + D_xzz * DUUL[1][3][1] + D_yxz * 
 D_xxy * DUUL[1][1][2] + D_xyy * DUUL[1][2][2] + D_xyz * DUUL[1][3][2] + D_yxy * DUUL[2][1][2] + D_yyy * DUUL[2][2][2] + D_yyz * DUUL[2][3][2] + D_zxy * DUUL[3][1][2] + D_zyy * DUUL[3][2][2] + D_zyz * DUUL[3][3][2],
 D_xxz * DUUL[1][1][2] + D_xyz * DUUL[1][2][2] + D_xzz * DUUL[1][3][2] + D_yxz * DUUL[2][1][2] + D_yyz * DUUL[2][2][2] + D_yzz * DUUL[2][3][2] + D_zxz * DUUL[3][1][2] + D_zyz * DUUL[3][2][2] + D_zzz * DUUL[3][3][2],
 D_xxz * DUUL[1][1][3] + D_xyz * DUUL[1][2][3] + D_xzz * DUUL[1][3][3] + D_yxz * DUUL[2][1][3] + D_yyz * DUUL[2][2][3] + D_yzz * DUUL[2][3][3] + D_zxz * DUUL[3][1][3] + D_zyz * DUUL[3][2][3] + D_zzz * DUUL[3][3][3],
-}
+};
 local GammaLSymLL = {
 {D_xxx,
 D_yxx,
@@ -665,7 +665,7 @@ D_xzz,
 ((2 * D_yyz) - D_zyy),
 D_yzz,
 D_zzz,
-},}
+},};
 local GammaUSymLL = {
 {gammaUxx * GammaLSymLL[1][1] + gammaUxy * GammaLSymLL[2][1] + gammaUxz * GammaLSymLL[3][1],
 gammaUxx * GammaLSymLL[1][2] + gammaUxy * GammaLSymLL[2][2] + gammaUxz * GammaLSymLL[3][2],
@@ -685,12 +685,12 @@ gammaUxz * GammaLSymLL[1][3] + gammaUyz * GammaLSymLL[2][3] + gammaUzz * GammaLS
 gammaUxz * GammaLSymLL[1][4] + gammaUyz * GammaLSymLL[2][4] + gammaUzz * GammaLSymLL[3][4],
 gammaUxz * GammaLSymLL[1][5] + gammaUyz * GammaLSymLL[2][5] + gammaUzz * GammaLSymLL[3][5],
 gammaUxz * GammaLSymLL[1][6] + gammaUyz * GammaLSymLL[2][6] + gammaUzz * GammaLSymLL[3][6],
-},}
+},};
 local Gamma3L = {
 GammaUSymLL[1][1] + GammaUSymLL[2][2] + GammaUSymLL[3][3],
 GammaUSymLL[1][2] + GammaUSymLL[2][4] + GammaUSymLL[3][5],
 GammaUSymLL[1][3] + GammaUSymLL[2][5] + GammaUSymLL[3][6],
-}
+};
 local Gamma31SymLL = {
 Gamma3L[1] * GammaUSymLL[1][1] + Gamma3L[2] * GammaUSymLL[2][1] + Gamma3L[3] * GammaUSymLL[3][1],
 Gamma3L[1] * GammaUSymLL[1][2] + Gamma3L[2] * GammaUSymLL[2][2] + Gamma3L[3] * GammaUSymLL[3][2],
@@ -698,7 +698,7 @@ Gamma3L[1] * GammaUSymLL[1][3] + Gamma3L[2] * GammaUSymLL[2][3] + Gamma3L[3] * G
 Gamma3L[1] * GammaUSymLL[1][4] + Gamma3L[2] * GammaUSymLL[2][4] + Gamma3L[3] * GammaUSymLL[3][4],
 Gamma3L[1] * GammaUSymLL[1][5] + Gamma3L[2] * GammaUSymLL[2][5] + Gamma3L[3] * GammaUSymLL[3][5],
 Gamma3L[1] * GammaUSymLL[1][6] + Gamma3L[2] * GammaUSymLL[2][6] + Gamma3L[3] * GammaUSymLL[3][6],
-}
+};
 local GammaLUL = {
 {{gammaUxx * GammaLSymLL[1][1] + gammaUxy * GammaLSymLL[1][2] + gammaUxz * GammaLSymLL[1][3],
 gammaUxx * GammaLSymLL[1][2] + gammaUxy * GammaLSymLL[1][4] + gammaUxz * GammaLSymLL[1][5],
@@ -727,7 +727,7 @@ gammaUxy * GammaLSymLL[3][3] + gammaUyy * GammaLSymLL[3][5] + gammaUyz * GammaLS
 },{gammaUxz * GammaLSymLL[3][1] + gammaUyz * GammaLSymLL[3][2] + gammaUzz * GammaLSymLL[3][3],
 gammaUxz * GammaLSymLL[3][2] + gammaUyz * GammaLSymLL[3][4] + gammaUzz * GammaLSymLL[3][5],
 gammaUxz * GammaLSymLL[3][3] + gammaUyz * GammaLSymLL[3][5] + gammaUzz * GammaLSymLL[3][6],
-},},}
+},},};
 local GammaLSymUU = {
 {gammaUxx * GammaLUL[1][1][1] + gammaUxy * GammaLUL[1][1][2] + gammaUxz * GammaLUL[1][1][3],
 gammaUxy * GammaLUL[1][1][1] + gammaUyy * GammaLUL[1][1][2] + gammaUyz * GammaLUL[1][1][3],
@@ -747,7 +747,7 @@ gammaUxz * GammaLUL[3][1][1] + gammaUyz * GammaLUL[3][1][2] + gammaUzz * GammaLU
 gammaUxy * GammaLUL[3][2][1] + gammaUyy * GammaLUL[3][2][2] + gammaUyz * GammaLUL[3][2][3],
 gammaUxz * GammaLUL[3][2][1] + gammaUyz * GammaLUL[3][2][2] + gammaUzz * GammaLUL[3][2][3],
 gammaUxz * GammaLUL[3][3][1] + gammaUyz * GammaLUL[3][3][2] + gammaUzz * GammaLUL[3][3][3],
-},}
+},};
 local Gamma11SymLL = {
 GammaLSymLL[1][1] * GammaLSymUU[1][1] + GammaLSymLL[1][2] * GammaLSymUU[1][2] + GammaLSymLL[1][3] * GammaLSymUU[1][3] + GammaLSymLL[1][2] * GammaLSymUU[1][2] + GammaLSymLL[1][4] * GammaLSymUU[1][4] + GammaLSymLL[1][5] * GammaLSymUU[1][5] + GammaLSymLL[1][3] * GammaLSymUU[1][3] + GammaLSymLL[1][5] * GammaLSymUU[1][5] + GammaLSymLL[1][6] * GammaLSymUU[1][6],
 GammaLSymLL[1][1] * GammaLSymUU[2][1] + GammaLSymLL[1][2] * GammaLSymUU[2][2] + GammaLSymLL[1][3] * GammaLSymUU[2][3] + GammaLSymLL[1][2] * GammaLSymUU[2][2] + GammaLSymLL[1][4] * GammaLSymUU[2][4] + GammaLSymLL[1][5] * GammaLSymUU[2][5] + GammaLSymLL[1][3] * GammaLSymUU[2][3] + GammaLSymLL[1][5] * GammaLSymUU[2][5] + GammaLSymLL[1][6] * GammaLSymUU[2][6],
@@ -755,17 +755,17 @@ GammaLSymLL[1][1] * GammaLSymUU[3][1] + GammaLSymLL[1][2] * GammaLSymUU[3][2] + 
 GammaLSymLL[2][1] * GammaLSymUU[2][1] + GammaLSymLL[2][2] * GammaLSymUU[2][2] + GammaLSymLL[2][3] * GammaLSymUU[2][3] + GammaLSymLL[2][2] * GammaLSymUU[2][2] + GammaLSymLL[2][4] * GammaLSymUU[2][4] + GammaLSymLL[2][5] * GammaLSymUU[2][5] + GammaLSymLL[2][3] * GammaLSymUU[2][3] + GammaLSymLL[2][5] * GammaLSymUU[2][5] + GammaLSymLL[2][6] * GammaLSymUU[2][6],
 GammaLSymLL[2][1] * GammaLSymUU[3][1] + GammaLSymLL[2][2] * GammaLSymUU[3][2] + GammaLSymLL[2][3] * GammaLSymUU[3][3] + GammaLSymLL[2][2] * GammaLSymUU[3][2] + GammaLSymLL[2][4] * GammaLSymUU[3][4] + GammaLSymLL[2][5] * GammaLSymUU[3][5] + GammaLSymLL[2][3] * GammaLSymUU[3][3] + GammaLSymLL[2][5] * GammaLSymUU[3][5] + GammaLSymLL[2][6] * GammaLSymUU[3][6],
 GammaLSymLL[3][1] * GammaLSymUU[3][1] + GammaLSymLL[3][2] * GammaLSymUU[3][2] + GammaLSymLL[3][3] * GammaLSymUU[3][3] + GammaLSymLL[3][2] * GammaLSymUU[3][2] + GammaLSymLL[3][4] * GammaLSymUU[3][4] + GammaLSymLL[3][5] * GammaLSymUU[3][5] + GammaLSymLL[3][3] * GammaLSymUU[3][3] + GammaLSymLL[3][5] * GammaLSymUU[3][5] + GammaLSymLL[3][6] * GammaLSymUU[3][6],
-}
+};
 local ADL = {
 A_x - 2 * D3L[1],
 A_y - 2 * D3L[2],
 A_z - 2 * D3L[3],
-}
+};
 local ADU = {
 gammaUxx * ADL[1] + gammaUxy * ADL[2] + gammaUxz * ADL[3],
 gammaUxy * ADL[1] + gammaUyy * ADL[2] + gammaUyz * ADL[3],
 gammaUxz * ADL[1] + gammaUyz * ADL[2] + gammaUzz * ADL[3],
-}
+};
 local ADDSymLL = {
 ADU[1] * (2 * D_xxx) + ADU[2] * (2 * D_xxy) + ADU[3] * (2 * D_xxz),
 ADU[1] * (D_xxy + D_yxx) + ADU[2] * (D_xyy + D_yxy) + ADU[3] * (D_xyz + D_yxz),
@@ -773,7 +773,7 @@ ADU[1] * (D_xxz + D_zxx) + ADU[2] * (D_xyz + D_zxy) + ADU[3] * (D_xzz + D_zxz),
 ADU[1] * (2 * D_yxy) + ADU[2] * (2 * D_yyy) + ADU[3] * (2 * D_yyz),
 ADU[1] * (D_yxz + D_zxy) + ADU[2] * (D_yyz + D_zyy) + ADU[3] * (D_yzz + D_zyz),
 ADU[1] * (2 * D_zxz) + ADU[2] * (2 * D_zyz) + ADU[3] * (2 * D_zzz),
-}
+};
 local R4SymLL = {
 0,
 0,
@@ -781,7 +781,7 @@ local R4SymLL = {
 0,
 0,
 0,
-}
+};
 local SL = {
 -R4SymLL[1] + trK * K_xx - 2 * KSqSymLL[1] + 4 * D12SymLL[1] + Gamma31SymLL[1] - Gamma11SymLL[1] + ADDSymLL[1] + (A_x * ((2 * V_x) - D1L[1])),
 -R4SymLL[2] + trK * K_xy - 2 * KSqSymLL[2] + 4 * D12SymLL[2] + Gamma31SymLL[2] - Gamma11SymLL[2] + ADDSymLL[2] + ((((2 * A_y * V_x) - (A_y * D1L[1])) + ((2 * A_x * V_y) - (A_x * D1L[2]))) / 2),
@@ -789,42 +789,44 @@ local SL = {
 -R4SymLL[4] + trK * K_yy - 2 * KSqSymLL[4] + 4 * D12SymLL[4] + Gamma31SymLL[4] - Gamma11SymLL[4] + ADDSymLL[4] + (A_y * ((2 * V_y) - D1L[2])),
 -R4SymLL[5] + trK * K_yz - 2 * KSqSymLL[5] + 4 * D12SymLL[5] + Gamma31SymLL[5] - Gamma11SymLL[5] + ADDSymLL[5] + ((((2 * A_z * V_y) - (A_z * D1L[2])) + ((2 * A_y * V_z) - (A_y * D1L[3]))) / 2),
 -R4SymLL[6] + trK * K_zz - 2 * KSqSymLL[6] + 4 * D12SymLL[6] + Gamma31SymLL[6] - Gamma11SymLL[6] + ADDSymLL[6] + (A_z * ((2 * V_z) - D1L[3])),
-}
+};
 local GU0L = {
 0,
 0,
 0,
-}
+};
 local AKL = {
 A_x * KUL[1][1] + A_y * KUL[2][1] + A_z * KUL[3][1],
 A_x * KUL[1][2] + A_y * KUL[2][2] + A_z * KUL[3][2],
 A_x * KUL[1][3] + A_y * KUL[2][3] + A_z * KUL[3][3],
-}
+};
 local K12D23L = {
 KUL[1][1] * DLUL[1][1][1] +KUL[1][2] * DLUL[1][2][1] +KUL[1][3] * DLUL[1][3][1] + KUL[2][1] * DLUL[1][1][2] +KUL[2][2] * DLUL[1][2][2] +KUL[2][3] * DLUL[1][3][2] + KUL[3][1] * DLUL[1][1][3] +KUL[3][2] * DLUL[1][2][3] +KUL[3][3] * DLUL[1][3][3],
 KUL[1][1] * DLUL[2][1][1] +KUL[1][2] * DLUL[2][2][1] +KUL[1][3] * DLUL[2][3][1] + KUL[2][1] * DLUL[2][1][2] +KUL[2][2] * DLUL[2][2][2] +KUL[2][3] * DLUL[2][3][2] + KUL[3][1] * DLUL[2][1][3] +KUL[3][2] * DLUL[2][2][3] +KUL[3][3] * DLUL[2][3][3],
 KUL[1][1] * DLUL[3][1][1] +KUL[1][2] * DLUL[3][2][1] +KUL[1][3] * DLUL[3][3][1] + KUL[2][1] * DLUL[3][1][2] +KUL[2][2] * DLUL[3][2][2] +KUL[2][3] * DLUL[3][3][2] + KUL[3][1] * DLUL[3][1][3] +KUL[3][2] * DLUL[3][2][3] +KUL[3][3] * DLUL[3][3][3],
-}
+};
 local KD23L = {
 KUL[1][1] * D1L[1] + KUL[2][1] * D1L[2] + KUL[3][1] * D1L[3],
 KUL[1][2] * D1L[1] + KUL[2][2] * D1L[2] + KUL[3][2] * D1L[3],
 KUL[1][3] * D1L[1] + KUL[2][3] * D1L[2] + KUL[3][3] * D1L[3],
-}
+};
 local K12D12L = {
 KUL[1][1] * DLUL[1][1][1] + KUL[1][2] * DLUL[1][2][1] + KUL[1][3] * DLUL[1][3][1] + KUL[2][1] * DLUL[2][1][1] + KUL[2][2] * DLUL[2][2][1] + KUL[2][3] * DLUL[2][3][1] + KUL[3][1] * DLUL[3][1][1] + KUL[3][2] * DLUL[3][2][1] + KUL[3][3] * DLUL[3][3][1],
 KUL[1][1] * DLUL[1][1][2] + KUL[1][2] * DLUL[1][2][2] + KUL[1][3] * DLUL[1][3][2] + KUL[2][1] * DLUL[2][1][2] + KUL[2][2] * DLUL[2][2][2] + KUL[2][3] * DLUL[2][3][2] + KUL[3][1] * DLUL[3][1][2] + KUL[3][2] * DLUL[3][2][2] + KUL[3][3] * DLUL[3][3][2],
 KUL[1][1] * DLUL[1][1][3] + KUL[1][2] * DLUL[1][2][3] + KUL[1][3] * DLUL[1][3][3] + KUL[2][1] * DLUL[2][1][3] + KUL[2][2] * DLUL[2][2][3] + KUL[2][3] * DLUL[2][3][3] + KUL[3][1] * DLUL[3][1][3] + KUL[3][2] * DLUL[3][2][3] + KUL[3][3] * DLUL[3][3][3],
-}
+};
 local KD12L = {
 KUL[1][1] * D3L[1] + KUL[2][1] * D3L[2] + KUL[3][1] * D3L[3],
 KUL[1][2] * D3L[1] + KUL[2][2] * D3L[2] + KUL[3][2] * D3L[3],
 KUL[1][3] * D3L[1] + KUL[2][3] * D3L[2] + KUL[3][3] * D3L[3],
-}
+};
 local PL = {
 GU0L[1] + AKL[1] - A_x * trK + K12D23L[1] + KD23L[1] - 2 * K12D12L[1] + 2 * KD12L[1],
 GU0L[2] + AKL[2] - A_y * trK + K12D23L[2] + KD23L[2] - 2 * K12D12L[2] + 2 * KD12L[2],
 GU0L[3] + AKL[3] - A_z * trK + K12D23L[3] + KD23L[3] - 2 * K12D12L[3] + 2 * KD12L[3],
-}
+};
+
+
 
 		source[i][1] = -alpha * alpha * f * trK
 		source[i][2] = -2 * alpha * K_xx
