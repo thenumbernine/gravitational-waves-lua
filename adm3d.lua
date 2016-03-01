@@ -549,6 +549,7 @@ function ADM3D:sourceTerm(sim, qs)
 
 		-- constraint variables for K_ij and V_k
 
+
 -- source terms
 local KUL = {
 {gammaUxx * K_xx + gammaUxy * K_xy + gammaUxz * K_xz,
@@ -561,7 +562,7 @@ gammaUxy * K_xz + gammaUyy * K_yz + gammaUyz * K_zz,
 gammaUxz * K_xy + gammaUyz * K_yy + gammaUzz * K_yz,
 gammaUxz * K_xz + gammaUyz * K_yz + gammaUzz * K_zz,
 },};
-local trK = KUL[1][1] + KUL[2][2] + KUL[3][3]
+local trK = KUL[1][1] + KUL[2][2] + KUL[3][3];
 local KSqSymLL = {
 K_xx * KUL[1][1] + K_xy * KUL[2][1] + K_xz * KUL[3][1],
 K_xx * KUL[1][2] + K_xy * KUL[2][2] + K_xz * KUL[3][2],
@@ -782,7 +783,7 @@ local R4SymLL = {
 0,
 0,
 };
-local SL = {
+local SSymLL = {
 -R4SymLL[1] + trK * K_xx - 2 * KSqSymLL[1] + 4 * D12SymLL[1] + Gamma31SymLL[1] - Gamma11SymLL[1] + ADDSymLL[1] + (A_x * ((2 * V_x) - D1L[1])),
 -R4SymLL[2] + trK * K_xy - 2 * KSqSymLL[2] + 4 * D12SymLL[2] + Gamma31SymLL[2] - Gamma11SymLL[2] + ADDSymLL[2] + ((((2 * A_y * V_x) - (A_y * D1L[1])) + ((2 * A_x * V_y) - (A_x * D1L[2]))) / 2),
 -R4SymLL[3] + trK * K_xz - 2 * KSqSymLL[3] + 4 * D12SymLL[3] + Gamma31SymLL[3] - Gamma11SymLL[3] + ADDSymLL[3] + ((((2 * A_z * V_x) - (A_z * D1L[1])) + ((2 * A_x * V_z) - (A_x * D1L[3]))) / 2),
@@ -827,7 +828,6 @@ GU0L[3] + AKL[3] - A_z * trK + K12D23L[3] + KD23L[3] - 2 * K12D12L[3] + 2 * KD12
 };
 
 
-
 		source[i][1] = -alpha * alpha * f * trK
 		source[i][2] = -2 * alpha * K_xx
 		source[i][3] = -2 * alpha * K_xy
@@ -835,12 +835,12 @@ GU0L[3] + AKL[3] - A_z * trK + K12D23L[3] + KD23L[3] - 2 * K12D12L[3] + 2 * KD12
 		source[i][5] = -2 * alpha * K_yy
 		source[i][6] = -2 * alpha * K_yz
 		source[i][7] = -2 * alpha * K_zz
-		source[i][29] = alpha * SL[1]
-		source[i][30] = alpha * SL[2]
-		source[i][31] = alpha * SL[3]
-		source[i][32] = alpha * SL[4]
-		source[i][33] = alpha * SL[5]
-		source[i][34] = alpha * SL[6]
+		source[i][29] = alpha * SSymLL[1]
+		source[i][30] = alpha * SSymLL[2]
+		source[i][31] = alpha * SSymLL[3]
+		source[i][32] = alpha * SSymLL[4]
+		source[i][33] = alpha * SSymLL[5]
+		source[i][34] = alpha * SSymLL[6]
 		source[i][35] = alpha * PL[1]
 		source[i][36] = alpha * PL[2]
 		source[i][37] = alpha * PL[3]
