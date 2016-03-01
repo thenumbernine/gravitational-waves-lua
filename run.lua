@@ -84,7 +84,7 @@ do
 	}
 
 	-- [=[ compare different equations/formalisms 
-	--sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
+	sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
 	--sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
 	--sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
 	--sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))

@@ -16,97 +16,6 @@ A_x,t + (alpha K_xx f / gamma_xx),x = 0
 D_xxx,t + (alpha K_xx),x = 0
 K_xx,t + (alpha A_x),x = alpha / gamma_xx (A_x D_xxx - K_xx^2)
 
-from here on I put the df/dalpha term in the source
-
-eigenvalues of A_x:
--lambda * (
-	-lambda * (
-		-lambda * det(
-			-lambda		alpha f / gamma_xx
-			alpha		-lamda
-		)
-	)
-) = 0
-<=>
-lambda = 0 has multiplicity 3,
-
-lambda^2 - alpha^2 f / gamma_xx = 0 
-lambda = +-alpha sqrt(f / gamma_xx)
-
-for lambda = -alpha sqrt(f/gamma_xx) the eigenvector is 
-	[0, 0, 1, gamma_xx/f, -sqrt(gamma_xx/f)] dot state = A_x + D_xxx gamma_xx/f - K_xx sqrt(gamma_xx/f)
-	= A_x + D_xxx f / gamma_xx - K_xx * sqrt(f / gamma_xx)
-for lambda = +alpha sqrt(f/gamma_xx) the eigenvector is 
-	[0, 0, 1, gamma_xx/f, +sqrt(gamma_xx/f)] dot state = A_x + D_xxx gamma_xx/f + K_xx sqrt(gamma_xx/f)
-for lambda = 0 the eigenvectors are
-[alpha,0,-A_x,0,-K_xx]
-[0,0,0,1,0]
-[0,1,0,0,0]
-
-eigenvector matrix is :
-[	0		  		alpha	0	0	0				]
-[	0		  		0		0	1	0				]
-[	f/gamma_xx			-A_x	0	0	f/gamma_xx			]
-[	1				0		1	0	1				]
-[	-sqrt(f/gamma_xx)	-K_xx	0	0	sqrt(f/gamma_xx)	]
-inverse:
-[(sqrt(f)*gamma_xx^(3/2)*A_x-f*gamma_xx*K_xx)/(2*alpha*f^(3/2)*sqrt(gamma_xx)),0,gamma_xx/(2*f),0,-sqrt(gamma_xx)/(2*sqrt(f))]
-[1/alpha,0,0,0,0]
-[-(gamma_xx*A_x)/(alpha*f),0,-gamma_xx/f,1,0]
-[0,1,0,0,0]
-[(sqrt(f)*sqrt(gamma_xx)*K_xx+gamma_xx*A_x)/(2*alpha*f),0,gamma_xx/(2*f),0,sqrt(gamma_xx)/(2*sqrt(f))]
-
-/* [wxMaxima: input   start ] */
-fluxMatrix : matrix(
-[0,0,0,0,0],
-[0,0,0,0,0],
-[f*K_xx/gamma_xx, -alpha*f*K_xx/gamma_xx^2, 0,0, alpha*f/gamma_xx],
-[K_xx,0,0,0,alpha],
-[A_x,0,alpha,0,0]);
-/* [wxMaxima: input   end   ] */
-/* [wxMaxima: input   start ] */
-load("eigen");
-/* [wxMaxima: input   end   ] */
-/* [wxMaxima: input   start ] */
-assume(f>0,gamma_xx>0,alpha>0);
-/* [wxMaxima: input   end   ] */
-/* [wxMaxima: input   start ] */
-result:ev(similaritytransform(fluxMatrix), hermitianmatrix=true);
-/* [wxMaxima: input   end   ] */
-/* [wxMaxima: input   start ] */
-eigenvalueMatrix : diag_matrix(
-result[1][1][1],
-result[1][1][3], 
-result[1][1][3],
-result[1][1][3],
-result[1][1][2]);
-/* [wxMaxima: input   end   ] */
-/* [wxMaxima: input   start ] */
-transpose(matrix(
-result[2][1][1] * sqrt(f^2 + f*gamma_xx + gamma_xx^2)/gamma_xx,
-result[2][3][1] * sqrt(K_xx^2 + A_x^2 + alpha^2),
-result[2][3][2],
-[0,1,0,0,0],
-result[2][2][1] * sqrt(f^2 + f*gamma_xx + gamma_xx^2)/gamma_xx))$
-ratsimp(%)$
-eigenvectorMatrix : %;
-/* [wxMaxima: input   end   ] */
-/* [wxMaxima: input   start ] */
-invert(eigenvectorMatrix)$
-ratsimp(%)$
-eigenvectorInverseMatrix : %;
-/* [wxMaxima: input   end   ] */
-/* [wxMaxima: input   start ] */
-eigenvectorMatrix . eigenvectorInverseMatrix$
-ratsimp(%);
-/* [wxMaxima: input   end   ] */
-/* [wxMaxima: input   start ] */
-eigenvectorMatrix . eigenvalueMatrix . eigenvectorInverseMatrix $
-ratsimp(%);
-is(% = fluxMatrix);
-fluxMatrix;
-/* [wxMaxima: input   end   ] */
-
 --]]
 
 local class = require 'ext.class'
@@ -219,7 +128,9 @@ function ADM1D5Var:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local alpha, gamma_xx, A_x, D_xxx, K_xx = unpack(avgQ)
 	local x = sim.ixs[i]
 	local f = self.calc.f(alpha)
-	local lambda = alpha * sqrt(f / gamma_xx)		
+	local sqrt_f = sqrt(f)
+	local sqrt_g = sqrt(gamma_xx)
+	local lambda = alpha * sqrt_f / sqrt_g 
 	sim.eigenvalues[i] = {-lambda, 0, 0, 0, lambda}
 	-- row-major, math-indexed
 	sim.fluxMatrix[i] = {
@@ -229,12 +140,13 @@ function ADM1D5Var:calcInterfaceEigenBasis(sim,i,qL,qR)
 		{K_xx,0,0,0,alpha},
 		{A_x,0,alpha,0,0},
 	}
+	--[[ where did I get this from? probably eigenvector decomposition on the flux
 	sim.eigenvectors[i] = {
 		{0,			alpha,	0,	0,	0			},	-- alpha
 		{0,			0,		0,	1,	0			},	-- gamma_xx
 		{f/gamma_xx,		-A_x,		0,	0,	f/gamma_xx			},	-- A_x
 		{1,			0,		1,	0,	1			},	-- D_xxx
-		{-sqrt(f/gamma_xx),-K_xx,		0,	0,	sqrt(f/gamma_xx)	},	-- K_xx
+		{-sqrt_f/sqrt_g,-K_xx,		0,	0,	sqrt_f/sqrt_g	},	-- K_xx
 	}
 	sim.eigenvectorsInverse[i] = {
 		{(gamma_xx * A_x / f - K_xx * sqrt(gamma_xx / f)) / (2 * alpha), 0, gamma_xx / (2 * f), 0, -.5 * sqrt(gamma_xx / f)}, 
@@ -244,6 +156,23 @@ function ADM1D5Var:calcInterfaceEigenBasis(sim,i,qL,qR)
 		{(gamma_xx * A_x / f + K_xx * sqrt(gamma_xx / f)) / (2 * alpha), 0, gamma_xx / (2 * f), 0, .5 * sqrt(gamma_xx / f)}, 
 	}
 	-- note that because we have zero eigenvalues that the eigendecomposition cannot reconstruct the flux matrix
+	--]]
+	-- [[ here's from the eigenfields <-> left eigenvectors
+	sim.eigenvectorsInverse[i] = {
+		{0, 0, -1/sqrt_g, 0, sqrt_f/gamma_xx},	-- sqrt(f) K_xx / gamma_xx - A_x / sqrt(gamma_xx)
+		{1, 0, 0, 0, 0},								-- alpha
+		{0, 1, 0, 0, 0},								-- gamma_xx
+		{0, 0, 1, -f/gamma_xx, 0},						-- A_x - f D_xxx / gamma_xx
+		{0, 0, 1/sqrt_g, 0, sqrt_f/gamma_xx},	-- sqrt(f) K_xx / gamma_xx + A_x / sqrt(gamma_xx)
+	}
+	sim.eigenvectors[i] = {
+		{0, 1, 0, 0, 0},
+		{0, 0, 1, 0, 0},
+		{-.5 * sqrt_g, 0, 0, 0, .5 * sqrt_g},
+		{-.5 * sqrt_g * gamma_xx / f, 0, 0, -gamma_xx / f, .5 * sqrt_g * gamma_xx / f},
+		{.5 * gamma_xx / sqrt_f, 0, 0, 0, .5 * gamma_xx / sqrt_f},
+	}
+	--]]
 end	
 
 function ADM1D5Var:sourceTerm(sim, qs)
@@ -253,7 +182,7 @@ function ADM1D5Var:sourceTerm(sim, qs)
 		local f = self.calc.f(alpha)
 		source[i][1] = -alpha * alpha * f * K_xx / gamma_xx
 		source[i][2] = -2 * alpha * K_xx
-		source[i][5] = alpha * (A_x * D_xxx - K_xx * K_xx) / gamma_xx
+		source[i][5] = alpha / gamma_xx * (A_x * D_xxx - K_xx * K_xx)
 	end
 	return source
 end
