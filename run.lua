@@ -2,8 +2,7 @@
 
 --DEBUG_PPM=true
 
-local class = require 'ext.class'
-local table = require 'ext.table'
+require 'ext'
 
 local fluxLimiters = require 'limiter' 
 local boundaryMethods = require 'boundary'
