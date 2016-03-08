@@ -1,47 +1,5 @@
 --[[
-pseudo-cartesian
-r = sqrt(x^2 + y^2 + z^2)
-rs = schwarzschild radius
-rr = rs/r
-
-g_tt = -1 + rr
-g_xx = (x^2/(1 - rr) + y^2 + z^2) / r^2
-g_yy = (x^2 + y^2/(1 - rr) + z^2) / r^2
-g_zz = (x^2 + y^2 + z^2/(1 - rr)) / r^2
-g_xy = x y rs / (r^2 (r - rs))
-g_xz = x z rs / (r^2 (r - rs))
-g_yz = y z rs / (r^2 (r - rs))
-
-...
-
-	flux-less terms:
-
-partial_t alpha = -alpha^2 f tr K
-partial_t gamma_ij = -2 alpha K_ij
-
-	flux terms:
-
-partial_t A_k + alpha f gamma^ij partial_k K_ij = -alpha tr K (f + alpha f') A_k + 2 alpha f K^ij D_kij
-partial_t D_kij + alpha partial_k K_ij = -alpha A_k K_ij
-partial_t K_ij + alpha (gamma^km partial_k D_mij + 1/2 (delta^k_i partial_k A_j + delta^k_j partial_k A_i) + delta^k_i partial_k V_j + delta^k_j partial_k V_i) = alpha S_ij - alpha lambda^k_ij A_k + 2 alpha D_mij D_k^km
-partial_t V_k = alpha P_k
-
-	eigenfields:
-
-lambda = 0:
-	alpha
-	gamma_ij
-	V_i
-	A_x'
-	D_x'ij
-	A_x - f D_x^m_m
-
-lambda = +- alpha sqrt(gamma^xx):
-	K_ix' +- sqrt(gamma_xx) (D_xix' + delta^x_i V_x' / gamma^xx) for x' != x
-
-lambda = +- alpha sqrt(f gamma^xx):
-	sqrt(f) tr(K) +- sqrt(gamma_xx) (A_x + 2 V^x / gamma^xx)
-
+see the symmath/tests/numerical_relativity_codegen.lua for more info
 --]]
 local class = require 'ext.class'
 local Equation = require 'equation'
@@ -336,8 +294,9 @@ function ADM3D:eigenfields(sim, i, v)
 	-- 	and deferring differences or averages til after eigenfields() is called (assuming it is a linear function)
 	-- this also has an issue with eigenfieldsInverse(), which is called on a flux vector, i.e. at cell interface, which would probably need the average of cells for that input
 
-	return 	{
-		(((math.sqrt(f) * (gammaUxx ^ (3 / 2)) * v[29]) + (2 * math.sqrt(f) * gammaUxy * v[30] * math.sqrt(gammaUxx)) + (2 * math.sqrt(f) * gammaUxz * v[31] * math.sqrt(gammaUxx)) + (math.sqrt(f) * gammaUyy * v[32] * math.sqrt(gammaUxx)) + (2 * math.sqrt(f) * gammaUyz * v[33] * math.sqrt(gammaUxx)) + (((((math.sqrt(f) * gammaUzz * v[34] * math.sqrt(gammaUxx)) - (gammaUxx * v[8])) - (2 * gammaUxx * v[35])) - (2 * gammaUxy * v[36])) - (2 * gammaUxz * v[37]))) / math.sqrt(gammaUxx)),
+	-- left eigenvectors in x:
+	return {
+		((math.sqrt(f) * (gammaUxx ^ (3 / 2)) * v[29]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxy * v[30]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxz * v[31]) + (math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyy * v[32]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyz * v[33]) + (((((((math.sqrt(f) * math.sqrt(gammaUxx) * gammaUzz * v[34]) - (gammaUxx * v[8])) - (2 * gammaUxx * v[35])) - (gammaUxy * v[9])) - (2 * gammaUxy * v[36])) - (gammaUxz * v[10])) - (2 * gammaUxz * v[37]))),
 		((-(v[9] + (2 * v[36]) + ((((2 * gammaUxx * v[12]) - (gammaUxx * v[17])) - (2 * math.sqrt(gammaUxx) * v[30])) - (2 * gammaUxz * v[19])) + ((((2 * gammaUxz * v[24]) - (gammaUyy * v[20])) - (2 * gammaUyz * v[21])) - (gammaUzz * v[22])))) / 2),
 		((-(v[10] + (2 * v[37]) + (((2 * gammaUxx * v[13]) - (gammaUxx * v[23])) - (2 * math.sqrt(gammaUxx) * v[31])) + (((((2 * gammaUxy * v[19]) - (2 * gammaUxy * v[24])) - (gammaUyy * v[26])) - (2 * gammaUyz * v[27])) - (gammaUzz * v[28])))) / 2),
 		(-(((gammaUxx * v[14]) - (math.sqrt(gammaUxx) * v[32])) + (gammaUxy * v[20]) + (gammaUxz * v[26]))),
@@ -373,9 +332,8 @@ function ADM3D:eigenfields(sim, i, v)
 		((gammaUxx * v[14]) + (math.sqrt(gammaUxx) * v[32]) + (gammaUxy * v[20]) + (gammaUxz * v[26])),
 		((gammaUxx * v[15]) + (math.sqrt(gammaUxx) * v[33]) + (gammaUxy * v[21]) + (gammaUxz * v[27])),
 		((gammaUxx * v[16]) + (math.sqrt(gammaUxx) * v[34]) + (gammaUxy * v[22]) + (gammaUxz * v[28])),
-		(((math.sqrt(f) * (gammaUxx ^ (3 / 2)) * v[29]) + (2 * math.sqrt(f) * gammaUxy * v[30] * math.sqrt(gammaUxx)) + (2 * math.sqrt(f) * gammaUxz * v[31] * math.sqrt(gammaUxx)) + (math.sqrt(f) * gammaUyy * v[32] * math.sqrt(gammaUxx)) + (2 * math.sqrt(f) * gammaUyz * v[33] * math.sqrt(gammaUxx)) + (math.sqrt(f) * gammaUzz * v[34] * math.sqrt(gammaUxx)) + (gammaUxx * v[8]) + (2 * gammaUxx * v[35]) + (2 * gammaUxy * v[36]) + (2 * gammaUxz * v[37])) / math.sqrt(gammaUxx))
+		((math.sqrt(f) * (gammaUxx ^ (3 / 2)) * v[29]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxy * v[30]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxz * v[31]) + (math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyy * v[32]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyz * v[33]) + (math.sqrt(f) * math.sqrt(gammaUxx) * gammaUzz * v[34]) + (gammaUxx * v[8]) + (2 * gammaUxx * v[35]) + (gammaUxy * v[9]) + (2 * gammaUxy * v[36]) + (gammaUxz * v[10]) + (2 * gammaUxz * v[37]))
 	}
-
 end
 
 function ADM3D:eigenfieldsInverse(sim, i, v)
@@ -397,7 +355,8 @@ function ADM3D:eigenfieldsInverse(sim, i, v)
 	local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
 	local f = self.calc.f(alpha)
 
-	return 	{
+	-- right eigenvectors in x:
+	return {
 		v[7],
 		v[8],
 		v[9],
@@ -405,10 +364,10 @@ function ADM3D:eigenfieldsInverse(sim, i, v)
 		v[11],
 		v[12],
 		v[13],
-		((((4 * v[28] * math.sqrt(gammaUxx)) - v[37]) + v[1] + (4 * gammaUxy * v[29] * (1 / math.sqrt(gammaUxx))) + (4 * gammaUxz * v[30] * (1 / math.sqrt(gammaUxx)))) / (-(2 * math.sqrt(gammaUxx)))),
+		((((4 * v[28] * gammaUxx) - v[37]) + v[1] + (2 * gammaUxy * v[14]) + (4 * gammaUxy * v[29]) + (2 * gammaUxz * v[15]) + (4 * gammaUxz * v[30])) / (-(2 * gammaUxx))),
 		v[14],
 		v[15],
-		((-((4 * v[28] * math.sqrt(gammaUxx)) + ((2 * v[31] * math.sqrt(gammaUxx)) - v[37]) + (v[1] - (2 * gammaUxy * v[14] * (1 / math.sqrt(gammaUxx)) * f)) + (2 * gammaUxy * v[16] * math.sqrt(gammaUxx) * f) + (4 * gammaUxy * v[29] * (1 / math.sqrt(gammaUxx))) + ((((2 * gammaUxy * v[32] * (1 / math.sqrt(gammaUxx)) * f) - (4 * gammaUxy * f * v[29] * (1 / math.sqrt(gammaUxx)))) - (2 * gammaUxy * v[2] * (1 / math.sqrt(gammaUxx)) * f)) - (2 * gammaUxz * v[15] * (1 / math.sqrt(gammaUxx)) * f)) + (2 * gammaUxz * v[22] * math.sqrt(gammaUxx) * f) + (4 * gammaUxz * v[30] * (1 / math.sqrt(gammaUxx))) + (((2 * gammaUxz * v[33] * (1 / math.sqrt(gammaUxx)) * f) - (4 * gammaUxz * f * v[30] * (1 / math.sqrt(gammaUxx)))) - (2 * gammaUxz * v[3] * (1 / math.sqrt(gammaUxx)) * f)) + ((gammaUyy * v[34] * (1 / math.sqrt(gammaUxx)) * f) - (gammaUyy * v[4] * (1 / math.sqrt(gammaUxx)) * f)) + ((2 * gammaUyz * v[35] * (1 / math.sqrt(gammaUxx)) * f) - (2 * gammaUyz * v[5] * (1 / math.sqrt(gammaUxx)) * f)) + ((gammaUzz * v[36] * (1 / math.sqrt(gammaUxx)) * f) - (gammaUzz * v[6] * (1 / math.sqrt(gammaUxx)) * f)))) / (2 * (gammaUxx ^ (3 / 2)) * f)),
+		((-((4 * v[28] * gammaUxx) + ((2 * v[31] * gammaUxx) - v[37]) + v[1] + (2 * gammaUxy * v[14]) + (2 * gammaUxy * v[16] * gammaUxx * f) + (4 * gammaUxy * v[29]) + ((((2 * gammaUxy * v[32] * f) - (2 * gammaUxy * f * v[14])) - (4 * gammaUxy * f * v[29])) - (2 * gammaUxy * v[2] * f)) + (2 * gammaUxz * v[15]) + (2 * gammaUxz * v[22] * gammaUxx * f) + (4 * gammaUxz * v[30]) + ((((2 * gammaUxz * v[33] * f) - (2 * gammaUxz * f * v[15])) - (4 * gammaUxz * f * v[30])) - (2 * gammaUxz * v[3] * f)) + ((gammaUyy * v[34] * f) - (gammaUyy * v[4] * f)) + ((2 * gammaUyz * v[35] * f) - (2 * gammaUyz * v[5] * f)) + ((gammaUzz * v[36] * f) - (gammaUzz * v[6] * f)))) / (2 * (gammaUxx ^ 2) * f)),
 		(((v[14] - (v[16] * gammaUxx)) + (((2 * v[29]) - v[32]) - (2 * gammaUxz * v[18])) + ((((2 * gammaUxz * v[23]) - (gammaUyy * v[19])) - (2 * gammaUyz * v[20])) - (gammaUzz * v[21])) + v[2]) / (-(2 * gammaUxx))),
 		(((v[15] - (v[22] * gammaUxx)) + ((2 * v[30]) - v[33]) + (((((2 * gammaUxy * v[18]) - (2 * gammaUxy * v[23])) - (gammaUyy * v[25])) - (2 * gammaUyz * v[26])) - (gammaUzz * v[27])) + v[3]) / (-(2 * gammaUxx))),
 		((((v[34] - (2 * gammaUxy * v[19])) - (2 * gammaUxz * v[25])) - v[4]) / (2 * gammaUxx)),
@@ -426,7 +385,7 @@ function ADM3D:eigenfieldsInverse(sim, i, v)
 		v[25],
 		v[26],
 		v[27],
-		((v[37] + ((((((((((v[1] - (2 * gammaUxy * v[32] * math.sqrt(f) * (1 / math.sqrt(gammaUxx)))) - (2 * gammaUxy * v[2] * math.sqrt(f) * (1 / math.sqrt(gammaUxx)))) - (2 * gammaUxz * v[33] * math.sqrt(f) * (1 / math.sqrt(gammaUxx)))) - (2 * gammaUxz * v[3] * math.sqrt(f) * (1 / math.sqrt(gammaUxx)))) - (gammaUyy * v[34] * math.sqrt(f) * (1 / math.sqrt(gammaUxx)))) - (gammaUyy * v[4] * math.sqrt(f) * (1 / math.sqrt(gammaUxx)))) - (2 * gammaUyz * v[35] * math.sqrt(f) * (1 / math.sqrt(gammaUxx)))) - (2 * gammaUyz * v[5] * math.sqrt(f) * (1 / math.sqrt(gammaUxx)))) - (gammaUzz * v[36] * math.sqrt(f) * (1 / math.sqrt(gammaUxx)))) - (gammaUzz * v[6] * math.sqrt(f) * (1 / math.sqrt(gammaUxx))))) / (2 * math.sqrt(f) * gammaUxx)),
+		((v[37] + ((((((((((v[1] - (2 * gammaUxy * v[32] * math.sqrt(f))) - (2 * gammaUxy * v[2] * math.sqrt(f))) - (2 * gammaUxz * v[33] * math.sqrt(f))) - (2 * gammaUxz * v[3] * math.sqrt(f))) - (gammaUyy * v[34] * math.sqrt(f))) - (gammaUyy * v[4] * math.sqrt(f))) - (2 * gammaUyz * v[35] * math.sqrt(f))) - (2 * gammaUyz * v[5] * math.sqrt(f))) - (gammaUzz * v[36] * math.sqrt(f))) - (gammaUzz * v[6] * math.sqrt(f)))) / (2 * math.sqrt(f) * (gammaUxx ^ (3 / 2)))),
 		((v[32] + v[2]) / (2 * math.sqrt(gammaUxx))),
 		((v[33] + v[3]) / (2 * math.sqrt(gammaUxx))),
 		((v[34] + v[4]) / (2 * math.sqrt(gammaUxx))),
@@ -436,7 +395,6 @@ function ADM3D:eigenfieldsInverse(sim, i, v)
 		v[29],
 		v[30]
 	}
-
 end
 
 
