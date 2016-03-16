@@ -177,7 +177,7 @@ function ADM3D:init(args, ...)
 		self.graphInfos:insert{
 			viewport = {i,j},
 			-- TODO needs to subtract beta outer beta for trace -- or do det of upper and invert 
-			getter = alpha * mat33.det(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz),
+			getter = alpha * math.sqrt:compose(mat33.det(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)),
 			name = 'volume', 
 			color = {0,1,1},
 		}
