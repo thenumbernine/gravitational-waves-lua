@@ -50,4 +50,3 @@ function EulerBackwardEulerLinear:iterate()
 end
 
 return EulerBackwardEulerLinear
-

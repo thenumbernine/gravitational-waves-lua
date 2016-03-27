@@ -76,7 +76,7 @@ function Euler1D:initCell(sim,i)
 end
 
 -- used by HLL
-function Euler1D:calcFluxForState(q, flux)
+function Euler1D:calcFluxForState(sim, i, q, flux)
 	flux = flux or {}
 	local gamma = self.gamma
 	flux[1] = q[2]
@@ -86,7 +86,7 @@ function Euler1D:calcFluxForState(q, flux)
 end
 
 -- used by HLL
-function Euler1D:calcInterfaceEigenvalues(sim, qL, qR, S)
+function Euler1D:calcInterfaceEigenvalues(sim, i, qL, qR, S)
 	S = S or {}
 	
 	local gamma = self.gamma
@@ -164,14 +164,17 @@ function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	S[3] = u + Cs
 	
 	local U = sim.eigenvectors[i]
+	-- slow
 	U[1][1] = 1
-	U[1][2] = 1
-	U[1][3] = 1
 	U[2][1] = u - Cs
-	U[2][2] = u
-	U[2][3] = u + Cs
 	U[3][1] = h - Cs * u
+	-- vel
+	U[1][2] = 1
+	U[2][2] = u
 	U[3][2] = .5 * u*u
+	-- fast
+	U[1][3] = 1
+	U[2][3] = u + Cs
 	U[3][3] = h + Cs * u
 	
 	-- [[ symbolically

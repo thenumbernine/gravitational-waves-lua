@@ -37,7 +37,7 @@ local ADM3D = require 'adm3d'
 -- setup
 local sims = table()
 
--- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+--[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -252,7 +252,7 @@ end
 --]]
 
 
---[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+-- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
 	local args = {
 		equation = Euler1D(),
@@ -278,18 +278,20 @@ do
 	-- [=[ compare schemes
 	--sims:insert(require 'euler1d_burgers'(args))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='exact', sampleMethod='alt'})))
-	sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='exact'})))
+	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='exact'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='pvrs'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
-	sims:insert(Roe(args))
+	--sims:insert(Roe(args))
 	--sims:insert(Roe(table(args, {usePPM=true})))
 	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .01})))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
 	--sims:insert(Roe(table(args, {equation = MHD()})))
+	sims:insert(require 'srhd1d_roe'(table(args, {gridsize=20, equation=require 'srhd1d'()})))
+	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-3, xmax=3}})))
 	--]=]
 
 	--[=[ compare flux limiters

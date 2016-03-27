@@ -1,3 +1,4 @@
+-- TODO each equation should be choosing how to apply boundary conditions
 return {
 	mirror = function(qs)
 		local gridsize = #qs
@@ -21,7 +22,6 @@ return {
 			qs[gridsize][5] = -qs[gridsize-3][5]
 		end
 	end,
-
 	freeFlow = function(qs)
 		local gridsize = #qs
 		local numStates = #qs[1]
@@ -33,4 +33,3 @@ return {
 		end
 	end,
 }
-

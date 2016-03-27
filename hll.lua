@@ -13,7 +13,7 @@ function HLL:calcDT(getLeft, getRight)
 	for i=2,self.gridsize do
 		local qL = getLeft and getLeft(self,i) or self.qs[i-1]
 		local qR = getRight and getRight(self,i) or self.qs[i]
-		self.equation:calcInterfaceEigenvalues(self, qL, qR, self.eigenvalues[i])
+		self.equation:calcInterfaceEigenvalues(self, i, qL, qR, self.eigenvalues[i])
 	end
 
 	return HLL.super.calcDT(self)
@@ -32,8 +32,8 @@ function HLL:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
 		local sL = self.eigenvalues[i][1]
 		local sR = self.eigenvalues[i][self.numStates]
 
-		local fluxL = self.equation:calcFluxForState(qL)
-		local fluxR = self.equation:calcFluxForState(qR)
+		local fluxL = self.equation:calcFluxForState(self, i, qL)
+		local fluxR = self.equation:calcFluxForState(self, i, qR)
 
 		local flux = self.fluxes[i]
 		for i=1,self.numStates do
