@@ -94,7 +94,7 @@ function Euler1DSS:iterate()
 	local U = pushState(self.qs)
 	
 	local dG_dU_T = matrix.zeros(n)
-	local epsilon = 1e-2
+	local epsilon = 1e-7
 	for j=1,n do	-- j varies across d/dU
 		local Uplus = matrix(U)
 		Uplus[j] = Uplus[j] + epsilon
@@ -110,8 +110,8 @@ function Euler1DSS:iterate()
 
 	local G = calcG(U)
 	local dU = matrix(solveLinear(dG_dU, G))
+	local alpha = .001	-- alpha is the line trace coefficient
 	
-	local alpha = .0001	-- alpha is the line trace coefficient
 	U = U - alpha * dU
 	-- in absense of jacobian (J=I) and alpha=1 we should get ...
 	-- U = U - dU = U - (U + dF/dx) = -dF/dx	... of course it'll reach a steady state of zero

@@ -259,7 +259,7 @@ do
 		--stopAtTime = .1,
 		gridsize = 200,
 		domain = {xmin=-1, xmax=1},
-		boundaryMethod = boundaryMethods.mirror,
+		boundaryMethod = boundaryMethods.freeFlow,
 		--boundaryMethod = boundaryMethods.freeFlow,
 		--linearSolver = require 'linearsolvers'.jacobi,
 		--linearSolver = require 'linearsolvers'.conjgrad,
@@ -283,15 +283,15 @@ do
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
-	--sims:insert(Roe(args))
+	sims:insert(Roe(args))
+	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
 	--sims:insert(Roe(table(args, {usePPM=true})))
 	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .01})))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
 	--sims:insert(Roe(table(args, {equation = MHD()})))
-	sims:insert(require 'srhd1d_roe'(table(args, {gridsize=20, equation=require 'srhd1d'()})))
-	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-3, xmax=3}})))
+	--sims:insert(require 'srhd1d_roe'(table(args, {gridsize=20, equation=require 'srhd1d'()})))
 	--]=]
 
 	--[=[ compare flux limiters
@@ -454,7 +454,7 @@ function TestApp:update(...)
 		for _,sim in ipairs(sims) do
 			sim.ys = {}
 			local simymin, simymax
-			for i=1,sim.gridsize do
+			for i=3,sim.gridsize-2 do
 				local siminfo = sim.equation.graphInfoForNames[name]
 				if siminfo then
 					local y = siminfo.getter(sim,i)
@@ -555,7 +555,8 @@ function TestApp:update(...)
 		gl.glVertex2f(0, ymin)
 		gl.glVertex2f(0, ymax)
 		gl.glEnd()
-
+	
+		-- should I show ghost cells? for some derived values it causes errors...
 		for _,sim in ipairs(sims) do
 			gl.glColor3f(unpack(sim.color))
 			gl.glPointSize(2)
@@ -565,7 +566,7 @@ function TestApp:update(...)
 					DEBUG_PPM and gl.GL_POINTS
 				} do
 					gl.glBegin(mode)
-					for i=1,sim.gridsize do
+					for i=3,sim.gridsize-2 do
 						gl.glVertex2f(sim.xs[i], sim.ys[i])
 					end
 					gl.glEnd()
@@ -594,14 +595,14 @@ if DEBUG_PPM then
 			if sim.ppm_iqs then
 				gl.glColor3f(0,1,0)
 				gl.glBegin(gl.GL_LINES)
-				for i=1,sim.gridsize do
+				for i=3,sim.gridsize-2 do
 					gl.glVertex2f(sim.ixs[i], sim.ppm_qLs[i][channel])
 					gl.glVertex2f(sim.ixs[i+1], sim.ppm_qRs[i][channel])
 				end
 				gl.glEnd()
 				gl.glColor3f(1,0,1)
 				gl.glBegin(gl.GL_POINTS)
-				for i=1,sim.gridsize do
+				for i=3,sim.gridsize-1 do
 					gl.glVertex2f(sim.ixs[i],sim.ppm_iqs[i][channel])
 				end
 				gl.glEnd()

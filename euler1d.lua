@@ -17,28 +17,38 @@ Euler1D.name = 'Euler 1D'
 Euler1D.numStates = 3
 Euler1D.gamma = 5/3	
 
-Euler1D.graphInfos = table{
-	{viewport={0/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][1] end, name='rho', color={1,0,1}},
-	{viewport={0/3, 1/2, 1/3, 1/2}, getter=function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
-	{viewport={1/3, 1/2, 1/3, 1/2}, getter=function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end, name='log reconstruction error', color={1,0,0}, range={-30, 30}},
-}
-if DEBUG_PPM then
-	Euler1D.graphInfos:append{
-		{viewport={1/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][2] end, name='rho u', color={0,1,0}},
-		{viewport={2/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][3] end, name='rho E', color={.5,.5,1}},
+do
+	local gamma = Euler1D.gamma
+	local rho = function(self,i) return self.qs[i][1] end
+	local mom = function(self,i) return self.qs[i][2] end
+	local ETotal = function(self,i) return self.qs[i][3] end
+	local eTotal = ETotal / rho
+	local u = mom/rho
+	local EKin = .5*rho*u^2
+	local EInt = ETotal - EKin
+	local P = EInt/(gamma-1)
+	local S = P/rho^gamma
+
+	local getters = table{
+		-- prims
+		{rho = rho},
+		{u = u},
+		{P = P},
+		-- other vars
+		{S = S},
+		-- conservative
+		{mom = mom},
+		{ETotal = ETotal},
+		-- roe scheme
+		{['log eigenbasis error'] = function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end},
+		{['log reconstruction error'] = function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end},
 	}
-else
-	Euler1D.graphInfos:append{
-		{viewport={1/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][2] / self.qs[i][1] end, name='u', color={0,1,0}},
-		{viewport={2/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][3] / self.qs[i][1] end, name='E', color={.5,.5,1}},
-	}
+	
+	Euler1D:buildGraphInfos(getters)
 end
 
-Euler1D.graphInfoForNames = Euler1D.graphInfos:map(function(info,i)
-	return info, info.name
-end)
-
 function Euler1D:initCell(sim,i)
+	local x = sim.xs[i]
 	--[[ constant
 	local rho = 1
 	local u = 0
@@ -50,12 +60,16 @@ function Euler1D:initCell(sim,i)
 	local E = 1
 	--]]
 	--[[ gaussian curve
-	local x = sim.xs[i]
 	local sigma = 1/math.sqrt(10)
 	local rho = math.exp(-x^2/sigma^2) + .1
 	-- drho/dx = (-2x/sigma^2) exp(-x^2/sigma^2)
 	local u = 0
 	local E = 1 + .5 * u * u + .1 * (math.exp(-x^2/sigma^2) + 1) / ((self.gamma - 1) * rho)
+	--]]
+	--[[ rarefaction wave
+	local rho = 1	--x<0 and .2 or .8
+	local u = x<0 and .4 or .6
+	local E = 1/(self.gamma-1) + .5 * u * u
 	--]]
 	-- [[ Sod
 	local rho = sim.xs[i] < 0 and 1 or .1
