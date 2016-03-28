@@ -5,18 +5,35 @@ local SRHD1D = class(Equation)
 SRHD1D.name = 'SRHD 1D'
 SRHD1D.numStates = 3
 
-SRHD1D.graphInfos = table{
-	{viewport={0/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.primitives[i].rho end, name='rho', color={1,0,1}},
-	{viewport={1/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.primitives[i].vx end, name='v', color={0,1,0}},
-	{viewport={2/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.primitives[i].P end, name='P', color={.5,.5,1}},
-	{viewport={0/3, 1/2, 1/3, 1/2}, getter=function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
-	{viewport={1/3, 1/2, 1/3, 1/2}, getter=function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end, name='log reconstruction error', color={1,0,0}, range={-30, 30}},
-}
-SRHD1D.graphInfoForNames = SRHD1D.graphInfos:map(function(info,i)
-	return info, info.name
-end)
-
 local gamma = 5/3
+
+do
+	local q = function(self,i) return self.qs[i] end
+	local prim = function(self,i) return self.primitives[i] end
+	local rho = prim:_'rho'	-- rest-mass rho
+	local vx = prim:_'vx'
+	local P = prim:_'P'
+	local eInt = prim:_'eInt'	-- hmm this looks like densitized internal energy
+	local h = prim:_'h'			-- and this looks densitized too ...
+	local D = q:_(1)	-- rho * W
+	local W = D / rho	-- Lorentz factor
+	local Sx = q:_(2)	-- rho h W^2 vx
+	local tau = q:_(3)	-- rho h W^2 - P - D
+	SRHD1D:buildGraphInfos{
+		{rho = rho},
+		{vx = vx},
+		{P = P},
+--		{EInt = EInt},
+--		{H = H},
+		{D = D},
+		{Sx = Sx},
+		{tau = tau},
+		{W = W},
+		{['log eigenbasis error'] = function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end},
+		{['log reconstruction error'] = function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end},
+	}
+end
+
 local function pressureFunc(rho, eInt)
 	return (gamma - 1) * rho * eInt
 end

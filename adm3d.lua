@@ -124,126 +124,56 @@ function ADM3D:init(args, ...)
 	
 	-- and for the graphs ...
 
-	--[[ match 1D-3Var ...
-	local get_state = index:bind(self.qs)
-	local get_alpha = get_state(1)
-	local get_gamma_xx = get_state(2)
-	local get_A_x = get_state(8)
-	local get_D_xxx = get_state(11)
-	local get_K_xx = get_state(29)
-	self.graphInfos = {
-		{viewport={0/3, 0/3, 1/3, 1/3}, getter=get_alpha, name='alpha', color={1,0,1}},
-		{viewport={0/3, 1/3, 1/3, 1/3}, getter=get_A_x, name='A_x', color={0,1,0}},
-		{viewport={1/3, 0/3, 1/3, 1/3}, getter=get_gamma_xx, name='gamma_xx', color={.5,.5,1}},
-		{viewport={1/3, 1/3, 1/3, 1/3}, getter=get_D_xxx, name='D_xxx', color={1,1,0}},
-		{viewport={2/3, 0/3, 1/3, 1/3}, getter=get_K_xx, name='K_xx', color={0,1,1}},
-		{viewport={2/3, 1/3, 1/3, 1/3}, getter=get_alpha * sqrt:compose(get_gamma_xx), name='volume', color={0,1,1}},
-		{viewport={0/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.eigenbasisErrors)), name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
-		{viewport={1/3, 2/3, 1/3, 1/3}, getter=log:compose(index:bind(self.fluxMatrixErrors)), name='log reconstuction error', color={1,0,0}, range={-30, 30}},
-	}
-	do return end
-	--]]
-
-	local i=0
-	local j=0
-	local function col() i=i+1 j=0 end
-	self.graphInfos = table()
-
-	local get_state = function(j) return function(self, i) return self.qs[i][j] end end
+	local getters = table()
+	local q = function(self,i) return self.qs[i] end
+	
 	local function add(args)
 		local index = args.index
 		for _,suffix in ipairs(args.suffix or {''}) do
-			self.graphInfos:insert{
-				viewport = {i,j},
-				getter = get_state(index),
-				name = args.name..suffix,
-				color = {0,1,1},
-			}
+			getters:insert{[args.name..suffix] = q:_(index)}
 			index=index+1
-			j=j+1
 		end
 	end
 
 	add{name='alpha', index=1}
 	do
-		local state = function(self,i) return self.qs[i] end
-		local alpha = state:index(1)
-		local gamma_xx = state:index(2)
-		local gamma_xy = state:index(3)
-		local gamma_xz = state:index(4)
-		local gamma_yy = state:index(5)
-		local gamma_yz = state:index(6)
-		local gamma_zz = state:index(7)
-		self.graphInfos:insert{
-			viewport = {i,j},
-			-- TODO needs to subtract beta outer beta for trace -- or do det of upper and invert 
-			getter = alpha * math.sqrt:compose(mat33.det(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)),
-			name = 'volume', 
-			color = {0,1,1},
-		}
+		local alpha = q:_(1)
+		local gamma_xx = q:_(2)
+		local gamma_xy = q:_(3)
+		local gamma_xz = q:_(4)
+		local gamma_yy = q:_(5)
+		local gamma_yz = q:_(6)
+		local gamma_zz = q:_(7)
+		getters:insert{volume = alpha * math.sqrt:o(mat33.det(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz))}
 	end
-	j=j+1
-	self.graphInfos:insert{
-		viewport = {i,j},
-		getter = function(self, i) return math.log(self.eigenbasisErrors[i]) end,
-		name = 'log eigenbasis error', 
-		color = {1,0,0}, 
-		range = {-30, 30},
-	}
-	j=j+1
-	self.graphInfos:insert{
-		viewport = {i,j},
-		getter = function(self, i) return math.log(self.fluxMatrixErrors[i]) end,
-		name = 'log reconstruction error',
-		color = {1,0,0},
-		range = {-30, 30},
+	getters:append{
+		{['log eigenbasis error'] = function(self,i) return math.log(self.eigenbasisErrors[i]) end},
+		{['log reconstruction error'] = function(self,i) return math.log(self.fluxMatrixErrors[i]) end},
 	}
 	local suffix3 = {'x', 'y', 'z'}
 	local suffix3x3sym = {'xx', 'xy', 'xz', 'yy', 'yz', 'zz'}
-	col()
 	add{name='A_', index=8, suffix=suffix3}
 	add{name='V_', index=35, suffix=suffix3}
-	col()
 	add{name='gamma_', index=2, suffix=suffix3x3sym}
-	col()
 	add{name='D_x', index=11, suffix=suffix3x3sym}
-	col()
 	add{name='D_y', index=17, suffix=suffix3x3sym}
-	col()
 	add{name='D_z', index=23, suffix=suffix3x3sym}
-	col()
 	add{name='K_', index=29, suffix=suffix3x3sym}
-	col()
 
-	local xmax = 0
-	local ymax = 0
-	for _,info in ipairs(self.graphInfos) do
-		xmax = max(xmax, info.viewport[1])
-		ymax = max(ymax, info.viewport[2])
-	end
-	xmax = xmax + 1
-	ymax = ymax + 1
-	for _,info in ipairs(self.graphInfos) do
-		local x,y = unpack(info.viewport)
-		info.viewport = {x/xmax, y/ymax, 1/xmax, 1/ymax}
-	end
-
--- [[ match the 1D 3-var layout:
-	self.graphInfos = table{
-		{viewport={0/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] end, name='alpha', color={1,0,1}},
-		{viewport={0/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][8] end, name='A_x', color={0,1,0}},
-		{viewport={1/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][2] end, name='gamma_xx', color={.5,.5,1}},
-		{viewport={1/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][11] end, name='D_xxx', color={1,1,0}},
-		{viewport={2/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][29] end, name='K_xx', color={0,1,1}},
-		{viewport={2/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] * math.sqrt(self.qs[i][2]) end, name='volume', color={0,1,1}},
-		{viewport={0/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
-		{viewport={1/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.fluxMatrixErrors[i]) end, name='log reconstuction error', color={1,0,0}, range={-30, 30}},
+--[[ match the 1D 3-var layout:
+	getters = table{
+		{alpha = function(self,i) return self.qs[i][1] end},
+		{A_x = function(self,i) return self.qs[i][8] end},
+		{gamma_xx = function(self,i) return self.qs[i][2] end},
+		{D_xxx = function(self,i) return self.qs[i][11] end},
+		{K_xx = function(self,i) return self.qs[i][29] end},
+		{volume = function(self,i) return self.qs[i][1] * math.sqrt(self.qs[i][2]) end},
+		{['log eigenbasis error'] = function(self,i) return math.log(self.eigenbasisErrors[i]) end},
+		{['log reconstuction error'] = function(self,i) return math.log(self.fluxMatrixErrors[i]) end},
 	}
 --]]
 
-	self.graphInfoForNames = self.graphInfos:map(function(info,i)
-		return info, info.name
-	end)
+	self:buildGraphInfos(getters)
 end
 
 function ADM3D:fluxTransform(sim, i, v)

@@ -11,27 +11,24 @@ local e0 = 1	-- permittivity
 local u0 = 1	-- permissivity
 
 do
-	local get_state = function(self,i) return self.qs[i] end
-	local Ex = function(self,i) return self.qs[i][1] / e0 end
-	local Ey = function(self,i) return self.qs[i][2] / e0 end
-	local Ez = function(self,i) return self.qs[i][3] / e0 end
+	local q = function(self,i) return self.qs[i] end
+	local Ex = q:_(1) / e0
+	local Ey = q:_(2) / e0
+	local Ez = q:_(3) / e0
 	local ESq = Ex^2 + Ey^2 + Ez^2
-	local Bx = function(self,i) return self.qs[i][4] end
-	local By = function(self,i) return self.qs[i][5] end
-	local Bz = function(self,i) return self.qs[i][6] end
+	local E = math.sqrt:o(ESq)
+	local Bx = q:_(4)
+	local By = q:_(5)
+	local Bz = q:_(6)
 	local BSq = Bx^2 + By^2 + Bz^2
-	Maxwell.graphInfos = table{
-		{viewport={0/4, 0/3, 1/4, 1/3}, getter=Ex, name='Ex', color={1,0,0}},
-		{viewport={1/4, 0/3, 1/4, 1/3}, getter=Ey, name='Ey', color={0,1,0}},
-		{viewport={2/4, 0/3, 1/4, 1/3}, getter=Ez, name='Ez', color={0,0,1}},
-		{viewport={3/4, 0/3, 1/4, 1/3}, getter=sqrt:compose(ESq), name='E', color={0,0,1}},
-		{viewport={0/4, 1/3, 1/4, 1/3}, getter=Bx, name='Bx', color={0,1,1}},
-		{viewport={1/4, 1/3, 1/4, 1/3}, getter=By, name='By', color={1,0,1}},
-		{viewport={2/4, 1/3, 1/4, 1/3}, getter=Bz, name='Bz', color={1,1,0}},
-		{viewport={3/4, 1/3, 1/4, 1/3}, getter=sqrt:compose(BSq), name='B', color={1,1,0}},
-		{viewport={0/4, 2/3, 1/4, 1/3}, getter=function(self,i) return math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
-		{viewport={1/4, 2/3, 1/4, 1/3}, getter=function(self,i) return math.log(self.fluxMatrixErrors[i]) end, name='log reconstruction error', color={1,0,0}, range={-30, 30}},
-		{viewport={3/4, 2/3, 1/4, 1/3}, getter=.5 * (ESq * e0 + BSq / u0), name='energy', color={0,.5,1}},
+	local B = math.sqrt:o(BSq)
+	local energy = .5 * (ESq * e0 + BSq / u0)
+	Maxwell:buildGraphInfos{
+		{Ex=Ex}, {Ey=Ey}, {Ez=Ez}, {E=E},
+		{Bx=Bx}, {By=By}, {Bz=Bz}, {B=B},
+		{['log eigenbasis error'] = function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end},
+		{['log reconstruction error'] = function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end},
+		{energy = energy},
 	}
 end
 Maxwell.graphInfoForNames = Maxwell.graphInfos:map(function(info,i)

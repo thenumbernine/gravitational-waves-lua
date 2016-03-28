@@ -11,12 +11,12 @@ the 1st and 3rd terms are integrated via the pressure integration
 --]]
 
 local class = require 'ext.class'
-
+local Euler1D = require 'euler1d'
 local Solver = require 'solver'
 
 local Euler1DBurgers = class(Solver)
 
-Euler1DBurgers.equation = require 'euler1d'()
+Euler1DBurgers.equation = Euler1D()
 Euler1DBurgers.name = 'Euler 1D Burgers'
 
 function Euler1DBurgers:calcDT(getLeft, getRight)

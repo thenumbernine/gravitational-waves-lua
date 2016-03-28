@@ -18,23 +18,27 @@ Euler1D.numStates = 3
 Euler1D.gamma = 5/3	
 
 do
-	local gamma = Euler1D.gamma
-	local rho = function(self,i) return self.qs[i][1] end
-	local mom = function(self,i) return self.qs[i][2] end
-	local ETotal = function(self,i) return self.qs[i][3] end
+	local q = function(self,i) return self.qs[i] end
+	local gamma = function(self,i) return self.equation.gamma end
+	local rho = q:_(1)
+	local mom = q:_(2)
+	local ETotal = q:_(3)
 	local eTotal = ETotal / rho
-	local u = mom/rho
-	local EKin = .5*rho*u^2
+	local vx = mom/rho
+	local EKin = .5 * rho * vx^2
 	local EInt = ETotal - EKin
-	local P = EInt/(gamma-1)
-	local S = P/rho^gamma
+	local P = (gamma - 1) * EInt
+	local H = EInt * gamma
+	local S = P / rho^gamma
 
-	local getters = table{
+	Euler1D:buildGraphInfos{
 		-- prims
 		{rho = rho},
-		{u = u},
+		{vx = vx},
 		{P = P},
 		-- other vars
+		{EInt = EInt},
+		{H = H},
 		{S = S},
 		-- conservative
 		{mom = mom},
@@ -43,50 +47,44 @@ do
 		{['log eigenbasis error'] = function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end},
 		{['log reconstruction error'] = function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end},
 	}
-	
-	Euler1D:buildGraphInfos(getters)
 end
 
 function Euler1D:initCell(sim,i)
+	local gamma = self.gamma
 	local x = sim.xs[i]
 	--[[ constant
 	local rho = 1
-	local u = 0
-	local E = 1 + .5 * u * u
+	local vx = 0
+	local P = 1
 	--]]
 	--[[ linear
-	local rho = 2 + sim.xs[i]
-	local u = 0
-	local E = 1
+	local rho = 2 + x
+	local vx = 0
+	local P = 1
 	--]]
 	--[[ gaussian curve
 	local sigma = 1/math.sqrt(10)
 	local rho = math.exp(-x^2/sigma^2) + .1
 	-- drho/dx = (-2x/sigma^2) exp(-x^2/sigma^2)
-	local u = 0
-	local E = 1 + .5 * u * u + .1 * (math.exp(-x^2/sigma^2) + 1) / ((self.gamma - 1) * rho)
+	local vx = 0
+	local P = 1 + .1 * (math.exp(-x^2/sigma^2) + 1) / ((gamma - 1) * rho)
 	--]]
 	--[[ rarefaction wave
 	local rho = 1	--x<0 and .2 or .8
-	local u = x<0 and .4 or .6
-	local E = 1/(self.gamma-1) + .5 * u * u
+	local vx = x<0 and .4 or .6
+	local P = 1
 	--]]
 	-- [[ Sod
-	local rho = sim.xs[i] < 0 and 1 or .1
-	local u = 0
-	local E = 1	+ .5 * u * u	-- internal + kinetic
+	local rho = x < 0 and 1 or .125
+	local vx = 0
+	local P = x < 0 and 1 or .1
 	--]]
 	--[[ Sedov
 	local rho = 1
-	local u = 0
-	local E
-	if i == math.floor(sim.gridsize/2) then
-		E = 1e+3 / ((self.gamma - 1) * rho)
-	else
-		E = 1 / ((self.gamma - 1) * rho)
-	end
+	local vx = 0
+	local P = i == math.floor(sim.gridsize/2) and 1e+3 or 1
 	--]]
-	return {rho, rho * u, rho * E}
+	return {rho, rho * vx, P/(gamma-1) + .5 * rho * vx^2}
 end
 
 -- used by HLL
@@ -106,29 +104,29 @@ function Euler1D:calcInterfaceEigenvalues(sim, i, qL, qR, S)
 	local gamma = self.gamma
 	
 	local rhoL = qL[1]
-	local uL = qL[2] / rhoL 
-	local EL = qL[3] / rhoL
-	local eIntL = EL - .5 * uL^2
+	local vxL = qL[2] / rhoL 
+	local eTotalL = qL[3] / rhoL
+	local eIntL = eTotalL - .5 * vxL^2
 	local PL = (gamma - 1) * rhoL * eIntL
-	local hL = EL + PL / rhoL
+	local hTotalL = eTotalL + PL / rhoL
 	local weightL = sqrt(rhoL)
 	
 	local rhoR = qR[1]
-	local uR = qR[2] / rhoR 
-	local ER = qR[3] / rhoR
-	local eIntR = ER - .5 * uR^2
+	local vxR = qR[2] / rhoR 
+	local eTotalR = qR[3] / rhoR
+	local eIntR = eTotalR - .5 * vxR^2
 	local PR = (gamma - 1) * rhoR * eIntR
-	local hR = ER + PR / rhoR
+	local hTotalR = eTotalR + PR / rhoR
 	local weightR = sqrt(rhoR)
 	
-	local u = (weightL * uL + weightR * uR) / (weightL + weightR)
-	local h = (weightL * hL + weightR * hR) / (weightL + weightR)
+	local vx = (weightL * vxL + weightR * vxR) / (weightL + weightR)
+	local hTotal = (weightL * hTotalL + weightR * hTotalR) / (weightL + weightR)
 	
-	local Cs = sqrt((gamma - 1) * (h - .5 * u^2))
+	local Cs = sqrt((gamma - 1) * (hTotal - .5 * vx^2))
 	
-	S[1] = u - Cs
-	S[2] = u
-	S[3] = u + Cs
+	S[1] = vx - Cs
+	S[2] = vx
+	S[3] = vx + Cs
 	
 	return S
 end
@@ -139,68 +137,70 @@ function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local gamma = self.gamma
 	
 	local rhoL = qL[1]
-	local uL = qL[2] / rhoL 
-	local EL = qL[3] / rhoL
-	local eIntL = EL - .5 * uL^2
+	local vxL = qL[2] / rhoL 
+	local eTotalL = qL[3] / rhoL
+	local eIntL = eTotalL - .5 * vxL^2
 	local PL = (gamma - 1) * rhoL * eIntL
-	local hL = EL + PL / rhoL
+	local hTotalL = eTotalL + PL / rhoL
 	local weightL = sqrt(rhoL)
 	
 	local rhoR = qR[1]
-	local uR = qR[2] / rhoR 
-	local ER = qR[3] / rhoR
-	local eIntR = ER - .5 * uR^2
+	local vxR = qR[2] / rhoR 
+	local eTotalR = qR[3] / rhoR
+	local eIntR = eTotalR - .5 * vxR^2
 	local PR = (gamma - 1) * rhoR * eIntR
-	local hR = ER + PR / rhoR
+	local hTotalR = eTotalR + PR / rhoR
 	local weightR = sqrt(rhoR)
 	
 	local rho = sqrt(weightL * weightR)
-	local u = (weightL * uL + weightR * uR) / (weightL + weightR)
-	local h = (weightL * hL + weightR * hR) / (weightL + weightR)
-	local E = (weightL * EL + weightR * ER) / (weightL + weightR)
+	local vx = (weightL * vxL + weightR * vxR) / (weightL + weightR)
+	local hTotal = (weightL * hTotalL + weightR * hTotalR) / (weightL + weightR)
 	
-	local Cs = sqrt((gamma - 1) * (h - .5 * u^2))
+	-- TODO this is only used for flux, so just use hTotal
+	local eTotal = (weightL * eTotalL + weightR * eTotalR) / (weightL + weightR)
+	
+	local Cs = sqrt((gamma - 1) * (hTotal - .5 * vx^2))
 	
 	local F = sim.fluxMatrix[i]
 	F[1][1] = 0
 	F[1][2] = 1
 	F[1][3] = 0
-	F[2][1] = (gamma-3)/2*u*u
-	F[2][2] = (3-gamma)*u
+	F[2][1] = (gamma-3)/2*vx*vx
+	F[2][2] = (3-gamma)*vx
 	F[2][3] = gamma-1
-	F[3][1] = -u*(gamma*E + (1-gamma)*u*u)
-	F[3][2] = h + (1-gamma) * u*u
-	F[3][3] = gamma * u
+	F[3][1] = -vx*(gamma*eTotal + (1-gamma)*vx*vx)
+	F[3][2] = hTotal + (1-gamma) * vx*vx
+	F[3][3] = gamma * vx
 	
 	local S = sim.eigenvalues[i]
-	S[1] = u - Cs
-	S[2] = u
-	S[3] = u + Cs
+	S[1] = vx - Cs
+	S[2] = vx
+	S[3] = vx + Cs
 	
 	local U = sim.eigenvectors[i]
 	-- slow
 	U[1][1] = 1
-	U[2][1] = u - Cs
-	U[3][1] = h - Cs * u
+	U[2][1] = vx - Cs
+	U[3][1] = hTotal - Cs * vx
 	-- vel
 	U[1][2] = 1
-	U[2][2] = u
-	U[3][2] = .5 * u*u
+	U[2][2] = vx
+	U[3][2] = .5 * vx*vx
 	-- fast
 	U[1][3] = 1
-	U[2][3] = u + Cs
-	U[3][3] = h + Cs * u
+	U[2][3] = vx + Cs
+	U[3][3] = hTotal + Cs * vx
 	
 	-- [[ symbolically
 	local V = sim.eigenvectorsInverse[i]
-	V[1][1] = (.5 * (gamma - 1) * u^2 + Cs * u) / (2 * Cs^2)
-	V[1][2] = -(Cs + (gamma - 1) * u) / (2 * Cs^2)
+	V[1][1] = (.5 * (gamma - 1) * vx^2 + Cs * vx) / (2 * Cs^2)
+	V[1][2] = -(Cs + (gamma - 1) * vx) / (2 * Cs^2)
 	V[1][3] = (gamma - 1) / (2 * Cs^2)
-	V[2][1] = 1 - (gamma - 1) * u^2 / (2 * Cs^2)
-	V[2][2] = (gamma - 1) * u / Cs^2
+	V[2][1] = 1 - (gamma - 1) * vx^2 / (2 * Cs^2)
+	V[2][2] = (gamma - 1) * vx / Cs^2
 	V[2][3] = -(gamma - 1) / Cs^2
-	V[3][1] = (.5 * (gamma - 1) * u^2 - Cs * u) / (2 * Cs^2)
-	V[3][2] = (Cs - (gamma - 1) * u) / (2 * Cs^2)
+	V[3][1] = (.5 * (gamma - 1) * vx^2 - Cs * vx) / (2 * Cs^2)
+	V[3][2] = (Cs - (gamma - 1) * vx) / (2 * Cs^2)
 	V[3][3] = (gamma - 1) / (2 * Cs^2)
 	--]]
 	--[[ numerically via cramers rule

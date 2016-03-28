@@ -61,19 +61,25 @@ function ADM1D5Var:init(args, ...)
 	self.calc.dalpha_f = dalpha_f:compile{args.f_param}
 end
 
-ADM1D5Var.graphInfos = table{
-	{viewport={0/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] end, name='alpha', color={1,0,1}},
-	{viewport={0/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][3] end, name='A_x', color={0,1,0}},
-	{viewport={1/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][2] end, name='gamma_xx', color={.5,.5,1}},
-	{viewport={1/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][4] end, name='D_xxx', color={1,1,0}},
-	{viewport={2/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][5] end, name='K_xx', color={0,1,1}},
-	{viewport={2/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] * sqrt(self.qs[i][2]) end, name='volume', color={0,1,1}},
-	{viewport={0/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
-	{viewport={1/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.fluxMatrixErrors[i]) end, name='log reconstruction error', color={1,0,0}, range={-30, 30}},
-}
-ADM1D5Var.graphInfoForNames = ADM1D5Var.graphInfos:map(function(info,i)
-	return info, info.name
-end)
+do
+	local q = function(self,i) return self.qs[i] end
+	local alpha = q:_(1)
+	local gamma_xx = q:_(2)
+	local A_x = q:_(3)
+	local D_xxx = q:_(4)
+	local K_xx = q:_(5)
+	local volume = alpha * math.sqrt:o(gamma_xx)
+	ADM1D5Var:buildGraphInfos{
+		{alpha = alpha},
+		{A_x = A_x},
+		{gamma_xx = gamma_xx},
+		{D_xxx = D_xxx},
+		{K_xx = K_xx},
+		{volume = volume},
+		{['log eigenbasis error'] = function(self,i) return math.log(self.eigenbasisErrors[i]) end},
+		{['log reconstuction error'] = function(self,i) return math.log(self.fluxMatrixErrors[i]) end},
+	}
+end
 
 function ADM1D5Var:initCell(sim,i)
 	local x = sim.xs[i]

@@ -87,7 +87,7 @@ do
 	--sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
 	--sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
 	--sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
-	sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
+	--sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D3to5Var(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D5Var(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM3D(equationArgs)})))
@@ -283,7 +283,7 @@ do
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
-	sims:insert(Roe(args))
+	--sims:insert(Roe(args))
 	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
 	--sims:insert(Roe(table(args, {usePPM=true})))
 	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .01})))
@@ -291,7 +291,7 @@ do
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
 	--sims:insert(Roe(table(args, {equation = MHD()})))
-	--sims:insert(require 'srhd1d_roe'(table(args, {gridsize=20, equation=require 'srhd1d'()})))
+	sims:insert(require 'srhd1d_roe'(table(args, {gridsize=20, equation=require 'srhd1d'()})))
 	--]=]
 
 	--[=[ compare flux limiters

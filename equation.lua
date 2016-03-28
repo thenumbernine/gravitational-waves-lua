@@ -5,7 +5,7 @@ local Equation = class()
 Equation.State = require 'state' 
 
 -- note this is to be used on the child class object
--- so 'self' is the subclass
+-- so 'self' is the subclass.  or the object.  either works.
 function Equation:buildGraphInfos(getters)
 	-- TODO give this functionality to Equation
 	self.graphInfos = table()
@@ -30,6 +30,9 @@ function Equation:buildGraphInfos(getters)
 		return info, info.name
 	end)
 end
+-- future TODO: build this once all graphs are collected, 
+-- so the graphs don't only have to match the first sim of the running set
+-- further future TODO: everything with ImGUI, and open and close windows and stuff
 
 local function buildField(matrixField)
 	return function(self, sim, i, v)

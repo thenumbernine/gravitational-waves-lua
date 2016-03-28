@@ -194,20 +194,34 @@ end
 --phi = -1/(4*n) ln gamma_xx
 -- exp(-4n phi) = gamma_xx for n=1
 -- volume = sqrt(gamma_xx) = sqrt(exp(-4n phi)) = exp(-2n phi)
-BSSNOK1D.graphInfos = table{
-	{viewport={0/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] end, name='alpha', color={1,0,1}},
-	{viewport={0/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][3] end, name='A_x', color={0,1,0}},
-	{viewport={1/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][2] end, name='phi', color={.5,.5,1}},
-	{viewport={1/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][4] end, name='Phi_x', color={1,1,0}},
-	{viewport={2/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][5] end, name='K', color={0,1,1}},
-	{viewport={2/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][6] end, name='ATilde_xx', color={0,1,1}},
-	--{viewport={0/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
-	--{viewport={1/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.fluxMatrixErrors[i]) end, name='log reconstruction error', color={1,0,0}, range={-30, 30}},
-	{viewport={2/3, 2/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] * math.exp(-2 * self.qs[i][2]) end, name='volume', color={0,1,1}},
-}
-BSSNOK1D.graphInfoForNames = BSSNOK1D.graphInfos:map(function(info,i)
-	return info, info.name
-end)
+-- but let's use n=3 regardless of this being a 1D sim.  I think that's the rule of thumb?
+do
+	-- TODO fix this.  gamma_xx and A_x are negatived ... 
+	-- I think the eigenvalues are negative ...
+	-- BIGGER TODO - stop using your own calculated eigenvectors from your own calculated flux. just use the book. that will fix a lot of things.
+	local q = function(self,i) return self.qs[i] end
+	local alpha = q:_(1)
+	local phi = q:_(2)
+	local gamma_xx = math.exp:o(-12 * phi)
+	local A_x = q:_(3)
+	local Phi_x = q:_(4)
+	local K = q:_(5)
+	local ATilde_xx = q:_(6)
+	local volume = alpha * math.sqrt:o(gamma_xx)
+	BSSNOK1D:buildGraphInfos{
+		{alpha = alpha},
+		{A_x = A_x},
+		{gamma_xx = gamma_xx},
+		{phi = phi},
+		{Phi_x = Phi_x},
+		{K = K},
+		{ATilde_xx = ATilde_xx},
+		{volume = volume},
+		{['log eigenbasis error'] = function(self,i) return math.log(self.eigenbasisErrors[i]) end},
+		{['log reconstuction error'] = function(self,i) return math.log(self.fluxMatrixErrors[i]) end},
+	}
+end
+
 
 function BSSNOK1D:initCell(sim,i)
 	local x = sim.xs[i]

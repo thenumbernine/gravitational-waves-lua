@@ -109,8 +109,8 @@ function Euler1DSS:iterate()
 	local dG_dU = dG_dU_T:transpose()
 
 	local G = calcG(U)
-	local dU = matrix(solveLinear(dG_dU, G))
-	local alpha = .001	-- alpha is the line trace coefficient
+	local dU = G--matrix(solveLinear(dG_dU, G))
+	local alpha = .01	-- alpha is the line trace coefficient
 	
 	U = U - alpha * dU
 	-- in absense of jacobian (J=I) and alpha=1 we should get ...

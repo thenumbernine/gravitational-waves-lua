@@ -153,19 +153,26 @@ function ADM1D3Var:init(args, ...)
 	self.calc.dalpha_f = dalpha_f:compile{f_param}
 end
 
-ADM1D3Var.graphInfos = table{
-	{viewport={0/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i].alpha end, name='alpha', color={1,0,1}},
-	{viewport={0/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][1] end, name='A_x', color={0,1,0}},
-	{viewport={1/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i].gamma_xx end, name='gamma_xx', color={.5,.5,1}},
-	{viewport={1/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][2] end, name='D_xxx', color={1,1,0}},
-	{viewport={2/3, 0/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i][3] / math.sqrt(self.qs[i].gamma_xx) end, name='K_xx', color={0,1,1}},
-	{viewport={2/3, 1/3, 1/3, 1/3}, getter=function(self,i) return self.qs[i].alpha * math.sqrt(self.qs[i].gamma_xx) end, name='volume', color={0,1,1}},
-	{viewport={0/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
-	{viewport={1/3, 2/3, 1/3, 1/3}, getter=function(self,i) return math.log(self.fluxMatrixErrors[i]) end, name='log reconstuction error', color={1,0,0}, range={-30, 30}},
-}
-ADM1D3Var.graphInfoForNames = ADM1D3Var.graphInfos:map(function(info,i)
-	return info, info.name
-end)
+do
+	local q = function(self,i) return self.qs[i] end
+	local alpha = q:_'alpha'
+	local gamma_xx = q:_'gamma_xx'
+	local A_x = q:_(1)
+	local D_xxx = q:_(2)
+	local KTilde_xx = q:_(3)
+	local K_xx = KTilde_xx / math.sqrt:o(gamma_xx)
+	local volume = alpha * math.sqrt:o(gamma_xx)
+	ADM1D3Var:buildGraphInfos{
+		{alpha = alpha},
+		{A_x = A_x},
+		{gamma_xx = gamma_xx},
+		{D_xxx = D_xxx},
+		{K_xx = K_xx},
+		{volume = volume},
+		{['log eigenbasis error'] = function(self,i) return math.log(self.eigenbasisErrors[i]) end},
+		{['log reconstuction error'] = function(self,i) return math.log(self.fluxMatrixErrors[i]) end},
+	}
+end
 
 local function buildField(call)
 	return function(self, sim, i, v)

@@ -12,49 +12,42 @@ MHD.gamma = 5/3
 MHD.mu = 1
 
 do
-	local rho = function(self,i) return self.qs[i][1] end
-	local vx = function(self,i) return self.qs[i][2]/rho(self,i) end
-	local vy = function(self,i) return self.qs[i][3]/rho(self,i) end
-	local vz = function(self,i) return self.qs[i][4]/rho(self,i) end
-	local bx = function(self,i) return self.qs[i][5] end
-	local by = function(self,i) return self.qs[i][6] end
-	local bz = function(self,i) return self.qs[i][7] end
-	local ETotal = function(self,i) return self.qs[i][8] end
-	local EMag = .5*(bx*bx + by*by + bz*bz) / function(self,i) return self.equation.mu end
+	local q = function(self,i) return self.qs[i] end
+	local mu = function(self,i) return self.equation.mu end
+	local gamma = function(self,i) return (self.equation.gamma - 1) end
+	local rho = q:_(1)
+	local mx, my, mz = q:_(2), q:_(3), q:_(4)
+	local bx, by, bz = q:_(5), q:_(6), q:_(7)
+	local ETotal = q:_(8)
+	local vx, vy, vz = mx/rho, my/rho, mz/rho
+	local EMag = .5*(bx^2 + by^2 + bz^2) / mu
 	local EHydro = ETotal - EMag
 	local EKin = .5 * rho * (vx^2 + vy^2 + vz^2)
 	local EInt = EHydro - EKin
-	local eInt = EInt / rho
-	local gamma = function(self,i) return (self.equation.gamma - 1) end
-	local p = eInt * gamma
-	local pStar = p + EMag
+	local P = (gamma - 1) * EInt
+	local PStar = P + EMag
+	local S = P / rho^gamma	-- mhd entropy the same as non-mhd?
 	-- [[ full mhd
-	MHD.graphInfos = table{
-		{viewport={0/4, 2/4, 1/4, 1/4}, getter=function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end, name='eigenbasis error', color={1,0,0}, range={-30, 30}},
-		{viewport={0/4, 3/4, 1/4, 1/4}, getter=function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end, name='reconstruction error', color={1,0,0}, range={-30, 30}},
-		{viewport={0/4, 0/4, 1/4, 1/4}, getter=rho, name='rho', color={1,0,1}},
-		{viewport={0/4, 1/4, 1/4, 1/4}, getter=p, name='p', color={1,0,1}},
-		{viewport={1/4, 0/4, 1/4, 1/4}, getter=vx, name='vx', color={0,1,0}},
-		{viewport={1/4, 1/4, 1/4, 1/4}, getter=vy, name='vy', color={0,1,0}},
-		{viewport={1/4, 2/4, 1/4, 1/4}, getter=vz, name='vz', color={0,1,0}},
-		{viewport={1/4, 3/4, 1/4, 1/4}, getter=pStar, name='pStar', color={0,1,0}},
-		{viewport={2/4, 0/4, 1/4, 1/4}, getter=bx, name='bx', color={.5,.5,1}},
-		{viewport={2/4, 1/4, 1/4, 1/4}, getter=by, name='by', color={.5,.5,1}},
-		{viewport={2/4, 2/4, 1/4, 1/4}, getter=bz, name='bz', color={.5,.5,1}},
-		{viewport={3/4, 0/4, 1/4, 1/4}, getter=ETotal, name='ETotal', color={1,1,0}},
-		{viewport={3/4, 1/4, 1/4, 1/4}, getter=EKin, name='EKin', color={1,1,0}},
-		{viewport={3/4, 2/4, 1/4, 1/4}, getter=EInt, name='EInt', color={1,1,0}},
-		{viewport={3/4, 3/4, 1/4, 1/4}, getter=EHydro, name='EHydro', color={1,1,0}},
-		{viewport={2/4, 3/4, 1/4, 1/4}, getter=EMag, name='EMag', color={1,1,0}},
+	MHD:buildGraphInfos{
+		{rho=rho},
+		{vx=vx}, {vy=vy}, {vz=vz},
+		{bx=bx}, {by=by}, {bz=bz},
+		{P=P}, {PStar=PStar},
+		{ETotal=ETotal}, {EKin=EKin}, {EInt=EInt}, {EHydro=EHydro}, {EMag=EMag},
+		{['eigenbasis error'] = function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end},
+		{['reconstruction error'] = function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end},
 	}
 	--]]
 	--[[ matching Euler
-	MHD.graphInfos = table{
-		{viewport={0/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][1] end, name='rho', color={1,0,1}},
-		{viewport={1/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][2] / self.qs[i][1] end, name='u', color={0,1,0}},
-		{viewport={2/3, 0/2, 1/3, 1/2}, getter=function(self,i) return self.qs[i][8] / self.qs[i][1] end, name='E', color={.5,.5,1}},
-		{viewport={0/3, 1/2, 1/3, 1/2}, getter=function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end, name='log eigenbasis error', color={1,0,0}, range={-30, 30}},
-		{viewport={1/3, 1/2, 1/3, 1/2}, getter=function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end, name='log reconstruction error', color={1,0,0}, range={-30, 30}},
+	MHD:buildGraphInfos{
+		{rho=rho},
+		{vx=vx},
+		{P=P},
+		{S=S},
+		{mom=mx},
+		{ETotal=ETotal},
+		{['eigenbasis error'] = function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end},
+		{['reconstruction error'] = function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end},
 	}
 	--]]
 end

@@ -136,34 +136,32 @@ function ADM2DSpherical:init(args, ...)
 	-- alpha, gamma_rr, gamma_hh/r^2
 	-- A_r, D_rrr, D_rhh/r
 	-- K_rr, K_hh, r V_r
-	local get_r = function(self,i) return self.xs[i] end
-	local get_state = function(self, i) return self.qs[i] end
-	local get_alpha = get_state:index(1)
-	local get_gamma_rr = get_state:index(2)
-	local get_gamma_hh = get_state:index(3)
-	local get_A_r = get_state:index(4)
-	local get_D_rrr = get_state:index(5)
-	local get_D_rhh = get_state:index(6)
-	local get_K_rr = get_state:index(7)
-	local get_K_hh = get_state:index(8)
-	local get_V_r = get_state:index(9)
-	self.graphInfos = table{
-		{viewport = {0/4, 0/3, 1/4, 1/3}, getter = get_alpha, name = 'alpha', color = {1,0,1}},
-		{viewport = {1/4, 0/3, 1/4, 1/3}, getter = get_gamma_rr, name = 'gamma_rr', color = {0,1,0}},
-		{viewport = {2/4, 0/3, 1/4, 1/3}, getter = get_gamma_hh / get_r^2, name = 'gamma_hh/r^2', color = {0,1,0}},
-		{viewport = {0/4, 1/3, 1/4, 1/3}, getter = get_A_r, name = 'A_r', color = {0,1,0}},
-		{viewport = {1/4, 1/3, 1/4, 1/3}, getter = get_D_rrr, name = 'D_rrr', color = {.5,.5,1}},
-		{viewport = {2/4, 1/3, 1/4, 1/3}, getter = get_D_rhh / get_r, name = 'D_rhh/r', color = {1,1,0}},
-		{viewport = {0/4, 2/3, 1/4, 1/3}, getter = get_K_rr, name = 'K_rr', color = {0,1,1}},
-		{viewport = {1/4, 2/3, 1/4, 1/3}, getter = get_K_hh, name = 'K_hh', color = {0,1,1}},
-		{viewport = {2/4, 2/3, 1/4, 1/3}, getter = get_V_r * get_r, name = 'V_r*r', color = {0,1,1}},
-		{viewport = {3/4, 0/3, 1/4, 1/3}, getter = function(self,i) return self.qs[i][1] * self.xs[i] * math.sqrt(self.qs[i][2] * self.qs[i][3]) end, name = 'volume', color = {0,1,1}},
-		{viewport = {3/4, 1/3, 1/4, 1/3}, getter = function(self,i) return math.log(self.eigenbasisErrors[i]) end, name = 'log eigenbasis error', color = {1,0,0}, range = {-30, 30}},
-		{viewport = {3/4, 2/3, 1/4, 1/3}, getter = function(self,i) return math.log(self.fluxMatrixErrors[i]) end, name = 'log reconstruction error', color = {1,0,0}, range = {-30, 30}},
+	local r = function(self,i) return self.xs[i] end
+	local q = function(self,i) return self.qs[i] end
+	local alpha = q:_(1)
+	local gamma_rr = q:_(2)
+	local gamma_hh = q:_(3)
+	local A_r = q:_(4)
+	local D_rrr = q:_(5)
+	local D_rhh = q:_(6)
+	local K_rr = q:_(7)
+	local K_hh = q:_(8)
+	local V_r = q:_(9)
+	local volume = alpha * r * math.sqrt:o(gamma_rr * gamma_hh)
+	self:buildGraphInfos{
+		{alpha = alpha},
+		{gamma_rr = gamma_rr},
+		{['gamma_hh/r^2'] = gamma_hh / r^2},
+		{A_r = A_r},
+		{D_rrr = D_rrr},
+		{['D_rhh/r'] = D_rhh / r},
+		{K_rr = K_rr},
+		{K_hh = K_hh},
+		{['V_r*r'] = V_r * r},
+		{volume = volume},
+		{['log eigenbasis error'] = function(self,i) return math.log(self.eigenbasisErrors[i]) end},
+		{['log reconstruction error'] = function(self,i) return math.log(self.fluxMatrixErrors[i]) end},
 	}
-	self.graphInfoForNames = self.graphInfos:map(function(info,i)
-		return info, info.name
-	end)
 end
 
 function ADM2DSpherical:initCell(sim,i)
