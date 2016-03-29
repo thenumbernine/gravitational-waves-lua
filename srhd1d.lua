@@ -122,6 +122,7 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	-- so how do you figure 'h' for the eigenvector calculations?
 	local h = (hL * roeWeightL + hR * roeWeightR) * normalize
 	local rho = (rhoL * roeWeightL + rhoR * roeWeightR) * normalize
+	local P = P_over_rho_h * rho * h
 --]]
 --[[ arithmetic averaging
 	local rho = (rhoL + rhoR) / 2
@@ -209,9 +210,9 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	dF_dW[1][1] = W * vx
 	dF_dW[2][1] = h * W * W * vx * vx - P / rho 
 	dF_dW[3][1] = (h * W - 1) * W * vx
-	dF_dW[1][2] = D * (W * W * vx * vx + 1)
-	dF_dW[2][2] = rho * h * W * W * (2 * W * W * vx * vx + 1) * vx + Sx
-	dF_dW[3][2] = rho * h * W * W * (2 * W * W * vx * vx + 1) - D * (W * W * vx * vx + 1)
+	dF_dW[1][2] = rho * W * (W * W * vx * vx + 1)
+	dF_dW[2][2] = rho * h * W * W * (2 * W * W * vx * vx + 1) * vx + rho * h * W * W * vx
+	dF_dW[3][2] = rho * h * W * W * (2 * W * W * vx * vx + 1) - rho * W * (W * W * vx * vx + 1)
 	dF_dW[1][3] = 0
 	dF_dW[2][3] = gamma * rho * W * W * vx * vx - (gamma - 1) * rho
 	dF_dW[3][3] = gamma * rho * W * W * vx
@@ -228,7 +229,15 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	dU_dW[3][3] = rho * (gamma * W * W - (gamma - 1))
 	local dW_dU = mat33.inv(dU_dW)
 
-	sim.fluxMatrix[i] = matrix.mul(dF_dW, dW_dU)
+	for j=1,3 do
+		for k=1,3 do
+			local sum = 0
+			for l=1,3 do
+				sum = sum + dF_dW[j][l] * dW_dU[l][k]
+			end
+			sim.fluxMatrix[i][j][k] = sum
+		end
+	end
 end
 
 local function checknan(x, msg)
