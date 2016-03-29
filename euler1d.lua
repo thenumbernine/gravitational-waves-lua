@@ -162,20 +162,17 @@ function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local vx = (weightL * vxL + weightR * vxR) / (weightL + weightR)
 	local hTotal = (weightL * hTotalL + weightR * hTotalR) / (weightL + weightR)
 	
-	-- TODO this is only used for flux, so just use hTotal
-	local eTotal = (weightL * eTotalL + weightR * eTotalR) / (weightL + weightR)
-	
 	local Cs = sqrt((gamma - 1) * (hTotal - .5 * vx^2))
 	
 	local F = sim.fluxMatrix[i]
 	F[1][1] = 0
 	F[1][2] = 1
 	F[1][3] = 0
-	F[2][1] = (gamma-3)/2*vx*vx
-	F[2][2] = (3-gamma)*vx
-	F[2][3] = gamma-1
-	F[3][1] = -vx*(gamma*eTotal + (1-gamma)*vx*vx)
-	F[3][2] = hTotal + (1-gamma) * vx*vx
+	F[2][1] = .5 * (gamma - 3) * vx * vx
+	F[2][2] = (3 - gamma) * vx
+	F[2][3] = gamma - 1
+	F[3][1] = vx * (.5 * (gamma - 1) * vx * vx - hTotal)
+	F[3][2] = hTotal - (gamma - 1) * vx * vx
 	F[3][3] = gamma * vx
 	
 	local S = sim.eigenvalues[i]
