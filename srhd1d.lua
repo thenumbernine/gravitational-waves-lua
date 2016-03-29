@@ -13,18 +13,20 @@ do
 	local rho = prim:_'rho'	-- rest-mass rho
 	local vx = prim:_'vx'
 	local P = prim:_'P'
-	local eInt = prim:_'eInt'	-- hmm this looks like densitized internal energy
-	local h = prim:_'h'			-- and this looks densitized too ...
+	local eInt = prim:_'eInt'
+	local h = prim:_'h'
+	local H = h * rho
+	local EInt = eInt * rho
 	local D = q:_(1)	-- rho * W
-	local W = D / rho	-- Lorentz factor
 	local Sx = q:_(2)	-- rho h W^2 vx
 	local tau = q:_(3)	-- rho h W^2 - P - D
+	local W = D / rho	-- Lorentz factor
 	SRHD1D:buildGraphInfos{
 		{rho = rho},
 		{vx = vx},
 		{P = P},
---		{EInt = EInt},
---		{H = H},
+		{EInt = EInt},
+		{H = H},
 		{D = D},
 		{Sx = Sx},
 		{tau = tau},
@@ -42,14 +44,15 @@ local function energyInternalFromPressure(rho, P)
 end
 
 function SRHD1D:initCell(sim,i)
+	local x = sim.xs[i]
 	--primitives:
 	-- [[ Sod
 	-- density 
-	local rho = sim.xs[i] < 0 and 1 or .1
+	local rho = x < 0 and 1 or .125
 	-- local velocity
 	local vx = 0
 	-- local pressure
-	local P = 1
+	local P = 1 -- x < 0 and 1 or .1
 	--]]
 	-- specific internal energy ... unspecified by the paper, but I'll use ideal gas heat capacity ratio
 	local eInt = energyInternalFromPressure(rho, P)
@@ -66,7 +69,6 @@ function SRHD1D:initCell(sim,i)
 	-- energy density
 	local tau = rho * h * W^2 - P - D
 	-- store primitive variables for later use
-	print('assigning primitives to cell',i)
 	sim.primitives[i] = {rho=rho, vx=vx, h=h, eInt=eInt, P=P}
 	-- use conservative variables with the Roe scheme
 	return {D, Sx, tau}
@@ -82,12 +84,12 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local eIntL = primL.eInt
 	local vxL = primL.vx
 	local PL = pressureFunc(rhoL, eIntL)
-	local kL = math.sqrt(sqrtAbsGL * rhoL * hL)
+	local roeWeightL = math.sqrt(sqrtAbsGL * rhoL * hL)
 	local DL = qL[1]
 	local WL = DL / rhoL
 	local u0L = WL
 	local u1L = vxL * u0L
-	local wL = {u0L, u1L, PL / (rhoL * hL)}
+	local roeVarsL = {u0L, u1L, PL / (rhoL * hL)}
 
 	local sqrtAbsGR = 1
 	local primR = sim.primitives[i]
@@ -97,41 +99,48 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local eIntR = primR.eInt
 	local vxR = primR.vx
 	local PR = pressureFunc(rhoR, eIntR)
-	local kR = math.sqrt(sqrtAbsGR * rhoR * hR)
+	local roeWeightR = math.sqrt(sqrtAbsGR * rhoR * hR)
 	local DR = qR[1]
 	local WR = DR / rhoR
 	local u0R = WR
 	local u1R = vxR * u0R
-	local wR = {u0R, u1R, PR / (rhoR * hR)}
+	local roeVarsR = {u0R, u1R, PR / (rhoR * hR)}
 
---[[ roe averaging.  i need to find a paper that describes how to average all variables, and not just these ...
-	local w = {}
+-- [[ roe averaging.  i need to find a paper that describes how to average all variables, and not just these ...
+	local normalize = 1 / (roeWeightL + roeWeightR)
+	local roeVars = {}
 	for i=1,3 do
-		w[i] = (wL[i] * kL + wR[i] * kR) / (kL + kR)
+		roeVars[i] = (roeVarsL[i] * roeWeightL + roeVarsR[i] * roeWeightR) * normalize
 	end
-	local W = w[1]	-- = u0
-	local u1 = w[2]	-- = vx * W
-	-- TODO now recover the prim values from the Roe averaged 4-velocities
+	local W = roeVars[1]	-- = u0
+	local u1 = roeVars[2]	-- = vx * W
 	local vx = u1 / W
+	-- eInt / h = (p / (rho h)) / (gamma - 1) 
+	local P_over_rho_h = roeVars[3]
+
+	-- so how do you figure 'h' for the eigenvector calculations?
+	local h = (hL * roeWeightL + hR * roeWeightR) * normalize
+	local rho = (rhoL * roeWeightL + rhoR * roeWeightR) * normalize
 --]]
--- [[ arithmetic averaging
-	local W = (WL + WR) / 2
+--[[ arithmetic averaging
 	local rho = (rhoL + rhoR) / 2
 	local eInt = (eIntL + eIntR) / 2
 	local vx = (vxL + vxR) / 2
+	local W = 1/math.sqrt(1-vx^2)
+	local P = pressureFunc(rho, eInt)
+	local h = 1 + eInt + P/rho
+	local P_over_rho_h = P / (rho  * h)
 --]]
 	
 	local vSq = vx^2 -- + vy^2 + vz^2
-	-- w[3] = P / (rho * h) <=> h = P(rho,eInt) / (rho * w[3])
-	-- so how do you recover eInt, rho, and h from w[3]?
-	local P = pressureFunc(rho, eInt)
-	local h = 1 + eInt + P/rho
-	local csSq = gamma * P / (rho * h)
+	local csSq = gamma * P_over_rho_h
 	local cs = math.sqrt(csSq)
 
-	local discr = math.sqrt((1 - vSq) * (1 - vx * vx - (vSq - vx * vx) * csSq))
-	
+	-- Marti 1998 eqn 19
+	-- also Marti & Muller 2008 eqn 68
+	-- also Font 2008 eqn 106
 	local lambda = sim.eigenvalues[i]
+	local discr = math.sqrt((1 - vSq) * ((1 - vSq * csSq) - vx * vx * (1 - csSq)))
 	-- slow
 	lambda[1] = (vx * (1 - csSq) - cs * discr) / (1 - vSq * csSq)
 	-- med
@@ -139,68 +148,59 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	-- fast
 	lambda[3] = (vx * (1 - csSq) + cs * discr) / (1 - vSq * csSq)
 
-	local Aminus = (1 - vx * vx) / (1 - vx * lambda[1])
-	local Aplus  = (1 - vx * vx) / (1 - vx * lambda[3])
+	-- Font 2008 eqn 113
+	local VXMinus = (vx - lambda[3]) / (1 - vx * lambda[1])
+	local VXPlus = (vx - lambda[1]) / (1 - vx * lambda[3])
+	local AXTildeMinus = (1 - vx * vx) / (1 - vx * lambda[1])
+	local AXTildePlus = (1 - vx * vx) / (1 - vx * lambda[3])
+
+	--Font 2008 finally says that kappa = dp/deInt
+	-- Marti & Muller 2008, Alcubierre 2008, and a few others I'm betting all have the eigenvalues, vectors, all the same ... but forget kappa
+	local kappa = (gamma - 1) * rho
 	
-	--local kappa = ...
-	--local kappaTilde = kappa / rho
-	--local Kappa = kappaTilde / (kappaTilde - csSq)
-	-- "for an ideal gas equation of state, Kappa = h, so Kappa > 1, so Delta != 0 for |vx| < 1"
-	-- but doesn't vx have no limit? doesn't the lorentz transform map [0,inf) to [0,1] ?
-	local Kappa = h
+	-- Font 2008 eqn 112
+	local CXMinus = vx - VXMinus
+	local CXPlus  = vx - VXPlus
+	local kappaTilde = kappa / rho
+	local Kappa = kappaTilde / (kappaTilde - csSq)
 
 	local evr = sim.eigenvectors[i]
 	-- r- is the slow column
 	evr[1][1] = 1
-	evr[2][1] = h * W * Aminus * lambda[1]
-	-- h * W * vy
-	-- h * W * vz
-	evr[3][1] = h * W * Aminus - 1
+	evr[2][1] = h * W * CXMinus
+	evr[3][1] = h * W * CXMinus - 1
 
 	-- r0,1 is the velocity wave in the x direction
 	evr[1][2] = Kappa / (h * W)
 	evr[2][2] = vx
-	-- vy
-	-- vz
 	evr[3][2] = 1 - Kappa / (h * W)
-
-	-- r0,2 = (W * vy, 2 * h * W^2 * vx * vy, h * (1 + 2 * W^2 * vy^2),    2 * h * W^2 * vy * vz, (2 * h * W - 1) * W * vy)
-	-- r0,3 = (W * vz, 2 * h * W^2 * vx * vz, h * (1 + 2 * W^2 * vy * vz), 2 * h * W^2 * vz^2,    (2 * h * W - 1) * W * vz)
 
 	-- r+ is the fast column
 	evr[1][3] = 1
-	evr[2][3] = h * W * Aplus * lambda[3]
-	-- h * W * vy
-	-- h * W * vz
-	evr[3][3] = h * W * Aplus - 1
+	evr[2][3] = h * W * CXPlus
+	evr[3][3] = h * W * CXPlus - 1
 
-	local Delta = h^3 * W * (Kappa - 1) * (1 - vx^2) * (Aplus * lambda[3] - Aminus * lambda[1])
-	local evl = sim.eigenvectorsInverse[i]
+	-- Font 2008 eqn 121
+	local xi = 1 - vx * vx
+	local Delta = h^3 * W * (Kappa - 1) * (CXPlus - CXMinus) * xi
+
+	-- Font 2008 eqn 118
 	-- Notice the left slow/fast vectors has a def wrt -+ and then uses 20x over +- ... I think the -+ might be a typo ... why would anything be defined in terms of -+?  usually -+ is used to denote the negative of a +- definition
-	-- if not then just swap the fast and the slow waves
+	local evl = sim.eigenvectorsInverse[i]
 	-- l- is the slow row
-	evl[1][1] = -h^2 / Delta * (h * W * Aminus * (vx - lambda[1]) - vx - W^2 * (vSq - vx^2) * (2 * Kappa - 1) * (vx - Aminus * lambda[1]) + Kappa * Aminus * lambda[1])
-	evl[1][2] = -h^2 / Delta * (1 + W^2 * (vSq - vx^2) * (2 * Kappa - 1) * (1 - Aminus) - Kappa * Aminus)
-	-- vy (-h^2 / Delta * W^2 (2 Kappa - 1) Aminus (vx - lambda[1]))
-	-- vz (-h^2 / Delta * W^2 (2 Kappa - 1) Aminus (vx - lambda[1]))
-	evl[1][3] = -h^2 / Delta * (-vx - W^2 * (vSq - vx^2) * (2 * Kappa - 1) * (vx - Aminus * lambda[1]) + Kappa * Aminus * lambda[1])
+	evl[1][2] = -h^2 / Delta * ((1 - Kappa * AXTildePlus) + (2 * Kappa - 1) * VXPlus * (W * W * vx * xi - vx))
+	evl[1][3] = -h^2 / Delta * ((1 - Kappa) * (-vx + VXPlus * (W * W * xi - 1)) - Kappa * W * W * VXPlus * xi)
+	evl[1][1] = -h^2 / Delta * (h * W * VXPlus * xi + Delta / h^2 * evl[1][3])
 	
 	-- l0,1 is the velocity wave in the x direction
 	evl[2][1] = W / (Kappa - 1) * (h - W)
-	evl[2][2] = W / (Kappa - 1) * W * vx
-	-- W / (Kappa - 1) * W * vy
-	-- W / (Kappa - 1) * W * vz
+	evl[2][2] = W / (Kappa - 1) * (W * vx)
 	evl[2][3] = W / (Kappa - 1) * (-W)
 
-	-- l0,2 = (-vy, vx vy, 1 - vx^2, 0, -vy) / (h(1 - vx^2))
-	-- l0,3 = (-vz, vx vz, 0, 1 - vx^2, -vz) / (h(1 - vx^2))
-
 	-- l+ is the fast row
-	evl[3][1] = h^2 / Delta * (h * W * Aplus * (vx - lambda[3]) - vx - W^2 * (vSq - vx^2) * (2 * Kappa - 1) * (vx - Aplus * lambda[3]) + Kappa * Aplus * lambda[3])
-	evl[3][2] = h^2 / Delta * (1 + W^2 * (vSq - vx^2) * (2 * Kappa - 1) * (1 - Aplus) - Kappa * Aplus)
-	-- vy (h^2 / Delta * W^2 (2 Kappa - 1) Aplus (vx - lambda[3]))
-	-- vz (h^2 / Delta * W^2 (2 Kappa - 1) Aplus (vx - lambda[3]))
-	evl[3][3] = h^2 / Delta * (-vx - W^2 * (vSq - vx^2) * (2 * Kappa - 1) * (vx - Aplus * lambda[3]) + Kappa * Aplus * lambda[3])
+	evl[3][2] = h^2 / Delta * ((1 - Kappa * AXTildeMinus) + (2 * Kappa - 1) * VXMinus * (W * W * vx * xi - vx))
+	evl[3][3] = h^2 / Delta * ((1 - Kappa) * (-vx + VXMinus * (W * W * xi - 1)) - Kappa * W * W * VXMinus * xi)
+	evl[3][1] = h^2 / Delta * (h * W * VXMinus * xi + Delta / h^2 * evl[3][3])
 
 	-- has to be defined, even if it's not used ...
 	-- TODO fix that
@@ -212,35 +212,89 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	end
 end
 
+local function checknan(x, msg)
+	assert(x==x, msg or "nan")
+end
+
 function SRHD1D:calcPrims(sim,i,prims, qs)
-	-- start with last iteration's pressure prim as our initial guess
-	local PStar = pressureFunc(prims.rho, prims.eInt)
+	local rho = prims.rho
+	local eInt = prims.eInt
 
 	-- use the new state variables to newton converge
 	local D, Sx, tau = table.unpack(qs)
-	for iter=1,100 do
-		local vxStar = Sx / (tau + D + PStar)
-		local vSqStar = vxStar^2	-- + vyStar^2 + vzStar^2
-		local WStar = 1 / math.sqrt(1 - vSqStar)
-		local eIntStar = (tau + D * (1 - WStar) + PStar * (1 - WStar^2)) / (D * WStar)
-		local rhoStar = D / WStar
-		local csSqStar = gamma * PStar / (rhoStar * PStar)	-- Alcubierre, 7.6.52
+	
+	-- code with Marti & Muller 2008:
+	D = math.max(D, 1e-10)
+	tau = math.max(tau, 1e-10)
+
+	-- superluminal velocity will occur if |S| > tau + D + P
+	-- i.e. if P < |S| - tau - D
+	local absSx = math.abs(Sx)
+	local velEpsilon = 1e-10
+	local PMin = math.max(absSx - tau - D + absSx * velEpsilon, 1e-16)
+
+	-- this is in the Marti & Muller 2008 code ...
+	-- where do they get this from?
+	local PMax = (gamma - 1) * tau
+	-- why is there an upper bound again?
+	--assert(PMax >= PMin, "pmax="..PMax.." < pmin="..PMin)
+	PMax = math.max(PMax, PMin)
+
+	-- start with a guess between PMin and PMax 
+	local P = .5 * (PMin + PMax)
+checknan(P)
+
+	local maxiter = 1000
+	for iter=1,maxiter do
+		local vx = Sx / (tau + D + P)
+-- PMin should prevent this from occuring
+if math.abs(vx) > 1 then
+	error("superluminal vx="..vx.." Sx="..Sx.." tau="..tau.." D="..D.." P="..P)
+end
+		-- in the case that this happens, the delta P can still be huge, but the min() keeps us in place ... 
+		-- if we run up against the boundary then we should exit as well
+checknan(vx)
+		local vSq = vx^2	-- + vy^2 + vz^2
+checknan(vSq)
+		local W = 1 / math.sqrt(1 - vSq)
+checknan(W, "W nan, vSq="..vSq.." vx="..vx)
+		eInt = (tau + D * (1 - W) + P * (1 - W^2)) / (D * W)
+checknan(eInt, "eInt nan, tau="..tau.." D="..D.." W="..W.." P="..P)
+		rho = D / W
+checknan(rho)
+
 		-- for f = pressureFunc = (gamma - 1) * rho * eInt
-		local f = pressureFunc(rhoStar, eIntStar) - PStar
-		local df_dPStar = vSqStar * csSqStar - 1
-		-- hmm, seems to be diverging ...
-		local deltaPStar = -f / df_dPStar
-		print(i,'deltaPStar',deltaPStar)
-		if math.abs(deltaPStar) < 1e-7 then
-			prims.rho = rhoStar
-			prims.vx = vxStar
-			prims.eInt = eIntStar
-			prims.h = 1 + eIntStar + PStar/rhoStar
-			prims.P = PStar
+		-- Marti & Muller 2008, eqn 61
+		local f = pressureFunc(rho, eInt) - P
+checknan(f)
+		
+		-- Alcubierre, 7.6.52
+		--local csSq = gamma * P / (rho * P)	
+		-- however the code with Marti & Muller uses a different equation for the cs^2 term of df/dp:
+		local csSq = (gamma - 1) * (tau + D * (1 - W) + P) / (tau + D + P)
+checknan(csSq)
+		local df_dP = vSq * csSq - 1
+checknan(df_dP)
+		
+		-- code with Marti & Muller says to keep things above PMin ...
+		local newP = P - f / df_dP
+		newP = math.max(newP, PMin)
+checknan(newP)
+		
+		-- Marti & Muller 2008 code ...
+		local PError = math.abs(1 - newP / P)
+		P = newP
+checknan(P)
+		if math.abs(PError) < 1e-8 or iter == maxiter then
+			prims.P = P
+			prims.rho = rho
+			prims.vx = Sx / (tau + D + P)
+			if prims.vx < velEpsilon^2 then prims.vx = 0 end
+			-- Marti & Muller 2008 recompute eInt here
+			prims.eInt = P / (rho * (gamma - 1))
+			prims.h = 1 + eInt + P/rho
 			break
 		end
-		PStar = PStar + deltaPStar
-		if iter==100 then error("failed to converge") end
 	end
 end
 

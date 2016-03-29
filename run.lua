@@ -291,7 +291,7 @@ do
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
 	--sims:insert(Roe(table(args, {equation = MHD()})))
-	sims:insert(require 'srhd1d_roe'(table(args, {gridsize=20, equation=require 'srhd1d'()})))
+	sims:insert(require 'srhd1d_roe'(table(args, {gridsize=200, equation=require 'srhd1d'()})))
 	--]=]
 
 	--[=[ compare flux limiters

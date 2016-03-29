@@ -246,10 +246,7 @@ function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
 	-- slope limit on interface difference
 	self:calcRTildes(getLeft, getRight)
 
-	-- phis based on eigenvalues and flux limiter of rTildes
-	self:calcPhis(dt)
-
---[=[ uses fluxes (and optionally the flux matrix)
+-- [=[ uses fluxes (and optionally the flux matrix)
 	local useFluxMatrix = false
 	
 	-- transform back
@@ -299,7 +296,11 @@ function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
 	end
 	return dq_dts
 --]=]
--- [=[ doesn't use the flux vector (extra calculations) but uses the same routine that the implicit solver uses
+--[=[ doesn't use the flux vector (extra calculations) but uses the same routine that the implicit solver uses
+	-- NOTICE this method is required for certain subclasses, but I'm going to phase that out
+	-- phis based on eigenvalues and flux limiter of rTildes
+	self:calcPhis(dt)
+	
 	return self:calcDeriv(getLeft, getRight)
 --]=]
 end

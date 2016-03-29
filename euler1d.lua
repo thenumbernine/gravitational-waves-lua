@@ -70,14 +70,20 @@ function Euler1D:initCell(sim,i)
 	local P = 1 + .1 * (math.exp(-x^2/sigma^2) + 1) / ((gamma - 1) * rho)
 	--]]
 	--[[ rarefaction wave
+	local delta = .1
 	local rho = 1	--x<0 and .2 or .8
-	local vx = x<0 and .4 or .6
+	local vx = x<0 and .5-delta or .5+delta
 	local P = 1
 	--]]
 	-- [[ Sod
 	local rho = x < 0 and 1 or .125
 	local vx = 0
 	local P = x < 0 and 1 or .1
+	--]]
+	--[[ shock wave from numerical srhd paper marti & muller 2008
+	local rho = 1
+	local vx = x < 0 and .5 or 0
+	local P = x < 0 and 1e+3 or 1
 	--]]
 	--[[ Sedov
 	local rho = 1
@@ -191,8 +197,8 @@ function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	U[2][3] = vx + Cs
 	U[3][3] = hTotal + Cs * vx
 	
-	-- [[ symbolically
 	local V = sim.eigenvectorsInverse[i]
+	-- [[ symbolically
 	V[1][1] = (.5 * (gamma - 1) * vx^2 + Cs * vx) / (2 * Cs^2)
 	V[1][2] = -(Cs + (gamma - 1) * vx) / (2 * Cs^2)
 	V[1][3] = (gamma - 1) / (2 * Cs^2)

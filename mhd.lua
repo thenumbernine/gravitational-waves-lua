@@ -70,7 +70,7 @@ function MHD:initCell(sim,i)
 	--local bx, by, bz = 0, 1, 0	-- constant field works
 	--]]
 	-- [[ Sod
-	local bx, by, bz = 0, 0, 0	-- zero field works
+	local bx, by, bz = 0, 0, 0	-- zero field works ... sort of.
 	--]]
 	local p = x < 0 and 1 or .1
 	local eInt = p / (gamma-1)
