@@ -191,7 +191,7 @@ function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	-- vel
 	U[1][2] = 1
 	U[2][2] = vx
-	U[3][2] = .5 * vx*vx
+	U[3][2] = .5 * vx * vx
 	-- fast
 	U[1][3] = 1
 	U[2][3] = vx + Cs
