@@ -3,7 +3,7 @@ see the symmath/tests/numerical_relativity_codegen.lua for more info
 --]]
 local class = require 'ext.class'
 local Equation = require 'equation'
-local mat33 = require 'mat33'
+local mat33sym = require 'mat33sym'
 local symmath = require 'symmath'
 
 local ADM3D = class(Equation)
@@ -60,7 +60,7 @@ function ADM3D:init(args, ...)
 		makesym'K_zz' or symmath.Constant(0),	--zz
 	}
 	
-	local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33.inv(unpack(exprs.gamma))
+	local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33sym.inv(unpack(exprs.gamma))
 	exprs.gammaU = table{gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz}
 	exprs.D = vars:map(function(x_k)
 		return exprs.gamma:map(function(gamma_ij)
@@ -144,7 +144,7 @@ function ADM3D:init(args, ...)
 		local gamma_yy = q:_(5)
 		local gamma_yz = q:_(6)
 		local gamma_zz = q:_(7)
-		getters:insert{volume = alpha * math.sqrt:o(mat33.det(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz))}
+		getters:insert{volume = alpha * math.sqrt:o(mat33sym.det(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz))}
 	end
 	getters:append{
 		{['log eigenbasis error'] = function(self,i) return math.log(self.eigenbasisErrors[i]) end},
@@ -206,14 +206,14 @@ function ADM3D:eigenfields(sim, i, v)
 	end
 	local alpha = avgQ[1]
 	local gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz = unpack(avgQ, 2, 7)
-	local gamma = mat33.det(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
+	local gamma = mat33sym.det(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
 	local A_x, A_y, A_z = unpack(avgQ, 8, 10)
 	local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(avgQ, 11, 16)
 	local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(avgQ, 17, 22)
 	local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(avgQ, 23, 28)
 	local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = unpack(avgQ, 29, 34)
 	local V_x, V_y, V_z = unpack(avgQ, 35, 37)
-	local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
+	local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33sym.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
 	local f = self.calc.f(alpha)
 
 	-- cell variables
@@ -275,14 +275,14 @@ function ADM3D:eigenfieldsInverse(sim, i, v)
 	end
 	local alpha = avgQ[1]
 	local gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz = unpack(avgQ, 2, 7)
-	local gamma = mat33.det(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
+	local gamma = mat33sym.det(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
 	local A_x, A_y, A_z = unpack(avgQ, 8, 10)
 	local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(avgQ, 11, 16)
 	local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(avgQ, 17, 22)
 	local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(avgQ, 23, 28)
 	local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = unpack(avgQ, 29, 34)
 	local V_x, V_y, V_z = unpack(avgQ, 35, 37)
-	local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
+	local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33sym.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
 	local f = self.calc.f(alpha)
 
 	-- right eigenvectors in x:
@@ -392,7 +392,7 @@ function ADM3D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(avgQ, 23, 28)
 	local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = unpack(avgQ, 29, 34)
 	local V_x, V_y, V_z = unpack(avgQ, 35, 37)
-	local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
+	local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33sym.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
 	local f = self.calc.f(alpha)
 
 	local lambdaLight = alpha * sqrt(gammaUxx)
@@ -434,7 +434,7 @@ function ADM3D:sourceTerm(sim, qs)
 		local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(qs[i], 23, 28)
 		local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = unpack(qs[i], 29, 34)
 		local V_x, V_y, V_z = unpack(qs[i], 35, 37)
-		local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
+		local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33sym.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
 		local f = self.calc.f(alpha)
 
 		-- constraint variables for K_ij and V_k
@@ -746,7 +746,7 @@ function ADM3D:postIterate(sim, qs)
 		local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(qs[i], 17, 22)
 		local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(qs[i], 23, 28)
 		local V_x, V_y, V_z = unpack(qs[i], 35, 37)
-		local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
+		local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33sym.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
 	
 		-- [[ direct assign (seems like this would be constantly overwriting the V_k source term contribution
 		qs[i][35] = 

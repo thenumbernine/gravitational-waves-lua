@@ -1,5 +1,6 @@
 local class = require 'ext.class'
 local Equation = require 'equation'
+local mat33 = require 'mat33'
 
 local SRHD1D = class(Equation)
 SRHD1D.name = 'SRHD 1D'
@@ -202,14 +203,32 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	evl[3][3] = h^2 / Delta * ((1 - Kappa) * (-vx + VXMinus * (W * W * xi - 1)) - Kappa * W * W * VXMinus * xi)
 	evl[3][1] = h^2 / Delta * (h * W * VXMinus * xi + Delta / h^2 * evl[3][3])
 
-	-- has to be defined, even if it's not used ...
-	-- TODO fix that
-	local F = sim.fluxMatrix[i]
-	for i=1,3 do
-		for j=1,3 do
-			F[i][j] = 0
-		end
-	end
+	-- define the flux matrix to see how accurate our 
+	local dF_dW = {{},{},{}}
+	dF_dW[1] = {}
+	dF_dW[1][1] = W * vx
+	dF_dW[2][1] = h * W * W * vx * vx - P / rho 
+	dF_dW[3][1] = (h * W - 1) * W * vx
+	dF_dW[1][2] = D * (W * W * vx * vx + 1)
+	dF_dW[2][2] = rho * h * W * W * (2 * W * W * vx * vx + 1) * vx + Sx
+	dF_dW[3][2] = rho * h * W * W * (2 * W * W * vx * vx + 1) - D * (W * W * vx * vx + 1)
+	dF_dW[1][3] = 0
+	dF_dW[2][3] = gamma * rho * W * W * vx * vx - (gamma - 1) * rho
+	dF_dW[3][3] = gamma * rho * W * W * vx
+	
+	local dU_dW = {{},{},{}}
+	dU_dW[1][1] = W
+	dU_dW[2][1] = h * W * W * vx
+	dU_dW[3][1] = W * (h * W - 1) * (gamma - 1)
+	dU_dW[1][2] = rho * W * W * W * vx
+	dU_dW[2][2] = rho * h * W * W * (2 * W * W * vx * vx + 1)
+	dU_dW[3][2] = rho * W * W * W * vx * (2 * h * W - 1)
+	dU_dW[1][3] = 0
+	dU_dW[2][3] = gamma * rho * W * W * vx
+	dU_dW[3][3] = rho * (gamma * W * W - (gamma - 1))
+	local dW_dU = mat33.inv(dU_dW)
+
+	sim.fluxMatrix[i] = matrix.mul(dF_dW, dW_dU)
 end
 
 local function checknan(x, msg)
