@@ -191,6 +191,18 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	evr[1][3] = 1
 	evr[2][3] = hW * APlus * lambda[3]
 	evr[3][3] = hW * APlus - 1
+
+	local Delta = h*h*h * W * (Kappa - 1) * (1 - vxSq) * (APlus * lambda[3] - AMinus * lambda[1])
+	local evl = sim.eigenvectorsInverse[i]
+	evl[1][1] = hSq / Delta * ( hW * APlus * (vx - lambda[3]) - vx - W2 * (vSq - vxSq) * (2 * Kappa - 1) * (vx - APlus * lambda[3]) + Kappa * APlus * lambda[3] )
+	evl[1][2] = hSq / Delta * (1 + W2 * (vSq - vxSq) * (2 * Kappa - 1) * (1 - APlus) - Kappa * APlus )
+	evl[1][3] = hSq / Delta * (-vx - W2 * (vSq - vxSq) * (2 * Kappa - 1) * (vx - APlus * lambda[3]) + Kappa * APlus * lambda[3] )
+	evl[2][1] = W / (Kappa - 1) * (h - W)
+	evl[2][2] = W / (Kappa - 1) * W * vx
+	evl[2][3] = W / (Kappa - 1) * -W
+	evl[3][1] = -hSq / Delta * (hW * AMinus * (vx - lambda[1]) - vx - W2 * (vSq - vxSq) * (2 * Kappa - 1) * (vx - AMinus * lambda[1]) + Kappa * AMinus * lambda[1] )
+	evl[3][2] = -hSq / Delta * (1 + W2 * (vSq - vxSq) * (2 * Kappa - 1) * (1 - AMinus) - Kappa * AMinus )
+	evl[3][3] = -hSq / Delta * (-vx - W2 * (vSq - vxSq) * (2 * Kappa - 1) * (vx - AMinus * lambda[1]) + Kappa * AMinus * lambda[1] )
 --]=]
 --[=[ Font 2008
 	-- Font 2008 eqn 113
@@ -242,11 +254,11 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	evl[3][3] = hSq / Delta * ((1 - Kappa) * (-vx + VXMinus * (W2 * xi - 1)) - Kappa * W2 * VXMinus * xi)
 	evl[3][1] = hSq / Delta * (h * W * VXMinus * xi + Delta / hSq * evl[3][3])
 	--]]
---]=]
-	-- [[ or just do it numerically
+	--[[ or just do it numerically
 	local evl = sim.eigenvectorsInverse[i]
 	sim.eigenvectorsInverse[i] = mat33.inv(evr)
 	--]]
+--]=]
 
 for j=1,3 do
 	checknan(lambda[j])
