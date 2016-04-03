@@ -22,16 +22,17 @@ function SRHD1DRoe:reset(...)
 	SRHD1DRoe.super.reset(self, ...)
 end
 
+local methods = table{
+	'calcPrimsByPressure',		-- 1-var (pressure) ... works!
+--	'calcPrimsByZAndW',			-- 2-var (Z and W)
+--	'calcPrimsByPrims',			-- 3-var (rho, vx, eInt) ... is stable & accurate, but 3-var means it's slow
+}
+--local len = methods:map(function(l) return #l end):sup()
+
+
 function SRHD1DRoe:postIterate(dt)
 	assert(not SRHD1DRoe.super.postIterate)
 	local eqn = self.equation
-
-	local methods = table{
-		'calcPrimsByPrims',
-		'calcPrimsByPressure',
-		'calcPrimsByZAndW',
-	}
-	local len = methods:map(function(l) return #l end):sup()
 
 	-- now that we have iterated once, our conservative variables are out of sync with our ws
 --print()

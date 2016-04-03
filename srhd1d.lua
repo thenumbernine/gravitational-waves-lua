@@ -10,38 +10,50 @@ local SRHD1D = class(Equation)
 SRHD1D.name = 'SRHD 1D'
 SRHD1D.numStates = 3
 
-local gamma = 5/3
-
 -- pressure functions for ideal gas
-local function calcP(rho, eInt)
-	return (gamma - 1) * rho * eInt
+function SRHD1D:calcP(rho, eInt)
+	return (self.gamma - 1) * rho * eInt
 end
 -- chi in most papers
-local function calc_dP_drho(rho, eInt)
-	return (gamma - 1) * eInt
+function SRHD1D:calc_dP_drho(rho, eInt)
+	return (self.gamma - 1) * eInt
 end
 -- kappa in most papers
-local function calc_dP_deInt(rho, eInt)
-	return (gamma - 1) * rho
+function SRHD1D:calc_dP_deInt(rho, eInt)
+	return (self.gamma - 1) * rho
 end
-local function calc_eInt_from_P(rho, P)
-	return P / ((gamma - 1) * rho)
+function SRHD1D:calc_eInt_from_P(rho, P)
+	return P / ((self.gamma - 1) * rho)
 end
 
-do
+function SRHD1D:init(...)
+	assert(not SRHD1D.super.init)
+
+	self.gamma = 5/3
+	
 	local q = function(self,i) return self.qs[i] end
 	local prim = function(self,i) return self.ws[i] end
 	local rho = prim:_(1)
 	local vx = prim:_(2)
 	local eInt = prim:_(3)
-	local P = calcP(rho, eInt)	-- a function to return a function computed via arithmetic operations on functions ... 
+	
+	-- a function to return a function computed via arithmetic operations on functions ...
+	-- the problem is that calcP will multiply self.gamma once, which will create a lambda closure with the number value
+	-- so if self.gamma is changed later, it won't reflect here
+	-- solution: make gamma a function (for the time begin) while the closure is built
+	local originalGamma = self.gamma
+	self.gamma = function(self,i) return originalGamma end
+	local P = self:calcP(rho, eInt)
+	-- ...and restore it
+	self.gamma = originalGamma
+	
 	local h = 1 + eInt + P/rho	
 	local eInt = eInt * rho
 	local D = q:_(1)	-- rho * W
 	local Sx = q:_(2)	-- rho h W^2 vx
 	local tau = q:_(3)	-- rho h W^2 - P - D
 	local W = D / rho	-- Lorentz factor
-	SRHD1D:buildGraphInfos{
+	self:buildGraphInfos{
 		{rho = rho},
 		{vx = vx},
 		{eInt = eInt},
@@ -61,7 +73,7 @@ function SRHD1D:consFromPrims(rho, vx, eInt)
 	local vSq = vx*vx
 	local WSq = 1/(1-vSq)
 	local W = math.sqrt(WSq)
-	local P = calcP(rho, eInt)
+	local P = self:calcP(rho, eInt)
 	local h = 1 + eInt + P/rho
 	-- rest-mass density
 	local D = rho * W
@@ -76,21 +88,53 @@ function SRHD1D:initCell(sim,i)
 	local x = sim.xs[i]
 	--primitives:
 	--[[ Sod
+	self.gamma = 7/5
 	local rho = x < 0 and 1 or .125
 	local vx = 0
 	local P = x < 0 and 1 or .1
 	--]]
-	--[[ relativistic blast wave test problem 1, Marti & Muller 2008, table 5
+	--[[ Marti & Muller 2008 rppm's Schneider et al
+	self.gamma = 5/3
 	local rho = x < 0 and 10 or 1
 	local vx = 0
-	local P = x < 0 and 40/3 or 1e-3	-- paper says 0 for rhs ... but how do you handle 0 pressure?
+	local P = (self.gamma-1) * rho * (x < 0 and 2 or 1e-6)
 	--]]
-	-- [[ relativistic blast wave test problem 2, Marti & Muller 2008, table 5
+	--[[ Marti & Muller 2008 rppm relativistic blast wave
+	self.gamma = 5/3
 	local rho = 1
 	local vx = 0
 	local P = x < 0 and 1e+3 or 1e-2
 	--]]
-	local eInt = calc_eInt_from_P(rho, P)
+	--[[ Marti & Muller 2008 rppm relativistic shock reflection
+	-- not working with my sim...
+	self.gamma = 4/3
+	local rho = 1
+	local vx = .99999
+	local P = (self.gamma - 1) * rho * (1e-7 / math.sqrt(1 - vx*vx))
+	--]]
+	--[[ Marti & Muller 2008 rppm relativistic blast wave interaction
+	-- gets nans in the left-eigenvectors when the shockwaves collide
+	-- under both analytical and numerical calculuation
+	self.gamma = 7/5
+	local lhs = .9 * sim.domain.xmin + .1 * sim.domain.xmax
+	local rhs = .1 * sim.domain.xmin + .9 * sim.domain.xmax
+	local rho = 1
+	local vx = 0
+	local P = x < lhs and 1e+3 or (x > rhs and 1e+2 or 1e-2)
+	--]]
+	-- [[ relativistic blast wave test problem 1, Marti & Muller 2008, table 5
+	self.gamma = 5/3
+	local rho = x < 0 and 10 or 1
+	local vx = 0
+	local P = x < .01 and 40/3 or 1e-3	-- paper says 0 for rhs but I'm putting .01 and hoping for a typo 
+	--]]
+	--[[ relativistic blast wave test problem 2, Marti & Muller 2008, table 5
+	self.gamma = 5/3
+	local rho = 1
+	local vx = 0
+	local P = x < 0 and 1e+3 or 1e-2
+	--]]
+	local eInt = self:calc_eInt_from_P(rho, P)
 	local vSq = vx*vx -- + vy*vy + vz*vz
 	local W = 1/math.sqrt(1 - vSq)
 	local h = 1 + eInt + P/rho
@@ -104,7 +148,7 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local DL, _, _ = table.unpack(sim.qs[i-1])
 	local rhoL, vxL, eIntL = table.unpack(sim.ws[i-1])
 	local WL = DL / rhoL
-	local PL = calcP(rhoL, eIntL)
+	local PL = self:calcP(rhoL, eIntL)
 	local hL = 1 + eIntL + PL/rhoL
 	local roeWeightL = math.sqrt(sqrtAbsGL * rhoL * hL)
 
@@ -112,7 +156,7 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local DR, _, _ = table.unpack(sim.qs[i])
 	local rhoR, vxR, eIntR = table.unpack(sim.ws[i])
 	local WR = DR / rhoR
-	local PR = calcP(rhoR, eIntR)
+	local PR = self:calcP(rhoR, eIntR)
 	local hR = 1 + eIntR + PR/rhoR
 	local roeWeightR = math.sqrt(sqrtAbsGR * rhoR * hR)
 
@@ -129,7 +173,7 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local W = roeVars[1]	-- = u0
 	local u1 = roeVars[2]	-- = vx * W
 	local vx = u1 / W
-	-- eInt / h = (p / (rho h)) / (gamma - 1) 
+	-- eInt / h = (p / (rho h)) / (self.gamma - 1) 
 	local P_over_rho_h = roeVars[3]
 
 	-- so how do you figure 'h' for the eigenvector calculations?
@@ -143,7 +187,7 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local vx = (vxL + vxR) / 2
 	local vSq = vx * vx
 	local W = 1/math.sqrt(1-vSq)
-	local P = calcP(rho, eInt)
+	local P = self:calcP(rho, eInt)
 	local h = 1 + eInt + P/rho
 	local P_over_rho_h = P / (rho  * h)
 --]]
@@ -155,7 +199,7 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local hSq = h * h
 
 	local vxSq = vx * vx	-- this is where it's just the flux direction squared
-	local csSq = gamma * P_over_rho_h
+	local csSq = self.gamma * P_over_rho_h
 	local cs = math.sqrt(csSq)
 
 	-- Marti 1998 eqn 19
@@ -172,7 +216,7 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	
 	--Font 2008 finally says that kappa = dp/deInt
 	-- Marti & Muller 2008, Alcubierre 2008, and a few others I'm betting all have the eigenvalues, vectors, all the same ... but forget kappa
-	local kappa = (gamma - 1) * rho
+	local kappa = (self.gamma - 1) * rho
 	
 	-- Font 2008 eqn 112, also Marti & Muller 2008 eqn 74
 	local kappaTilde = kappa / rho
@@ -278,8 +322,8 @@ end
 	dF_dw[2][2] = 2 * rho * W4 * h * vx
 	dF_dw[3][2] = rho * W * (1 + W4 - 3*W2 + 2*W3*h - h*W - W4*vx*vx*vx*vx)
 	dF_dw[1][3] = 0
-	dF_dw[2][3] = rho * (1 - 2 * gamma + gamma * W2)
-	dF_dw[3][3] = gamma * rho * W2 * vx
+	dF_dw[2][3] = rho * (1 - 2 * self.gamma + self.gamma * W2)
+	dF_dw[3][3] = self.gamma * rho * W2 * vx
 	
 	local dU_dw = {{},{},{}}
 	dU_dw[1][1] = W
@@ -289,8 +333,8 @@ end
 	dU_dw[2][2] = rho * h * W2 * (2 * W2 - 1)
 	dU_dw[3][2] = rho * W3 * (2 * hW - 1) * vx
 	dU_dw[1][3] = 0
-	dU_dw[2][3] = gamma * rho * W2 * vx
-	dU_dw[3][3] = rho * (1 - gamma + W2 * gamma)
+	dU_dw[2][3] = self.gamma * rho * W2 * vx
+	dU_dw[3][3] = rho * (1 - self.gamma + W2 * self.gamma)
 	local dw_dU = mat33.inv(dU_dw)
 
 	for j=1,3 do
@@ -326,7 +370,7 @@ function SRHD1D:calcPrimsByPressure(sim, i ,prims, qs)
 
 	-- this is in the Marti & Muller 2008 code ...
 	-- where do they get this from?
-	local PMax = (gamma - 1) * tau
+	local PMax = (self.gamma - 1) * tau
 	-- why is there an upper bound again?
 	--assert(PMax >= PMin, 'pmax='..PMax..' < pmin='..PMin)
 	PMax = math.max(PMax, PMin)
@@ -353,15 +397,15 @@ checknan(eInt, 'eInt nan, tau='..tau..' D='..D..' W='..W..' P='..P)
 		rho = D / W
 checknan(rho)
 
-		-- for f = calcP = (gamma - 1) * rho * eInt
+		-- for f = calcP = (self.gamma - 1) * rho * eInt
 		-- Marti & Muller 2008, eqn 61
-		local f = calcP(rho, eInt) - P
+		local f = self:calcP(rho, eInt) - P
 checknan(f)
 		
 		-- Alcubierre, 7.6.52
-		--local csSq = gamma * P / (rho * P)	
+		--local csSq = self.gamma * P / (rho * P)	
 		-- however the code with Marti & Muller uses a different equation for the cs^2 term of df/dp:
-		local csSq = (gamma - 1) * (tau + D * (1 - W) + P) / (tau + D + P)
+		local csSq = (self.gamma - 1) * (tau + D * (1 - W) + P) / (tau + D + P)
 checknan(csSq)
 		local df_dP = vSq * csSq - 1
 checknan(df_dP)
@@ -380,7 +424,7 @@ checknan(P)
 			vx = Sx / (tau + D + P)
 			W = 1 / math.sqrt(1 - vx*vx)
 			rho = D / W
-			eInt = calc_eInt_from_P(rho, P)
+			eInt = self:calc_eInt_from_P(rho, P)
 			return {rho, vx, eInt}, nil, iter
 		end
 	end
@@ -398,14 +442,14 @@ function SRHD1D:calcPrimsByZAndW(sim, i, prims, qs)
 	local rho, vx, eInt = table.unpack(prims)
 	local vSq = vx*vx
 	local W = 1/math.sqrt(1-vSq)	-- W is the other
-	local P = calcP(rho,eInt)
+	local P = self:calcP(rho,eInt)
 	local h = 1 + eInt + P/rho
 	local Z = rho * h * W*W -- Z = rho h W^2 is one var we converge
 	for iter=1,self.solvePrimMaxIter do
 		rho = D / W
 		h = Z / (D * W)		-- h-1 = gamma eInt <=> eInt = (h-1) / gamma  <=> (h-1) = eInt + P/rho
-		eInt = (h - 1) / gamma	-- isn't this only true for ideal gasses?
-		P = calcP(rho,eInt)
+		eInt = (h - 1) / self.gamma	-- isn't this only true for ideal gasses?
+		P = self:calcP(rho,eInt)
 	
 		-- f = [-S^2 + Z^2 (W^2 - 1) / W^2, -tau + Z^2 - P - D]
 		local f = {
@@ -414,7 +458,7 @@ function SRHD1D:calcPrimsByZAndW(sim, i, prims, qs)
 		}
 		local df_dx = {
 			{2*Z * (W*W - 1) * Z*Z*Z / (W*W*Z*Z*Z), 2*Z*Z / (W*W*W)},
-			{1 - (gamma - 1) / (gamma * W*W), (2*Z - D*W)/(W*W*W) * (gamma-1)/gamma},
+			{1 - (self.gamma - 1) / (self.gamma * W*W), (2*Z - D*W)/(W*W*W) * (self.gamma-1)/self.gamma},
 		}
 		local det = df_dx[1][1] * df_dx[2][2] - df_dx[2][1] * df_dx[1][2]
 		local dx_df = {
@@ -432,8 +476,8 @@ function SRHD1D:calcPrimsByZAndW(sim, i, prims, qs)
 		if err < self.solvePrimStopEpsilon then
 			rho = D / W
 			h = Z / (D * W)		-- h-1 = gamma eInt <=> eInt = (h-1) / gamma  <=> (h-1) = eInt + P/rho
-			eInt = (h - 1) / gamma	-- this is ideal gas law only, right?
-			P = calcP(rho, eInt)
+			eInt = (h - 1) / self.gamma	-- this is ideal gas law only, right?
+			P = self:calcP(rho, eInt)
 			vx = math.clamp(Sx / (tau + D + P), -1, 1)
 			return {rho, vx, eInt}, nil, iter
 		end
@@ -465,9 +509,9 @@ checknan(eInt)
 	--print('cell',i)
 	for iter=1,self.solvePrimMaxIter do
 		--print('rho='..rho..' vx='..vx..' eInt='..eInt)
-		local P = calcP(rho, eInt)
-		local dP_drho = calc_dP_drho(rho, eInt)
-		local dP_deInt = calc_dP_deInt(rho, eInt)
+		local P = self:calcP(rho, eInt)
+		local dP_drho = self:calc_dP_drho(rho, eInt)
+		local dP_deInt = self:calc_dP_deInt(rho, eInt)
 checknan(P)
 		local h = 1 + eInt + P/rho
 checknan(h)
