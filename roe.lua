@@ -238,15 +238,11 @@ function Roe:calcDeriv(getLeft, getRight)
 	return dq_dt
 end
 
-function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
-
-	-- calculate interface state difference in eigenbasis coordinates
-	self:calcDeltaQTildes(getLeft, getRight)
-
-	-- slope limit on interface difference
-	self:calcRTildes(getLeft, getRight)
-
--- [=[ uses fluxes (and optionally the flux matrix)
+-- calcluate self.fluxes
+-- depends on self:calcDeltaQTildes and self:calcRTiles
+-- TODO this should be 'calcFluxes'
+-- and 'calcFlux' should be 'calcDerivByFlux' or something?
+function Roe:calcFluxesAtInterface(dt, getLeft, getRight, getLeft2, getRight2)
 	local useFluxMatrix = false
 	
 	-- transform back
@@ -286,6 +282,18 @@ function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
 			end
 		end
 	end
+end
+
+function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
+
+	-- calculate interface state difference in eigenbasis coordinates
+	self:calcDeltaQTildes(getLeft, getRight)
+
+	-- slope limit on interface difference
+	self:calcRTildes(getLeft, getRight)
+
+-- [=[ uses fluxes (and optionally the flux matrix)
+	self:calcFluxesAtInterface(dt, getLeft, getRight, getLeft2, getRight2)
 
 	local dq_dts = self:newState()
 	for i=1,self.gridsize do

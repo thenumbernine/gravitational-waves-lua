@@ -17,7 +17,7 @@ do
 	local eInt = prim:_'eInt'
 	local h = prim:_'h'
 	local H = h * rho
-	local EInt = eInt * rho
+	local eInt = eInt * rho
 	local D = q:_(1)	-- rho * W
 	local Sx = q:_(2)	-- rho h W^2 vx
 	local tau = q:_(3)	-- rho h W^2 - P - D
@@ -26,7 +26,7 @@ do
 		{rho = rho},
 		{vx = vx},
 		{P = P},
-		{EInt = EInt},
+		{eInt = eInt},
 		{H = H},
 		{D = D},
 		{Sx = Sx},
@@ -44,6 +44,20 @@ local function energyInternalFromPressure(rho, P)
 	return P / ((gamma - 1) * rho)
 end
 
+local function consFromPrim(rho, vx, eInt)
+	local WSq = 1/(1-vx^2)
+	local W = math.sqrt(WSq)
+	local P = pressureFunc(rho, eInt)
+	local h = 1 + eInt + P/rho
+	-- rest-mass density
+	local D = rho * W
+	-- momentum density
+	local Sx = rho * h * WSq * vx
+	-- energy density
+	local tau = rho * h * WSq - P - D
+	return D, Sx, tau
+end
+
 function SRHD1D:initCell(sim,i)
 	local x = sim.xs[i]
 	--primitives:
@@ -53,7 +67,7 @@ function SRHD1D:initCell(sim,i)
 	-- local velocity
 	local vx = 0
 	-- local pressure
-	local P = 1 -- x < 0 and 1 or .1
+	local P = x < 0 and 1 or .1
 	--]]
 	-- specific internal energy ... unspecified by the paper, but I'll use ideal gas heat capacity ratio
 	local eInt = energyInternalFromPressure(rho, P)
@@ -62,17 +76,10 @@ function SRHD1D:initCell(sim,i)
 	local W = 1/math.sqrt(1 - vSq)
 	-- specific enthalpy
 	local h = 1 + eInt + P/rho
-	--conservative variables:
-	-- rest-mass density
-	local D = rho * W
-	-- momentum density
-	local Sx = rho * h * W^2 * vx
-	-- energy density
-	local tau = rho * h * W^2 - P - D
 	-- store primitive variables for later use
 	sim.primitives[i] = {rho=rho, vx=vx, h=h, eInt=eInt, P=P}
-	-- use conservative variables with the Roe scheme
-	return {D, Sx, tau}
+	--conservative variables:
+	return {consFromPrim(rho, vx, eInt)}
 end
 
 function SRHD1D:calcInterfaceEigenBasis(sim,i)
@@ -107,7 +114,7 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local u1R = vxR * u0R
 	local roeVarsR = {u0R, u1R, PR / (rhoR * hR)}
 
--- [[ roe averaging.  i need to find a paper that describes how to average all variables, and not just these ...
+--[[ roe averaging.  i need to find a paper that describes how to average all variables, and not just these ...
 	local normalize = 1 / (roeWeightL + roeWeightR)
 	local roeVars = {}
 	for i=1,3 do
@@ -124,7 +131,7 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local rho = (rhoL * roeWeightL + rhoR * roeWeightR) * normalize
 	local P = P_over_rho_h * rho * h
 --]]
---[[ arithmetic averaging
+-- [[ arithmetic averaging
 	local rho = (rhoL + rhoR) / 2
 	local eInt = (eIntL + eIntR) / 2
 	local vx = (vxL + vxR) / 2
@@ -244,6 +251,7 @@ local function checknan(x, msg)
 	assert(x==x, msg or "nan")
 end
 
+--[[ this is my attempt based on the recover pressure method described in Alcubierre, Baumgarte & Shapiro, Marti & Muller, Font, and generally everywhere
 function SRHD1D:calcPrims(sim,i,prims, qs)
 	local rho = prims.rho
 	local eInt = prims.eInt
@@ -313,15 +321,178 @@ checknan(newP)
 		local PError = math.abs(1 - newP / P)
 		P = newP
 checknan(P)
-		if math.abs(PError) < 1e-8 or iter == maxiter then
+		if math.abs(PError) < 1e-8 then
+			-- one last update ...
+			vx = Sx / (tau + D + P)
+			W = 1 / math.sqrt(1 - vSq)
+			rho = D / W
+			eInt = P / (rho * (gamma - 1))
+			h = 1 + eInt + P/rho
+			-- assign prims
 			prims.P = P
 			prims.rho = rho
-			prims.vx = Sx / (tau + D + P)
-			if prims.vx < velEpsilon^2 then prims.vx = 0 end
+			prims.vx = vx 
+			--if prims.vx < velEpsilon^2 then prims.vx = 0 end
 			-- Marti & Muller 2008 recompute eInt here
+			prims.eInt = eInt 
+			prims.h = h
+			
+			-- check reconstruction error:
+			local cons = {consFromPrim(rho, vx, eInt)}
+			for j=1,3 do
+				local err = math.abs(cons[j]-qs[j])
+				if err > 1e-7 then
+					print('got bad prim reconstruction of cell '..i..' with '..({'D','Sx','tau'})[j]..' error at '..err)
+					print('original qs:',table.unpack(qs))
+					print('new reconstruction:',table.unpack(cons))
+					error'here'
+				end
+			end
+			break
+		end
+		assert(iter ~= maxiter, "didn't converge")
+	end
+end
+--]]
+
+--[[ here's the method described in Anton & Zanotti 2006, used by Mara:
+-- Mara converges Z=rho h W^2 and W, while the paper says to converge rho and W
+-- either way, if you converge W then you're calculating things based on a W apart from your conservative W
+-- unless you replaced the conservative W with the converged W
+function SRHD1D:calcPrims(sim,i,prims,qs)
+	local D, Sx, tau = table.unpack(qs)
+	local vSq = prims.vx*prims.vx
+	local W = 1/math.sqrt(1-vSq)-- W is the other
+	local P = prims.P
+	local rho = prims.rho
+	local eInt = prims.eInt
+	local h = prims.h
+	local Z = rho * h * W*W -- Z = rho h W^2 is one var we converge
+	local maxiter = 100
+	for iter=1,maxiter do
+		rho = D / W
+		h = Z / (D * W)		-- h-1 = gamma eInt <=> eInt = (h-1) / gamma  <=> (h-1) = eInt + P/rho
+		eInt = (h - 1) / gamma
+		P = (gamma - 1) * rho * eInt
+	
+		-- f = [-S^2 + Z^2 (W^2 - 1) / W^2, -tau + Z^2 - P - D]
+		local f = {
+			-Sx*Sx  + Z*Z * (W*W - 1) / (W*W),
+			-tau +  Z - P - D,
+		}
+		local df_dx = {
+			{2*Z * (W*W - 1) * Z*Z*Z / (W*W*Z*Z*Z), 2*Z*Z / (W*W*W)},
+			{1 - (gamma - 1) / (gamma * W*W), (2*Z - D*W)/(W*W*W) * (gamma-1)/gamma},
+		}
+		local det = df_dx[1][1] * df_dx[2][2] - df_dx[2][1] * df_dx[1][2]
+		local dx_df = {
+			{df_dx[2][2] / det, -df_dx[2][1] / det},
+			{-df_dx[1][2] / det, df_dx[1][1] / det},
+		}
+		local dZ = -(dx_df[1][1] * f[1] + dx_df[1][2] * f[2])
+		local dW = -(dx_df[2][1] * f[1] + dx_df[2][2] * f[2])
+		local newZ = Z + dZ
+		local newW = W + dW
+		newZ = math.abs(newZ)
+		Z = newZ < 1e+20 and newZ or Z	-- restore old Z if we exceed 1e+20
+		W = math.clamp(newW,1,1e+12)
+		local err = math.abs(dZ/Z) + math.abs(dW/W)
+		if err < 1e-12 then
+			rho = D / W
+			h = Z / (D * W)		-- h-1 = gamma eInt <=> eInt = (h-1) / gamma  <=> (h-1) = eInt + P/rho
+			eInt = (h - 1) / gamma
+			P = (gamma - 1) * rho * eInt		
+			
+			prims.P = P
+			prims.rho = rho
+			prims.vx = math.clamp(Sx / (tau + D + P), 0, 1)
 			prims.eInt = P / (rho * (gamma - 1))
 			prims.h = 1 + eInt + P/rho
 			break
+		end
+		if iter == maxiter then
+			print('hit maxiter')
+		end
+	end
+end
+--]]
+
+--[[
+how about 3-var newton descent?   D,Sx,tau -> rho,vx,eInt
+newton update: w = w - dw/dU * U
+U = the zeros of the cons eqns
+-D' + rho * W
+-Sx' + rho * h * W^2 * vx
+-tau' + rho * h * W^2 - P - D
+...for D', Sx', tau' fixed
+...and all else calculated based on rho,vx,eInt
+dU/dw = 
+--]]
+function SRHD1D:calcPrims(sim,i,prims,qs)
+	--fixed cons to converge to
+	local D, Sx, tau = table.unpack(qs)
+	--dynamic prims to converge
+	local rho, vx, eInt = prims.rho, prims.vx, prims.eInt
+	local maxiter = 100
+	--print('cell',i)
+	for iter=1,maxiter do
+		--print('rho='..rho..' vx='..vx..' eInt='..eInt)
+		local P = pressureFunc(rho,eInt)
+		local h = 1 + eInt + P/rho
+		local W = 1/math.sqrt(1-vx*vx)
+		local dU_dw = {
+			{W, rho*W*W*W*vx, 0},
+			{h*W*W*vx, rho*h*W*W*(2*W*W-1), gamma*rho*W*W*vx},
+			{1*((h-1)/gamma - W + W*W*h + 1 - h), rho*W*W*W*vx*(2*W*h-1), rho*(gamma*W^2 - (gamma-1))}
+		}
+		local dw_dU = mat33.inv(dU_dw)
+		local dU = {
+			-D + rho*W,
+			-Sx + rho*h*W*W*vx,
+			-tau + rho*h*W*W - P - rho*W,
+		}
+		drho = dw_dU[1][1] * dU[1] + dw_dU[1][2] * dU[2] + dw_dU[1][3] * dU[3]
+		dvx = dw_dU[2][1] * dU[1] + dw_dU[2][2] * dU[2] + dw_dU[2][3] * dU[3]
+		deInt = dw_dU[3][1] * dU[1] + dw_dU[3][2] * dU[2] + dw_dU[3][3] * dU[3]
+		local alpha = 1
+		local new_rho = rho - alpha * drho
+		local new_vx = vx - alpha * dvx
+		local new_eInt = eInt - alpha * deInt
+		-- [[ enforce boundaries
+		new_rho = math.max(new_rho,1e-7)
+		new_vx = math.clamp(new_vx,-1+1e-7,1-1e-7)
+		new_eInt = math.max(new_eInt,0)
+		--]]
+		local err = math.abs(new_rho-rho) + math.abs(new_vx-vx) + math.abs(new_eInt-eInt)
+		rho = new_rho
+		vx = new_vx
+		eInt = new_eInt
+		--print('err='..err)
+		if err < 1e-7 then
+			prims.rho = rho
+			prims.vx = vx
+			prims.eInt = eInt
+			prims.P = pressureFunc(rho,eInt)
+			prims.h = 1 + eInt + P/rho
+			--[[ make sure the reconstructed conservative variables match
+			local cons = {consFromPrim(rho,vx,eInt)}
+			for j=1,3 do
+				local err = math.abs(cons[j]-qs[j])
+				if err > 1e-5 then
+					print('got bad prim reconstruction of cell '..i..' with '..({'D','Sx','tau'})[j]..' error at '..err)
+					print('original qs:',table.unpack(qs))
+					print('new reconstruction:',table.unpack(cons))
+					error('reconstruction error='..err)
+				end
+			end		
+			--]]
+			-- [[ just replace them
+			sim.qs[i] = {consFromPrim(rho,vx,eInt)}
+			--]]
+			break
+		end
+		if iter == maxiter then
+			error("didn't converge")
 		end
 	end
 end

@@ -283,7 +283,7 @@ do
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
-	sims:insert(Roe(args))
+	--sims:insert(Roe(args))
 	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
 	--sims:insert(Roe(table(args, {usePPM=true})))
 	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .01})))
@@ -291,7 +291,7 @@ do
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
 	--sims:insert(Roe(table(args, {equation = MHD()})))
-	--sims:insert(require 'srhd1d_roe'(table(args, {gridsize=200, equation=require 'srhd1d'()})))
+	sims:insert(require 'srhd1d_roe'(table(args, {gridsize=20, equation=require 'srhd1d'()})))
 	--]=]
 
 	--[=[ compare flux limiters
@@ -332,7 +332,8 @@ sims:insert(Roe{
 for _,sim in ipairs(sims) do
 	do
 		local r, g, b = math.random(), math.random(), math.random()
-		local l = math.sqrt(r^2 + g^2 + b^2)
+		--local l = math.sqrt(r^2 + g^2 + b^2)
+		local l = math.max(r,g,b)
 		sim.color = {r / l, g / l, b / l}
 		--print(sim.name, unpack(sim.color))
 	end

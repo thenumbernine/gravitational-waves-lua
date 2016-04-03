@@ -1,3 +1,8 @@
+-- offset lambdas is one way to offset Roe flux, but turns out to be buggy ...
+local offsetLambdasByXi = false
+-- offset flux by u xi is the other way. works better.
+local offsetFluxByUXi = true
+
 local class = require 'ext.class'
 local Euler1DEqn = require 'euler1d'
 local Euler1DSSEqn = class(Euler1DEqn)
@@ -21,18 +26,22 @@ function Euler1DSSEqn:calcInterfaceEigenvalues(sim, i, qL, qR, S)
 end
 
 -- used by Roe
-function Euler1DSSEqn:calcInterfaceEigenBasis(sim,i,qL,qR)
-	Euler1DSSEqn.super.calcInterfaceEigenBasis(self,sim,i,qL,qR)
-	local S = sim.eigenvalues[i]
-	for j=1,3 do
-		S[j] = S[j] - sim.ixs[i]
-	end
-	local F = sim.fluxMatrix[i]
-	for j=1,3 do
-		F[j][j] = F[j][j] - sim.ixs[i]
+if offsetLambdasByXi then
+	function Euler1DSSEqn:calcInterfaceEigenBasis(sim,i,qL,qR)
+		Euler1DSSEqn.super.calcInterfaceEigenBasis(self,sim,i,qL,qR)
+		-- one option is offsetting the eigenvalues ... 
+		-- mathematically correct, but don't do this
+		-- it forms errors in discontinuities
+		local S = sim.eigenvalues[i]
+		for j=1,3 do
+			S[j] = S[j] - sim.ixs[i]
+		end
+		local F = sim.fluxMatrix[i]
+		for j=1,3 do
+			F[j][j] = F[j][j] - sim.ixs[i]
+		end
 	end
 end
-
 
 local class = require 'ext.class'
 local table = require 'ext.table'
@@ -51,6 +60,27 @@ solveLinear = solveQR
 function Euler1DSS:init(args)
 	args.equation = Euler1DSSEqn()
 	Euler1DSS.super.init(self, args)
+end
+
+if Euler1DSS.super == Roe
+and offsetFluxByUXi
+then
+	function Euler1DSS:calcFluxesAtInterface(...)
+		Euler1DSS.super.calcFluxesAtInterface(self, ...)
+
+		-- now offset all fluxes by U * xi
+		for i=2,self.gridsize do
+			local xi = self.ixs[i]
+			-- U is based on the Roe averaged variables
+			-- but i don't store them or expose them
+			-- so I'd have to recalculate them here ...
+			error"TODO"
+			--local U = 
+			for j=1,sefl.numStates do
+				self.fluxes[i] = self.fluxes[i][j] - U[j] * xi
+			end
+		end
+	end
 end
 
 function Euler1DSS:iterate()
@@ -109,7 +139,7 @@ function Euler1DSS:iterate()
 	local dG_dU = dG_dU_T:transpose()
 
 	local G = calcG(U)
-	local dU = G--matrix(solveLinear(dG_dU, G))
+	local dU = matrix(solveLinear(dG_dU, G))
 	local alpha = .01	-- alpha is the line trace coefficient
 	
 	U = U - alpha * dU
