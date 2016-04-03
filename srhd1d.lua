@@ -269,6 +269,7 @@ for j=1,3 do
 end
 
 	-- define the flux matrix to see how accurate our 
+	-- this is coming out different than the matrix reconstructed from the eigensystem
 	local dF_dw = {{},{},{}}
 	dF_dw[1][1] = W * vx
 	dF_dw[2][1] = (-P/rho + h * W2 - h)
@@ -303,6 +304,9 @@ end
 	end
 end
 
+SRHD1D.solvePrimMaxIter = 1000
+SRHD1D.solvePrimStopEpsilon = 1e-7
+
 -- this is my attempt based on the recover pressure method described in Alcubierre, Baumgarte & Shapiro, Marti & Muller, Font, and generally everywhere
 function SRHD1D:calcPrimsByPressure(sim, i ,prims, qs)
 	local rho, vx, eInt = table.unpack(prims)
@@ -331,8 +335,7 @@ function SRHD1D:calcPrimsByPressure(sim, i ,prims, qs)
 	local P = .5 * (PMin + PMax)
 checknan(P)
 
-	local maxiter = 1000
-	for iter=1,maxiter do
+	for iter=1,self.solvePrimMaxIter do
 		vx = Sx / (tau + D + P)
 -- PMin should prevent this from occuring
 if math.abs(vx) > 1 then
@@ -372,16 +375,16 @@ checknan(newP)
 		local PError = math.abs(1 - newP / P)
 		P = newP
 checknan(P)
-		if math.abs(PError) < 1e-7 then
+		if math.abs(PError) < self.solvePrimStopEpsilon then
 			-- one last update ...
 			vx = Sx / (tau + D + P)
 			W = 1 / math.sqrt(1 - vx*vx)
 			rho = D / W
 			eInt = calc_eInt_from_P(rho, P)
-			return {rho, vx, eInt}
+			return {rho, vx, eInt}, nil, iter
 		end
 	end
---	return "didn't converge"
+	return nil, "didn't converge", self.solvePrimMaxIter
 end
 
 --[[
@@ -398,8 +401,7 @@ function SRHD1D:calcPrimsByZAndW(sim, i, prims, qs)
 	local P = calcP(rho,eInt)
 	local h = 1 + eInt + P/rho
 	local Z = rho * h * W*W -- Z = rho h W^2 is one var we converge
-	local maxiter = 100
-	for iter=1,maxiter do
+	for iter=1,self.solvePrimMaxIter do
 		rho = D / W
 		h = Z / (D * W)		-- h-1 = gamma eInt <=> eInt = (h-1) / gamma  <=> (h-1) = eInt + P/rho
 		eInt = (h - 1) / gamma	-- isn't this only true for ideal gasses?
@@ -427,16 +429,16 @@ function SRHD1D:calcPrimsByZAndW(sim, i, prims, qs)
 		Z = newZ < 1e+20 and newZ or Z	-- restore old Z if we exceed 1e+20
 		W = math.clamp(newW,1,1e+12)
 		local err = math.abs(dZ/Z) + math.abs(dW/W)
-		if err < 1e-7 then
+		if err < self.solvePrimStopEpsilon then
 			rho = D / W
 			h = Z / (D * W)		-- h-1 = gamma eInt <=> eInt = (h-1) / gamma  <=> (h-1) = eInt + P/rho
 			eInt = (h - 1) / gamma	-- this is ideal gas law only, right?
 			P = calcP(rho, eInt)
 			vx = math.clamp(Sx / (tau + D + P), -1, 1)
-			return {rho, vx, eInt}	
+			return {rho, vx, eInt}, nil, iter
 		end
 	end
---	return "didn't converge"
+	return nil, "didn't converge", self.solvePrimMaxIter
 end
 
 --[[
@@ -460,9 +462,8 @@ checknan(tau)
 checknan(rho)
 checknan(vx)
 checknan(eInt)
-	local maxiter = 100
 	--print('cell',i)
-	for iter=1,maxiter do
+	for iter=1,self.solvePrimMaxIter do
 		--print('rho='..rho..' vx='..vx..' eInt='..eInt)
 		local P = calcP(rho, eInt)
 		local dP_drho = calc_dP_drho(rho, eInt)
@@ -524,11 +525,11 @@ checknan(deInt)
 		local cons = table{self:consFromPrims(rho,vx,eInt)}
 		local consErr = table{math.abs(cons[1]-qs[1]), math.abs(cons[2]-qs[2]), math.abs(cons[3]-qs[3])}
 		--print('err='..err)
-		if err < 1e-7 then
-			return {rho, vx, eInt}
+		if err < self.solvePrimStopEpsilon then
+			return {rho, vx, eInt}, nil, iter
 		end
 	end
---	return "didn't converge"
+	return nil, "didn't converge", self.solvePrimMaxIter
 end
 
 return SRHD1D
