@@ -2,6 +2,10 @@ local class = require 'ext.class'
 local Equation = require 'equation'
 local mat33 = require 'mat33'
 
+local function checknan(x, msg)
+	assert(x==x, msg or 'nan')
+end
+
 local SRHD1D = class(Equation)
 SRHD1D.name = 'SRHD 1D'
 SRHD1D.numStates = 3
@@ -71,24 +75,26 @@ end
 function SRHD1D:initCell(sim,i)
 	local x = sim.xs[i]
 	--primitives:
-	-- [[ Sod
-	-- density 
+	--[[ Sod
 	local rho = x < 0 and 1 or .125
-	-- local velocity
 	local vx = 0
-	-- local pressure
 	local P = x < 0 and 1 or .1
 	--]]
-	-- specific internal energy ... unspecified by the paper, but I'll use ideal gas heat capacity ratio
+	--[[ relativistic blast wave test problem 1, Marti & Muller 2008, table 5
+	local rho = x < 0 and 10 or 1
+	local vx = 0
+	local P = x < 0 and 40/3 or 1e-3	-- paper says 0 for rhs ... but how do you handle 0 pressure?
+	--]]
+	-- [[ relativistic blast wave test problem 2, Marti & Muller 2008, table 5
+	local rho = 1
+	local vx = 0
+	local P = x < 0 and 1e+3 or 1e-2
+	--]]
 	local eInt = calc_eInt_from_P(rho, P)
-	--aux variables:
 	local vSq = vx*vx -- + vy*vy + vz*vz
 	local W = 1/math.sqrt(1 - vSq)
-	-- specific enthalpy
 	local h = 1 + eInt + P/rho
-	-- store primitive variables for later use
 	sim.ws[i] = {rho, vx, eInt}
-	--conservative variables:
 	return {self:consFromPrims(rho, vx, eInt)}
 end
 
@@ -141,7 +147,13 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local h = 1 + eInt + P/rho
 	local P_over_rho_h = P / (rho  * h)
 --]]
-	
+
+	local hW = h * W
+	local W2 = W * W
+	local W3 = W2 * W
+	local W4 = W2 * W2
+	local hSq = h * h
+
 	local vxSq = vx * vx	-- this is where it's just the flux direction squared
 	local csSq = gamma * P_over_rho_h
 	local cs = math.sqrt(csSq)
@@ -157,24 +169,39 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	lambda[2] = vx
 	-- fast
 	lambda[3] = (vx * (1 - csSq) + cs * discr) / (1 - vSq * csSq)
+	
+	--Font 2008 finally says that kappa = dp/deInt
+	-- Marti & Muller 2008, Alcubierre 2008, and a few others I'm betting all have the eigenvalues, vectors, all the same ... but forget kappa
+	local kappa = (gamma - 1) * rho
+	
+	-- Font 2008 eqn 112, also Marti & Muller 2008 eqn 74
+	local kappaTilde = kappa / rho
+	local Kappa = kappaTilde / (kappaTilde - csSq)
 
+-- [=[ Marti, Muller 2008
+	local AMinus= (1 - vxSq) / (1 - vx * lambda[1])
+	local APlus = (1 - vxSq) / (1 - vx * lambda[3])
+	local evr = sim.eigenvectors[i]
+	evr[1][1] = 1
+	evr[2][1] = hW * AMinus * lambda[1]
+	evr[3][1] = hW * AMinus - 1
+	evr[1][2] = Kappa/hW
+	evr[2][2] = vx
+	evr[3][2] = 1 - Kappa/hW
+	evr[1][3] = 1
+	evr[2][3] = hW * APlus * lambda[3]
+	evr[3][3] = hW * APlus - 1
+--]=]
+--[=[ Font 2008
 	-- Font 2008 eqn 113
 	local VXMinus = (vx - lambda[3]) / (1 - vx * lambda[1])
 	local VXPlus = (vx - lambda[1]) / (1 - vx * lambda[3])
 	local AXTildeMinus = (1 - vxSq) / (1 - vx * lambda[1])
 	local AXTildePlus = (1 - vxSq) / (1 - vx * lambda[3])
-
-	--Font 2008 finally says that kappa = dp/deInt
-	-- Marti & Muller 2008, Alcubierre 2008, and a few others I'm betting all have the eigenvalues, vectors, all the same ... but forget kappa
-	local kappa = (gamma - 1) * rho
 	
 	-- Font 2008 eqn 112
 	local CXMinus = vx - VXMinus
 	local CXPlus  = vx - VXPlus
-	local kappaTilde = kappa / rho
-	local Kappa = kappaTilde / (kappaTilde - csSq)
-
-	local hW = h * W
 
 	local evr = sim.eigenvectors[i]
 	-- r- is the slow column
@@ -196,11 +223,6 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local xi = 1 - vxSq
 	local Delta = h * h * h * W * (Kappa - 1) * (CXPlus - CXMinus) * xi
 
-	local W2 = W * W
-	local W3 = W2 * W
-	local W4 = W2 * W2
-	local hSq = h * h
-
 	--[[
 	-- Font 2008 eqn 118
 	-- Notice the left slow/fast vectors has a def wrt -+ and then uses 20x over +- ... I think the -+ might be a typo ... why would anything be defined in terms of -+?  usually -+ is used to denote the negative of a +- definition
@@ -220,9 +242,19 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	evl[3][3] = hSq / Delta * ((1 - Kappa) * (-vx + VXMinus * (W2 * xi - 1)) - Kappa * W2 * VXMinus * xi)
 	evl[3][1] = hSq / Delta * (h * W * VXMinus * xi + Delta / hSq * evl[3][3])
 	--]]
+--]=]
 	-- [[ or just do it numerically
+	local evl = sim.eigenvectorsInverse[i]
 	sim.eigenvectorsInverse[i] = mat33.inv(evr)
 	--]]
+
+for j=1,3 do
+	checknan(lambda[j])
+	for k=1,3 do
+		checknan(evl[j][k])
+		checknan(evr[j][k])
+	end
+end
 
 	-- define the flux matrix to see how accurate our 
 	local dF_dw = {{},{},{}}
@@ -259,10 +291,6 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	end
 end
 
-local function checknan(x, msg)
-	assert(x==x, msg or "nan")
-end
-
 -- this is my attempt based on the recover pressure method described in Alcubierre, Baumgarte & Shapiro, Marti & Muller, Font, and generally everywhere
 function SRHD1D:calcPrimsByPressure(sim, i ,prims, qs)
 	local rho, vx, eInt = table.unpack(prims)
@@ -284,7 +312,7 @@ function SRHD1D:calcPrimsByPressure(sim, i ,prims, qs)
 	-- where do they get this from?
 	local PMax = (gamma - 1) * tau
 	-- why is there an upper bound again?
-	--assert(PMax >= PMin, "pmax="..PMax.." < pmin="..PMin)
+	--assert(PMax >= PMin, 'pmax='..PMax..' < pmin='..PMin)
 	PMax = math.max(PMax, PMin)
 
 	-- start with a guess between PMin and PMax 
@@ -296,7 +324,7 @@ checknan(P)
 		vx = Sx / (tau + D + P)
 -- PMin should prevent this from occuring
 if math.abs(vx) > 1 then
-	error("superluminal vx="..vx.." Sx="..Sx.." tau="..tau.." D="..D.." P="..P)
+	error('superluminal vx='..vx..' Sx='..Sx..' tau='..tau..' D='..D..' P='..P)
 end
 		-- in the case that this happens, the delta P can still be huge, but the min() keeps us in place ... 
 		-- if we run up against the boundary then we should exit as well
@@ -304,9 +332,9 @@ checknan(vx)
 		local vSq = vx*vx	-- + vy*vy + vz*vz
 checknan(vSq)
 		local W = 1 / math.sqrt(1 - vSq)
-checknan(W, "W nan, vSq="..vSq.." vx="..vx)
+checknan(W, 'W nan, vSq='..vSq..' vx='..vx)
 		eInt = (tau + D * (1 - W) + P * (1 - W*W)) / (D * W)
-checknan(eInt, "eInt nan, tau="..tau.." D="..D.." W="..W.." P="..P)
+checknan(eInt, 'eInt nan, tau='..tau..' D='..D..' W='..W..' P='..P)
 		rho = D / W
 checknan(rho)
 
@@ -412,8 +440,14 @@ U = the zeros of the cons eqns
 function SRHD1D:calcPrimsByPrims(sim, i, prims, qs)
 	--fixed cons to converge to
 	local D, Sx, tau = table.unpack(qs)
+checknan(D)
+checknan(Sx)
+checknan(tau)
 	--dynamic prims to converge
 	local rho, vx, eInt = table.unpack(prims)
+checknan(rho)
+checknan(vx)
+checknan(eInt)
 	local maxiter = 100
 	--print('cell',i)
 	for iter=1,maxiter do
@@ -426,7 +460,7 @@ checknan(P)
 checknan(h)
 		local W2 = 1/(1-vx*vx)
 		local W = math.sqrt(W2)
-checknan(W, "W nan with vx="..vx)
+checknan(W, 'W nan with vx='..vx)
 		local W3 = W*W2
 		local dU_dw = {
 			{W, rho * W3 * vx, 0},
@@ -435,11 +469,11 @@ checknan(W, "W nan with vx="..vx)
 		}
 for j=1,3 do
 	for k=1,3 do
-		checknan(dU_dw[j][k], "failed on dU_dw["..j.."]["..k.."]")
+		checknan(dU_dw[j][k], 'nan for dU_dw['..j..']['..k..']')
 	end
 end
 		local det_dU_dw = mat33.det(dU_dw)
-checknan(det_dU_dw, "nan for derivative of:\n"..require'matrix'(dU_dw))
+checknan(det_dU_dw, 'nan for derivative of:\n'..require'matrix'(dU_dw))
 		local dw_dU = mat33.inv(dU_dw, det_dU_dw)
 for j=1,3 do
 	for k=1,3 do
@@ -451,7 +485,10 @@ end
 			-Sx + rho * h * W2 * vx,
 			-tau + rho * h * W2 - P - rho * W,
 		}
-for j=1,3 do checknan(dU[j]) end
+checknan(dU[1], 'dU[1] nan with D='..D..' rho='..rho..' W='..W)
+for j=2,3 do
+	checknan(dU[j], 'nan for dU['..j..']')
+end
 		drho = dw_dU[1][1] * dU[1] + dw_dU[1][2] * dU[2] + dw_dU[1][3] * dU[3]
 checknan(drho)
 		dvx = dw_dU[2][1] * dU[1] + dw_dU[2][2] * dU[2] + dw_dU[2][3] * dU[3]

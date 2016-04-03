@@ -15,7 +15,7 @@ function Solver:init(args)
 	self.fluxLimiter = assert(args.fluxLimiter)
 
 	self.integrator = args.integrator or integrators.ForwardEuler()
-	self.t = args.t or 0
+	self.t0 = args.t or 0
 	self.iteration = args.iteration or 0
 	self.cfl = args.cfl or .5
 	self.fixed_dt = args.fixed_dt
@@ -33,6 +33,8 @@ function Solver:newState()
 end
 
 function Solver:reset()
+	self.t = self.t0
+	
 	for i=1,self.gridsize do
 		self.xs[i] = (i-.5)/self.gridsize*(self.domain.xmax - self.domain.xmin) + self.domain.xmin
 	end

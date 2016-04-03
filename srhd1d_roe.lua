@@ -4,7 +4,6 @@ local Roe = require 'roe'
 
 local SRHD1DRoe = class(Roe)
 SRHD1DRoe.equation = SRHD1D()
-SRHD1DRoe.cfl = .1 
 
 function SRHD1DRoe:init(...)
 	SRHD1DRoe.super.init(self, ...)
@@ -35,12 +34,12 @@ function SRHD1DRoe:postIterate(dt)
 	local len = methods:map(function(l) return #l end):sup()
 
 	-- now that we have iterated once, our conservative variables are out of sync with our ws
-	print()
+--print()
 	local maxBestDist = 0
 	for i=1,self.gridsize do
 		local prims = self.ws[i]
 		local cons = self.qs[i]
-		print('cell['..i..'] prims='..tolua(prims)..' cons='..tolua(cons))
+--print('cell['..i..'] prims='..tolua(prims)..' cons='..tolua(cons))
 		
 		local best = methods:map(function(method)
 			-- there's a few ways to go about this
@@ -55,7 +54,7 @@ function SRHD1DRoe:postIterate(dt)
 					dist = dist + math.abs(cons[j] - newCons[j])
 				end
 			end
-			print('...'..('%-'..len..'s'):format(method)..' prims='..tolua(newPrims)..' cons='..tolua(newCons)..' dist='..dist)
+--print('...'..('%-'..len..'s'):format(method)..' prims='..tolua(newPrims)..' cons='..tolua(newCons)..' dist='..dist)
 			return {prims=newPrims, cons=newCons, dist=dist}
 		end):sort(function(a,b)
 			return a.dist < b.dist
@@ -63,10 +62,10 @@ function SRHD1DRoe:postIterate(dt)
 		assert(best)
 		self.ws[i] = best.prims
 		self.primitiveReconstructionErrors[i] = best.dist
-		print('...best.dist='..best.dist)
+--print('...best.dist='..best.dist)
 		maxBestDist = math.max(maxBestDist, best.dist)
 	end
-	print('maxBestDist='..maxBestDist)
+--print('maxBestDist='..maxBestDist)
 end
 
 -- hack the boundary function to apply to primitives as well
@@ -77,10 +76,10 @@ function SRHD1DRoe:applyBoundary(...)
 	-- freeflow on prims...
 	local prims = self.ws
 	for k=1,3 do
-		prims[1][k] = assert(prims[3][k], "failed to find ws[3]."..k)
-		prims[2][k] = assert(prims[3][k], "failed to find ws[3]."..k)
-		prims[self.gridsize][k] = assert(prims[self.gridsize-2][k], "failed to find ws["..(self.gridsize-2).."]."..k)
-		prims[self.gridsize-1][k] = assert(prims[self.gridsize-2][k], "failed to find ws["..(self.gridsize-2).."]."..k)
+		prims[1][k] = assert(prims[3][k], 'failed to find ws[3].'..k)
+		prims[2][k] = assert(prims[3][k], 'failed to find ws[3].'..k)
+		prims[self.gridsize][k] = assert(prims[self.gridsize-2][k], 'failed to find ws['..(self.gridsize-2)..'].'..k)
+		prims[self.gridsize-1][k] = assert(prims[self.gridsize-2][k], 'failed to find ws['..(self.gridsize-2)..'].'..k)
 	end
 end
 
