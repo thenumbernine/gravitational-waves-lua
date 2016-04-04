@@ -2,8 +2,8 @@ local class = require 'ext.class'
 local Equation = require 'equation'
 local mat33 = require 'mat33'
 
-local function checknan(x, msg)
-	assert(x==x, msg or 'nan')
+local function assertfinite(x, msg)
+	assert(math.isfinite(x), msg or 'is not finite!')
 end
 
 local SRHD1D = class(Equation)
@@ -112,7 +112,7 @@ function SRHD1D:initCell(sim,i)
 	local vx = .99999
 	local P = (self.gamma - 1) * rho * (1e-7 / math.sqrt(1 - vx*vx))
 	--]]
-	--[[ Marti & Muller 2008 rppm relativistic blast wave interaction
+	-- [[ Marti & Muller 2008 rppm relativistic blast wave interaction
 	-- gets nans in the left-eigenvectors when the shockwaves collide
 	-- under both analytical and numerical calculuation
 	self.gamma = 7/5
@@ -122,7 +122,7 @@ function SRHD1D:initCell(sim,i)
 	local vx = 0
 	local P = x < lhs and 1e+3 or (x > rhs and 1e+2 or 1e-2)
 	--]]
-	-- [[ relativistic blast wave test problem 1, Marti & Muller 2008, table 5
+	--[[ relativistic blast wave test problem 1, Marti & Muller 2008, table 5
 	self.gamma = 5/3
 	local rho = x < 0 and 10 or 1
 	local vx = 0
@@ -186,7 +186,8 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local eInt = (eIntL + eIntR) / 2
 	local vx = (vxL + vxR) / 2
 	local vSq = vx * vx
-	local W = 1/math.sqrt(1-vSq)
+	local oneOverW = math.sqrt(1-vSq)
+	local W = 1/oneOverW
 	local P = self:calcP(rho, eInt)
 	local h = 1 + eInt + P/rho
 	local P_over_rho_h = P / (rho  * h)
@@ -213,14 +214,21 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	lambda[2] = vx
 	-- fast
 	lambda[3] = (vx * (1 - csSq) + cs * discr) / (1 - vSq * csSq)
-	
+
+	--[[ general equations
+	-- these explode with the two-shockwave test
 	--Font 2008 finally says that kappa = dp/deInt
 	-- Marti & Muller 2008, Alcubierre 2008, and a few others I'm betting all have the eigenvalues, vectors, all the same ... but forget kappa
 	local kappa = (self.gamma - 1) * rho
-	
 	-- Font 2008 eqn 112, also Marti & Muller 2008 eqn 74
+	-- what do we do when kappaTilde approaches csSq?
 	local kappaTilde = kappa / rho
 	local Kappa = kappaTilde / (kappaTilde - csSq)
+	--]]
+	-- [[ for ideal gas
+	-- these survive the test for a few more frames, but then the velocity goes next
+	local Kappa = h
+	--]]
 
 -- [=[ Marti, Muller 2008
 	local AMinus= (1 - vxSq) / (1 - vx * lambda[1])
@@ -229,9 +237,9 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	evr[1][1] = 1
 	evr[2][1] = hW * AMinus * lambda[1]
 	evr[3][1] = hW * AMinus - 1
-	evr[1][2] = Kappa/hW
+	evr[1][2] = oneOverW	-- Kappa/hW in general
 	evr[2][2] = vx
-	evr[3][2] = 1 - Kappa/hW
+	evr[3][2] = 1 - oneOverW	-- 1 - Kappa/hW in general
 	evr[1][3] = 1
 	evr[2][3] = hW * APlus * lambda[3]
 	evr[3][3] = hW * APlus - 1
@@ -305,10 +313,22 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 --]=]
 
 for j=1,3 do
-	checknan(lambda[j])
+	assertfinite(lambda[j])
 	for k=1,3 do
-		checknan(evl[j][k])
-		checknan(evr[j][k])
+		if not math.isfinite(evl[j][k])
+		or not math.isfinite(evr[j][k])
+		then 
+			error(tolua({
+				evl=evl,
+				evr=evr,
+				Kappa=Kappa,
+				hW=hW,
+				h=h,
+				W=W,
+				csSq=csSq,
+				rho=rho,
+			}, {indent=true}))
+		end
 	end
 end
 
@@ -377,7 +397,7 @@ function SRHD1D:calcPrimsByPressure(sim, i ,prims, qs)
 
 	-- start with a guess between PMin and PMax 
 	local P = .5 * (PMin + PMax)
-checknan(P)
+assertfinite(P)
 
 	for iter=1,self.solvePrimMaxIter do
 		vx = Sx / (tau + D + P)
@@ -387,38 +407,38 @@ if math.abs(vx) > 1 then
 end
 		-- in the case that this happens, the delta P can still be huge, but the min() keeps us in place ... 
 		-- if we run up against the boundary then we should exit as well
-checknan(vx)
+assertfinite(vx)
 		local vSq = vx*vx	-- + vy*vy + vz*vz
-checknan(vSq)
+assertfinite(vSq)
 		local W = 1 / math.sqrt(1 - vSq)
-checknan(W, 'W nan, vSq='..vSq..' vx='..vx)
+assertfinite(W, 'W nan, vSq='..vSq..' vx='..vx)
 		eInt = (tau + D * (1 - W) + P * (1 - W*W)) / (D * W)
-checknan(eInt, 'eInt nan, tau='..tau..' D='..D..' W='..W..' P='..P)
+assertfinite(eInt, 'eInt nan, tau='..tau..' D='..D..' W='..W..' P='..P)
 		rho = D / W
-checknan(rho)
+assertfinite(rho)
 
 		-- for f = calcP = (self.gamma - 1) * rho * eInt
 		-- Marti & Muller 2008, eqn 61
 		local f = self:calcP(rho, eInt) - P
-checknan(f)
+assertfinite(f)
 		
 		-- Alcubierre, 7.6.52
 		--local csSq = self.gamma * P / (rho * P)	
 		-- however the code with Marti & Muller uses a different equation for the cs^2 term of df/dp:
 		local csSq = (self.gamma - 1) * (tau + D * (1 - W) + P) / (tau + D + P)
-checknan(csSq)
+assertfinite(csSq)
 		local df_dP = vSq * csSq - 1
-checknan(df_dP)
+assertfinite(df_dP)
 		
 		-- code with Marti & Muller says to keep things above PMin ...
 		local newP = P - f / df_dP
 		newP = math.max(newP, PMin)
-checknan(newP)
+assertfinite(newP)
 		
 		-- Marti & Muller 2008 code ...
 		local PError = math.abs(1 - newP / P)
 		P = newP
-checknan(P)
+assertfinite(P)
 		if math.abs(PError) < self.solvePrimStopEpsilon then
 			-- one last update ...
 			vx = Sx / (tau + D + P)
@@ -498,26 +518,26 @@ U = the zeros of the cons eqns
 function SRHD1D:calcPrimsByPrims(sim, i, prims, qs)
 	--fixed cons to converge to
 	local D, Sx, tau = table.unpack(qs)
-checknan(D)
-checknan(Sx)
-checknan(tau)
+assertfinite(D)
+assertfinite(Sx)
+assertfinite(tau)
 	--dynamic prims to converge
 	local rho, vx, eInt = table.unpack(prims)
-checknan(rho)
-checknan(vx)
-checknan(eInt)
+assertfinite(rho)
+assertfinite(vx)
+assertfinite(eInt)
 	--print('cell',i)
 	for iter=1,self.solvePrimMaxIter do
 		--print('rho='..rho..' vx='..vx..' eInt='..eInt)
 		local P = self:calcP(rho, eInt)
 		local dP_drho = self:calc_dP_drho(rho, eInt)
 		local dP_deInt = self:calc_dP_deInt(rho, eInt)
-checknan(P)
+assertfinite(P)
 		local h = 1 + eInt + P/rho
-checknan(h)
+assertfinite(h)
 		local W2 = 1/(1-vx*vx)
 		local W = math.sqrt(W2)
-checknan(W, 'W nan with vx='..vx)
+assertfinite(W, 'W nan with vx='..vx)
 		local W3 = W*W2
 		local dU_dw = {
 			{W, rho * W3 * vx, 0},
@@ -526,15 +546,15 @@ checknan(W, 'W nan with vx='..vx)
 		}
 for j=1,3 do
 	for k=1,3 do
-		checknan(dU_dw[j][k], 'nan for dU_dw['..j..']['..k..']')
+		assertfinite(dU_dw[j][k], 'nan for dU_dw['..j..']['..k..']')
 	end
 end
 		local det_dU_dw = mat33.det(dU_dw)
-checknan(det_dU_dw, 'nan for derivative of:\n'..require'matrix'(dU_dw))
+assertfinite(det_dU_dw, 'nan for derivative of:\n'..require'matrix'(dU_dw))
 		local dw_dU = mat33.inv(dU_dw, det_dU_dw)
 for j=1,3 do
 	for k=1,3 do
-		checknan(dw_dU[j][k])
+		assertfinite(dw_dU[j][k])
 	end
 end
 		local dU = {
@@ -542,16 +562,16 @@ end
 			-Sx + rho * h * W2 * vx,
 			-tau + rho * h * W2 - P - rho * W,
 		}
-checknan(dU[1], 'dU[1] nan with D='..D..' rho='..rho..' W='..W)
+assertfinite(dU[1], 'dU[1] nan with D='..D..' rho='..rho..' W='..W)
 for j=2,3 do
-	checknan(dU[j], 'nan for dU['..j..']')
+	assertfinite(dU[j], 'nan for dU['..j..']')
 end
 		drho = dw_dU[1][1] * dU[1] + dw_dU[1][2] * dU[2] + dw_dU[1][3] * dU[3]
-checknan(drho)
+assertfinite(drho)
 		dvx = dw_dU[2][1] * dU[1] + dw_dU[2][2] * dU[2] + dw_dU[2][3] * dU[3]
-checknan(dvx)
+assertfinite(dvx)
 		deInt = dw_dU[3][1] * dU[1] + dw_dU[3][2] * dU[2] + dw_dU[3][3] * dU[3]
-checknan(deInt)
+assertfinite(deInt)
 		local alpha = 1
 		local new_rho = rho - alpha * drho
 		local new_vx = vx - alpha * dvx
