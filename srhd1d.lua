@@ -144,28 +144,30 @@ end
 
 function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	-- but the Roe section says to use these variables:
+	local rhoL, vxL, eIntL = table.unpack(sim.ws[i-1])
+
+	local rhoR, vxR, eIntR = table.unpack(sim.ws[i])
+
+--[[ roe averaging.  i need to find a paper that describes how to average all variables, and not just these ...
 	local sqrtAbsGL = 1	-- this will change once you start using a proper metric
 	local DL, _, _ = table.unpack(sim.qs[i-1])
-	local rhoL, vxL, eIntL = table.unpack(sim.ws[i-1])
 	local WL = DL / rhoL
 	local PL = self:calcP(rhoL, eIntL)
 	local hL = 1 + eIntL + PL/rhoL
 	local roeWeightL = math.sqrt(sqrtAbsGL * rhoL * hL)
-
+	local u1L = vxL * WL 
+	local roeVarsL = {WL, u1L, PL / (rhoL * hL)}
+	
 	local sqrtAbsGR = 1
 	local DR, _, _ = table.unpack(sim.qs[i])
-	local rhoR, vxR, eIntR = table.unpack(sim.ws[i])
 	local WR = DR / rhoR
 	local PR = self:calcP(rhoR, eIntR)
 	local hR = 1 + eIntR + PR/rhoR
 	local roeWeightR = math.sqrt(sqrtAbsGR * rhoR * hR)
-
---[[ roe averaging.  i need to find a paper that describes how to average all variables, and not just these ...
-	local normalize = 1 / (roeWeightL + roeWeightR)
-	local u1L = vxL * WL 
-	local roeVarsR = {WR, u1R, PR / (rhoR * hR)}
 	local u1R = vxR * WR 
-	local roeVarsL = {WL, u1L, PL / (rhoL * hL)}
+	local roeVarsR = {WR, u1R, PR / (rhoR * hR)}
+	
+	local normalize = 1 / (roeWeightL + roeWeightR)
 	local roeVars = {}
 	for i=1,3 do
 		roeVars[i] = (roeVarsL[i] * roeWeightL + roeVarsR[i] * roeWeightR) * normalize
@@ -177,24 +179,34 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local P_over_rho_h = roeVars[3]
 
 	-- so how do you figure 'h' for the eigenvector calculations?
+	local rho_h = roeWeightL * roeWeightR	-- .. divided by sqrt(sqrtAbsGL * sqrtAbsGR)
 	local h = (hL * roeWeightL + hR * roeWeightR) * normalize
-	local rho = (rhoL * roeWeightL + rhoR * roeWeightR) * normalize
+	local rho = rho_h / h
+	--local eInt = (h - 1)/self.gamma	-- ideal gas law
 	local P = P_over_rho_h * rho * h
+	--local P = self:calcP(rho, eInt)
+	--local P_over_rho_h = P / rho_h	-- recalculate
+	-- this is giving a high eigenbasis error ... which makes me think some variables are out of sync
+
+	local W2 = W * W
+	local vSq = vx * vx
+	local oneOverW = 1/W
 --]]
 -- [[ arithmetic averaging
 	local rho = (rhoL + rhoR) / 2
 	local eInt = (eIntL + eIntR) / 2
 	local vx = (vxL + vxR) / 2
 	local vSq = vx * vx
-	local oneOverW = math.sqrt(1-vSq)
+	local oneOverW2 = 1 - vSq
+	local oneOverW = math.sqrt(oneOverW2)
 	local W = 1/oneOverW
+	local W2 = 1/oneOverW2
 	local P = self:calcP(rho, eInt)
 	local h = 1 + eInt + P/rho
 	local P_over_rho_h = P / (rho  * h)
 --]]
 
 	local hW = h * W
-	local W2 = W * W
 	local W3 = W2 * W
 	local W4 = W2 * W2
 	local hSq = h * h
@@ -244,7 +256,7 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	evr[2][3] = hW * APlus * lambda[3]
 	evr[3][3] = hW * APlus - 1
 
-	local Delta = h*h*h * W * (Kappa - 1) * (1 - vxSq) * (APlus * lambda[3] - AMinus * lambda[1])
+	local Delta = h*h*hW * (Kappa - 1) * (1 - vxSq) * (APlus * lambda[3] - AMinus * lambda[1])
 	local evl = sim.eigenvectorsInverse[i]
 	evl[1][1] = hSq / Delta * ( hW * APlus * (vx - lambda[3]) - vx - W2 * (vSq - vxSq) * (2 * Kappa - 1) * (vx - APlus * lambda[3]) + Kappa * APlus * lambda[3] )
 	evl[1][2] = hSq / Delta * (1 + W2 * (vSq - vxSq) * (2 * Kappa - 1) * (1 - APlus) - Kappa * APlus )
@@ -371,6 +383,13 @@ end
 SRHD1D.solvePrimMaxIter = 1000
 SRHD1D.solvePrimStopEpsilon = 1e-7
 
+-- used by pressure solver
+-- velocity epsilon is how close we can get to the speed of light
+-- set ylabel "Lorentz factor"; set xlabel "velocity epsilon -log10"; set log xy; plot [1:10] 1/sqrt(1-(1-10**(-x))**2);
+-- 1e-10 <=> W = 100000
+-- 1e-7 <=> W = 2000
+SRHD1D.velEpsilon = 1e-10
+
 -- this is my attempt based on the recover pressure method described in Alcubierre, Baumgarte & Shapiro, Marti & Muller, Font, and generally everywhere
 function SRHD1D:calcPrimsByPressure(sim, i ,prims, qs)
 	local rho, vx, eInt = table.unpack(prims)
@@ -385,8 +404,7 @@ function SRHD1D:calcPrimsByPressure(sim, i ,prims, qs)
 	-- superluminal velocity will occur if |S| > tau + D + P
 	-- i.e. if P < |S| - tau - D
 	local absSx = math.abs(Sx)
-	local velEpsilon = 1e-10
-	local PMin = math.max(absSx - tau - D + absSx * velEpsilon, 1e-16)
+	local PMin = math.max(absSx - tau - D + absSx * self.velEpsilon, 1e-16)
 
 	-- this is in the Marti & Muller 2008 code ...
 	-- where do they get this from?
@@ -439,7 +457,7 @@ assertfinite(newP)
 		local PError = math.abs(1 - newP / P)
 		P = newP
 assertfinite(P)
-		if math.abs(PError) < self.solvePrimStopEpsilon then
+		if PError < self.solvePrimStopEpsilon then
 			-- one last update ...
 			vx = Sx / (tau + D + P)
 			W = 1 / math.sqrt(1 - vx*vx)
