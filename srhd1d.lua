@@ -391,7 +391,7 @@ SRHD1D.velEpsilon = 1e-10
 -- this is my attempt based on the recover pressure method described in Alcubierre, Baumgarte & Shapiro, Marti & Muller, Font, and generally everywhere
 function SRHD1D:calcPrimsByPressure(sim, i ,prims, qs)
 	local rho, vx, eInt = table.unpack(prims)
-error"still testing!"
+
 	-- use the new state variables to newton converge
 	local D, Sx, tau = table.unpack(qs)
 	
