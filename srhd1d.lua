@@ -42,13 +42,11 @@ function SRHD1D:init(...)
 	-- so if self.gamma is changed later, it won't reflect here
 	-- solution: make gamma a function (for the time begin) while the closure is built
 	local originalGamma = self.gamma
-	self.gamma = function(self,i) return originalGamma end
+	self.gamma = function(self,i) return self.equation.gamma end
 	local P = self:calcP(rho, eInt)
-	-- ...and restore it
 	self.gamma = originalGamma
-	
+
 	local h = 1 + eInt + P/rho	
-	local eInt = eInt * rho
 	local D = q:_(1)	-- rho * W
 	local Sx = q:_(2)	-- rho h W^2 vx
 	local tau = q:_(3)	-- rho h W^2 - P - D
@@ -87,7 +85,7 @@ end
 function SRHD1D:initCell(sim,i)
 	local x = sim.xs[i]
 	--primitives:
-	--[[ Sod
+	-- [[ Sod
 	self.gamma = 7/5
 	local rho = x < 0 and 1 or .125
 	local vx = 0
@@ -112,7 +110,7 @@ function SRHD1D:initCell(sim,i)
 	local vx = .99999
 	local P = (self.gamma - 1) * rho * (1e-7 / math.sqrt(1 - vx*vx))
 	--]]
-	-- [[ Marti & Muller 2008 rppm relativistic blast wave interaction
+	--[[ Marti & Muller 2008 rppm relativistic blast wave interaction
 	-- gets nans in the left-eigenvectors when the shockwaves collide
 	-- under both analytical and numerical calculuation
 	self.gamma = 7/5
@@ -207,8 +205,6 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 --]]
 
 	local hW = h * W
-	local W3 = W2 * W
-	local W4 = W2 * W2
 	local hSq = h * h
 
 	local vxSq = vx * vx	-- this is where it's just the flux direction squared
@@ -346,6 +342,8 @@ end
 
 	-- define the flux matrix to see how accurate our 
 	-- this is coming out different than the matrix reconstructed from the eigensystem
+	local W3 = W2 * W
+	local W4 = W2 * W2
 	local dF_dw = {{},{},{}}
 	dF_dw[1][1] = W * vx
 	dF_dw[2][1] = (-P/rho + h * W2 - h)
@@ -393,7 +391,7 @@ SRHD1D.velEpsilon = 1e-10
 -- this is my attempt based on the recover pressure method described in Alcubierre, Baumgarte & Shapiro, Marti & Muller, Font, and generally everywhere
 function SRHD1D:calcPrimsByPressure(sim, i ,prims, qs)
 	local rho, vx, eInt = table.unpack(prims)
-
+error"still testing!"
 	-- use the new state variables to newton converge
 	local D, Sx, tau = table.unpack(qs)
 	
