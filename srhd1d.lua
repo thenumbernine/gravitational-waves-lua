@@ -91,7 +91,7 @@ function SRHD1D:initCell(sim,i)
 	local vx = 0
 	local P = x < 0 and 1 or .1
 	--]]
-	-- [[ Marti & Muller 2008 rppm relativistic shock reflection
+	--[[ Marti & Muller 2008 rppm relativistic shock reflection
 	-- not working with my sim...
 	self.gamma = 4/3
 	local rho = 1
@@ -99,7 +99,7 @@ function SRHD1D:initCell(sim,i)
 	local P = (self.gamma - 1) * rho * (1e-7 / math.sqrt(1 - vx*vx))
 	-- which is approx. P ~ (gamma - 1) rho sqrt(5) 1e-5 ~ sqrt(5)/3 1e-5 ~ 7.5e-6
 	--]]
-	--[[ Marti & Muller 2008 rppm relativistic blast wave interaction
+	-- [[ Marti & Muller 2008 rppm relativistic blast wave interaction
 	-- gets nans in the left-eigenvectors when the shockwaves collide
 	-- under both analytical and numerical calculuation
 	self.gamma = 7/5
@@ -401,7 +401,7 @@ SRHD1D.solvePrimErrorEpsilon = 1e-7
 SRHD1D.velMinEpsilon = 1e-15	-- <=> smaller than 1e-15 gnuplot x11 terminal breaks down past W = 1e+7 ...
 
 SRHD1D.PMinEpsilon = 1e-16
-SRHD1D.rhoMinEpsilon = 1e-10
+SRHD1D.rhoMinEpsilon = 1e-15
 
 -- this is my attempt based on the recover pressure method described in Alcubierre, Baumgarte & Shapiro, Marti & Muller, Font, and generally everywhere
 function SRHD1D:calcPrimsByPressure(sim, i ,prims, qs)
