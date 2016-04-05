@@ -14,6 +14,38 @@ function SRHD1DRoe:init(...)
 	self.primitiveReconstructionErrors = {}
 end
 
+
+--[[
+should these be SRHD1D Equation constants, like the other epsilons?
+I'd like to do the constraining in SRHD1D post-step ...
+
+after integrating, make sure all our values are correct
+technicalyl this should happen after every time qs = qs + dqs is performed
+and that goes on inside the integrator ... so ... override that behavior
+and you could override it in teh State.__add if you really wanted ... 
+--]]
+SRHD1DRoe.DMinEpsilon = 1e-15
+SRHD1DRoe.tauMinEpsilon = 1e-15
+function SRHD1DRoe:step(...)
+	SRHD1DRoe.super.step(self, ...)
+
+	--[[ report the most negative density and energy
+	local DMin = math.huge
+	local tauMin = math.huge
+	for i=1,self.gridsize do
+		DMin = math.min(DMin, self.qs[i][1])
+		tauMin = math.min(tauMin, self.qs[i][3])
+	end
+	print('DMin='..DMin..' tauMin='..tauMin)
+	--]]
+
+	-- constrain density and energy
+	for i=1,self.gridsize do
+		self.qs[i][1] = math.max(self.qs[i][1], self.DMinEpsilon)
+		self.qs[i][3] = math.max(self.qs[i][3], self.tauMinEpsilon)
+	end
+end
+
 function SRHD1DRoe:reset(...)
 	-- make sure the entries are reset
 	self.ws = {}

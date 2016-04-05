@@ -85,7 +85,7 @@ end
 function SRHD1D:initCell(sim,i)
 	local x = sim.xs[i]
 	--primitives:
-	-- [[ Sod
+	--[[ Sod
 	self.gamma = 7/5
 	local rho = x < 0 and 1 or .125
 	local vx = 0
@@ -110,7 +110,7 @@ function SRHD1D:initCell(sim,i)
 	local vx = .99999
 	local P = (self.gamma - 1) * rho * (1e-7 / math.sqrt(1 - vx*vx))
 	--]]
-	--[[ Marti & Muller 2008 rppm relativistic blast wave interaction
+	-- [[ Marti & Muller 2008 rppm relativistic blast wave interaction
 	-- gets nans in the left-eigenvectors when the shockwaves collide
 	-- under both analytical and numerical calculuation
 	self.gamma = 7/5
@@ -143,8 +143,8 @@ end
 function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	-- but the Roe section says to use these variables:
 	local rhoL, vxL, eIntL = table.unpack(sim.ws[i-1])
-
 	local rhoR, vxR, eIntR = table.unpack(sim.ws[i])
+--print('cell',i,'prims L=',rhoL,vxL,eIntL,'R=',rhoR,vxR,eIntR)
 
 --[[ roe averaging.  i need to find a paper that describes how to average all variables, and not just these ...
 	local sqrtAbsGL = 1	-- this will change once you start using a proper metric
@@ -222,6 +222,7 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	lambda[2] = vx
 	-- fast
 	lambda[3] = (vx * (1 - csSq) + cs * discr) / (1 - vSq * csSq)
+--print('cell',i,'lambda',table.unpack(lambda))
 
 	--[[ general equations
 	-- these explode with the two-shockwave test
@@ -241,6 +242,8 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 -- [=[ Marti, Muller 2008
 	local AMinus= (1 - vxSq) / (1 - vx * lambda[1])
 	local APlus = (1 - vxSq) / (1 - vx * lambda[3])
+--print('cell',i,'A+',APlus,'A-',AMinus)
+--print('cell',i,'h',h,'W',W,'hW',hW)
 	local evr = sim.eigenvectors[i]
 	evr[1][1] = 1
 	evr[2][1] = hW * AMinus * lambda[1]
@@ -252,6 +255,7 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	evr[2][3] = hW * APlus * lambda[3]
 	evr[3][3] = hW * APlus - 1
 
+	-- [[
 	local Delta = h*h*hW * (Kappa - 1) * (1 - vxSq) * (APlus * lambda[3] - AMinus * lambda[1])
 	local evl = sim.eigenvectorsInverse[i]
 	evl[1][1] = hSq / Delta * ( hW * APlus * (vx - lambda[3]) - vx - W2 * (vSq - vxSq) * (2 * Kappa - 1) * (vx - APlus * lambda[3]) + Kappa * APlus * lambda[3] )
@@ -263,6 +267,7 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	evl[3][1] = -hSq / Delta * (hW * AMinus * (vx - lambda[1]) - vx - W2 * (vSq - vxSq) * (2 * Kappa - 1) * (vx - AMinus * lambda[1]) + Kappa * AMinus * lambda[1] )
 	evl[3][2] = -hSq / Delta * (1 + W2 * (vSq - vxSq) * (2 * Kappa - 1) * (1 - AMinus) - Kappa * AMinus )
 	evl[3][3] = -hSq / Delta * (-vx - W2 * (vSq - vxSq) * (2 * Kappa - 1) * (vx - AMinus * lambda[1]) + Kappa * AMinus * lambda[1] )
+	--]]
 --]=]
 --[=[ Font 2008
 	-- Font 2008 eqn 113
@@ -314,11 +319,24 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	evl[3][3] = hSq / Delta * ((1 - Kappa) * (-vx + VXMinus * (W2 * xi - 1)) - Kappa * W2 * VXMinus * xi)
 	evl[3][1] = hSq / Delta * (h * W * VXMinus * xi + Delta / hSq * evl[3][3])
 	--]]
+--]=]
 	--[[ or just do it numerically
 	local evl = sim.eigenvectorsInverse[i]
 	sim.eigenvectorsInverse[i] = mat33.inv(evr)
 	--]]
---]=]
+
+--[[
+for j=1,3 do
+	for k=1,3 do
+		print('cell',i,'right eigenvectors',j,k,evr[j][k])
+	end
+end
+for j=1,3 do
+	for k=1,3 do
+		print('cell',i,'left eigenvectors',j,k,evl[j][k])
+	end
+end
+--]]
 
 for j=1,3 do
 	assertfinite(lambda[j])
@@ -379,14 +397,19 @@ end
 end
 
 SRHD1D.solvePrimMaxIter = 1000
-SRHD1D.solvePrimStopEpsilon = 1e-7
+SRHD1D.solvePrimErrorEpsilon = 1e-7
 
 -- used by pressure solver
 -- velocity epsilon is how close we can get to the speed of light
 -- set ylabel "Lorentz factor"; set xlabel "velocity epsilon -log10"; set log xy; plot [1:10] 1/sqrt(1-(1-10**(-x))**2);
--- 1e-10 <=> W = 100000
--- 1e-7 <=> W = 2000
-SRHD1D.velEpsilon = 1e-10
+--SRHD1D.velMinEpsilon = 1e-5	-- <=> handles up to W = 500
+--SRHD1D.velMinEpsilon = 1e-6	-- <=> handles up to W = 600
+--SRHD1D.velMinEpsilon = 1e-7	-- <=> handles up to W = 2,000
+--SRHD1D.velMinEpsilon = 1e-10	-- <=> handles up to W = 100,000
+SRHD1D.velMinEpsilon = 1e-15	-- <=> smaller than 1e-15 gnuplot x11 terminal breaks down past W = 1e+7 ...
+
+SRHD1D.PMinEpsilon = 1e-16
+SRHD1D.rhoMinEpsilon = 1e-10
 
 -- this is my attempt based on the recover pressure method described in Alcubierre, Baumgarte & Shapiro, Marti & Muller, Font, and generally everywhere
 function SRHD1D:calcPrimsByPressure(sim, i ,prims, qs)
@@ -394,15 +417,11 @@ function SRHD1D:calcPrimsByPressure(sim, i ,prims, qs)
 
 	-- use the new state variables to newton converge
 	local D, Sx, tau = table.unpack(qs)
-	
-	-- code with Marti & Muller 2008:
-	D = math.max(D, 1e-10)
-	tau = math.max(tau, 1e-10)
 
 	-- superluminal velocity will occur if |S| > tau + D + P
 	-- i.e. if P < |S| - tau - D
 	local absSx = math.abs(Sx)
-	local PMin = math.max(absSx - tau - D + absSx * self.velEpsilon, 1e-16)
+	local PMin = math.max(absSx - tau - D + absSx * self.velMinEpsilon, self.PMinEpsilon)
 
 	-- this is in the Marti & Muller 2008 code ...
 	-- where do they get this from?
@@ -455,11 +474,12 @@ assertfinite(newP)
 		local PError = math.abs(1 - newP / P)
 		P = newP
 assertfinite(P)
-		if PError < self.solvePrimStopEpsilon then
+		if PError < self.solvePrimErrorEpsilon then
 			-- one last update ...
 			vx = Sx / (tau + D + P)
 			W = 1 / math.sqrt(1 - vx*vx)
 			rho = D / W
+			rho = math.max(rho, self.rhoMinEpsilon)
 			eInt = self:calc_eInt_from_P(rho, P)
 			return {rho, vx, eInt}, nil, iter
 		end
@@ -509,9 +529,11 @@ function SRHD1D:calcPrimsByZAndW(sim, i, prims, qs)
 		Z = newZ < 1e+20 and newZ or Z	-- restore old Z if we exceed 1e+20
 		W = math.clamp(newW,1,1e+12)
 		local err = math.abs(dZ/Z) + math.abs(dW/W)
-		if err < self.solvePrimStopEpsilon then
+		if err < self.solvePrimErrorEpsilon then
 			rho = D / W
+			rho = math.max(rho, self.rhoMinEpsilon)
 			h = Z / (D * W)		-- h-1 = gamma eInt <=> eInt = (h-1) / gamma  <=> (h-1) = eInt + P/rho
+			h = math.max(h, 1 + self.rhoMinEpsilon)
 			eInt = (h - 1) / self.gamma	-- this is ideal gas law only, right?
 			P = self:calcP(rho, eInt)
 			vx = math.clamp(Sx / (tau + D + P), -1, 1)
@@ -537,14 +559,15 @@ function SRHD1D:calcPrimsByPrims(sim, i, prims, qs)
 assertfinite(D)
 assertfinite(Sx)
 assertfinite(tau)
+	
 	--dynamic prims to converge
 	local rho, vx, eInt = table.unpack(prims)
 assertfinite(rho)
 assertfinite(vx)
 assertfinite(eInt)
-	--print('cell',i)
+--print('cell',i)
 	for iter=1,self.solvePrimMaxIter do
-		--print('rho='..rho..' vx='..vx..' eInt='..eInt)
+--print('rho='..rho..' vx='..vx..' eInt='..eInt)
 		local P = self:calcP(rho, eInt)
 		local dP_drho = self:calc_dP_drho(rho, eInt)
 		local dP_deInt = self:calc_dP_deInt(rho, eInt)
@@ -593,9 +616,8 @@ assertfinite(deInt)
 		local new_vx = vx - alpha * dvx
 		local new_eInt = eInt - alpha * deInt
 		-- [[ enforce boundaries
-		local vx_epsilon = 1e-7		-- can't reach the speed of light or W will get a NaN
-		new_rho = math.clamp(new_rho,1e-7,1e+20)
-		new_vx = math.clamp(new_vx,-1+vx_epsilon,1-vx_epsilon)
+		new_rho = math.clamp(new_rho,1e-10,1e+20)
+		new_vx = math.clamp(new_vx,-1+self.velMinEpsilon,1-self.velMinEpsilon)
 		new_eInt = math.clamp(new_eInt,0,1e+20)
 		--]]
 		local err = math.abs(new_rho-rho) + math.abs(new_vx-vx) + math.abs(new_eInt-eInt)
@@ -604,8 +626,8 @@ assertfinite(deInt)
 		eInt = new_eInt
 		local cons = table{self:consFromPrims(rho,vx,eInt)}
 		local consErr = table{math.abs(cons[1]-qs[1]), math.abs(cons[2]-qs[2]), math.abs(cons[3]-qs[3])}
-		--print('err='..err)
-		if err < self.solvePrimStopEpsilon then
+--print('err='..err)
+		if err < self.solvePrimErrorEpsilon then
 			return {rho, vx, eInt}, nil, iter
 		end
 	end
