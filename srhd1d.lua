@@ -91,26 +91,15 @@ function SRHD1D:initCell(sim,i)
 	local vx = 0
 	local P = x < 0 and 1 or .1
 	--]]
-	--[[ Marti & Muller 2008 rppm's Schneider et al
-	self.gamma = 5/3
-	local rho = x < 0 and 10 or 1
-	local vx = 0
-	local P = (self.gamma-1) * rho * (x < 0 and 2 or 1e-6)
-	--]]
-	--[[ Marti & Muller 2008 rppm relativistic blast wave
-	self.gamma = 5/3
-	local rho = 1
-	local vx = 0
-	local P = x < 0 and 1e+3 or 1e-2
-	--]]
-	--[[ Marti & Muller 2008 rppm relativistic shock reflection
+	-- [[ Marti & Muller 2008 rppm relativistic shock reflection
 	-- not working with my sim...
 	self.gamma = 4/3
 	local rho = 1
-	local vx = .99999
+	local vx = 1 - 1e-5
 	local P = (self.gamma - 1) * rho * (1e-7 / math.sqrt(1 - vx*vx))
+	-- which is approx. P ~ (gamma - 1) rho sqrt(5) 1e-5 ~ sqrt(5)/3 1e-5 ~ 7.5e-6
 	--]]
-	-- [[ Marti & Muller 2008 rppm relativistic blast wave interaction
+	--[[ Marti & Muller 2008 rppm relativistic blast wave interaction
 	-- gets nans in the left-eigenvectors when the shockwaves collide
 	-- under both analytical and numerical calculuation
 	self.gamma = 7/5
@@ -121,12 +110,15 @@ function SRHD1D:initCell(sim,i)
 	local P = x < lhs and 1e+3 or (x > rhs and 1e+2 or 1e-2)
 	--]]
 	--[[ relativistic blast wave test problem 1, Marti & Muller 2008, table 5
+	-- also the Marti & Muller rppm code's Schneider et al
+	-- the paper says P=0.00 for rhs, but looking at the rppm code it should probably be 1.66e-6 
 	self.gamma = 5/3
 	local rho = x < 0 and 10 or 1
 	local vx = 0
-	local P = x < .01 and 40/3 or 1e-3	-- paper says 0 for rhs but I'm putting .01 and hoping for a typo 
+	local P = (self.gamma - 1) * rho * (x < 0 and 2 or 1e-6)
 	--]]
 	--[[ relativistic blast wave test problem 2, Marti & Muller 2008, table 5
+	-- also the relativistic blast wave initial conditions in the provided rppm code
 	self.gamma = 5/3
 	local rho = 1
 	local vx = 0
