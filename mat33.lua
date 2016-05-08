@@ -10,10 +10,9 @@ end
 local function mat33inv(A,det)
 	det = det or mat33det(A)
 	if det == 0 then
+		print('A=')
 		for j=1,3 do
-			for k=1,3 do
-				print('A('+i+','+j+') = '+A[j][k])
-			end
+			print(table.concat(A[j], ', '))
 		end
 		error 'singular!'
 	end

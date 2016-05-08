@@ -10,6 +10,24 @@ local SRHD1D = class(Equation)
 SRHD1D.name = 'SRHD 1D'
 SRHD1D.numStates = 3
 
+
+SRHD1D.solvePrimMaxIter = 1000
+SRHD1D.solvePrimErrorEpsilon = 1e-7
+
+-- used by pressure solver
+-- velocity epsilon is how close we can get to the speed of light
+-- set ylabel "Lorentz factor"; set xlabel "velocity epsilon -log10"; set log xy; plot [1:10] 1/sqrt(1-(1-10**(-x))**2);
+--SRHD1D.velEpsilon = 1e-5	-- <=> handles up to W = 500
+--SRHD1D.velEpsilon = 1e-6	-- <=> handles up to W = 600
+--SRHD1D.velEpsilon = 1e-7	-- <=> handles up to W = 2,000
+--SRHD1D.velEpsilon = 1e-10	-- <=> handles up to W = 100,000
+SRHD1D.velEpsilon = 1e-15	-- <=> smaller than 1e-15 gnuplot x11 terminal breaks down past W = 1e+7 ...
+
+SRHD1D.PMinEpsilon = 1e-16
+SRHD1D.rhoMinEpsilon = 1e-15
+
+
+
 -- pressure functions for ideal gas
 function SRHD1D:calcP(rho, eInt)
 	return (self.gamma - 1) * rho * eInt
@@ -107,11 +125,12 @@ function SRHD1D:initCell(sim,i)
 	local rhs = .1 * sim.domain.xmin + .9 * sim.domain.xmax
 	local rho = 1
 	local vx = 0
-	local P = x < lhs and 1e+3 or (x > rhs and 1e+2 or 1e-2)
+	local P = x < lhs and 1000 or (x > rhs and 100 or .01)
 	--]]
 	--[[ relativistic blast wave test problem 1, Marti & Muller 2008, table 5
 	-- also the Marti & Muller rppm code's Schneider et al
 	-- the paper says P=0.00 for rhs, but looking at the rppm code it should probably be 1.66e-6 
+	-- also Odyck problem #1
 	self.gamma = 5/3
 	local rho = x < 0 and 10 or 1
 	local vx = 0
@@ -119,10 +138,11 @@ function SRHD1D:initCell(sim,i)
 	--]]
 	--[[ relativistic blast wave test problem 2, Marti & Muller 2008, table 5
 	-- also the relativistic blast wave initial conditions in the provided rppm code
+	-- also Odyck problem #2
 	self.gamma = 5/3
 	local rho = 1
 	local vx = 0
-	local P = x < 0 and 1e+3 or 1e-2
+	local P = x < 0 and 1000 or .01
 	--]]
 	local eInt = self:calc_eInt_from_P(rho, P)
 	local vSq = vx*vx -- + vy*vy + vz*vz
@@ -165,6 +185,7 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local W = roeVars[1]	-- = u0
 	local u1 = roeVars[2]	-- = vx * W
 	local vx = u1 / W
+	vx = math.clamp(vx, -1+self.velEpsilon,1-self.velEpsilon)
 	-- eInt / h = (p / (rho h)) / (self.gamma - 1) 
 	local P_over_rho_h = roeVars[3]
 
@@ -375,7 +396,19 @@ end
 	dU_dw[1][3] = 0
 	dU_dw[2][3] = self.gamma * rho * W2 * vx
 	dU_dw[3][3] = rho * (1 - self.gamma + W2 * self.gamma)
-	local dw_dU = mat33.inv(dU_dw)
+	local _, dw_dU = xpcall(function()
+		return mat33.inv(dU_dw)
+	end, function(err)
+		print(err..'\n'..tolua({
+			rho=rho,
+			vx=vx,
+			P=P,
+			h=h,
+			W=W,
+			W2=W2,
+			W3=W3,
+		},{indent=true})..'\n'..debug.traceback())
+	end)
 
 	for j=1,3 do
 		for k=1,3 do
@@ -388,21 +421,6 @@ end
 	end
 end
 
-SRHD1D.solvePrimMaxIter = 1000
-SRHD1D.solvePrimErrorEpsilon = 1e-7
-
--- used by pressure solver
--- velocity epsilon is how close we can get to the speed of light
--- set ylabel "Lorentz factor"; set xlabel "velocity epsilon -log10"; set log xy; plot [1:10] 1/sqrt(1-(1-10**(-x))**2);
---SRHD1D.velMinEpsilon = 1e-5	-- <=> handles up to W = 500
---SRHD1D.velMinEpsilon = 1e-6	-- <=> handles up to W = 600
---SRHD1D.velMinEpsilon = 1e-7	-- <=> handles up to W = 2,000
---SRHD1D.velMinEpsilon = 1e-10	-- <=> handles up to W = 100,000
-SRHD1D.velMinEpsilon = 1e-15	-- <=> smaller than 1e-15 gnuplot x11 terminal breaks down past W = 1e+7 ...
-
-SRHD1D.PMinEpsilon = 1e-16
-SRHD1D.rhoMinEpsilon = 1e-15
-
 -- this is my attempt based on the recover pressure method described in Alcubierre, Baumgarte & Shapiro, Marti & Muller, Font, and generally everywhere
 function SRHD1D:calcPrimsByPressure(sim, i ,prims, qs)
 	local rho, vx, eInt = table.unpack(prims)
@@ -413,7 +431,7 @@ function SRHD1D:calcPrimsByPressure(sim, i ,prims, qs)
 	-- superluminal velocity will occur if |S| > tau + D + P
 	-- i.e. if P < |S| - tau - D
 	local absSx = math.abs(Sx)
-	local PMin = math.max(absSx - tau - D + absSx * self.velMinEpsilon, self.PMinEpsilon)
+	local PMin = math.max(absSx - tau - D + absSx * self.velEpsilon, self.PMinEpsilon)
 
 	-- this is in the Marti & Muller 2008 code ...
 	-- where do they get this from?
@@ -609,7 +627,7 @@ assertfinite(deInt)
 		local new_eInt = eInt - alpha * deInt
 		-- [[ enforce boundaries
 		new_rho = math.clamp(new_rho,1e-10,1e+20)
-		new_vx = math.clamp(new_vx,-1+self.velMinEpsilon,1-self.velMinEpsilon)
+		new_vx = math.clamp(new_vx,-1+self.velEpsilon,1-self.velEpsilon)
 		new_eInt = math.clamp(new_eInt,0,1e+20)
 		--]]
 		local err = math.abs(new_rho-rho) + math.abs(new_vx-vx) + math.abs(new_eInt-eInt)
