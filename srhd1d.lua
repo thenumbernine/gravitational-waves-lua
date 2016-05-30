@@ -102,12 +102,14 @@ end
 
 function SRHD1D:initCell(sim,i)
 	local x = sim.xs[i]
+	local xmid = (sim.domain.xmin + sim.domain.xmax) / 2
+	
 	--primitives:
 	--[[ Sod
 	self.gamma = 7/5
-	local rho = x < 0 and 1 or .125
+	local rho = x < xmid and 1 or .125
 	local vx = 0
-	local P = x < 0 and 1 or .1
+	local P = x < xmid and 1 or .1
 	--]]
 	--[[ Marti & Muller 2008 rppm relativistic shock reflection
 	-- not working with my sim...
@@ -117,24 +119,14 @@ function SRHD1D:initCell(sim,i)
 	local P = (self.gamma - 1) * rho * (1e-7 / math.sqrt(1 - vx*vx))
 	-- which is approx. P ~ (gamma - 1) rho sqrt(5) 1e-5 ~ sqrt(5)/3 1e-5 ~ 7.5e-6
 	--]]
-	-- [[ Marti & Muller 2008 rppm relativistic blast wave interaction
-	-- gets nans in the left-eigenvectors when the shockwaves collide
-	-- under both analytical and numerical calculuation
-	self.gamma = 7/5
-	local lhs = .9 * sim.domain.xmin + .1 * sim.domain.xmax
-	local rhs = .1 * sim.domain.xmin + .9 * sim.domain.xmax
-	local rho = 1
-	local vx = 0
-	local P = x < lhs and 1000 or (x > rhs and 100 or .01)
-	--]]
 	--[[ relativistic blast wave test problem 1, Marti & Muller 2008, table 5
 	-- also the Marti & Muller rppm code's Schneider et al
 	-- the paper says P=0.00 for rhs, but looking at the rppm code it should probably be 1.66e-6 
 	-- also Odyck problem #1
 	self.gamma = 5/3
-	local rho = x < 0 and 10 or 1
+	local rho = x < xmid and 10 or 1
 	local vx = 0
-	local P = (self.gamma - 1) * rho * (x < 0 and 2 or 1e-6)
+	local P = (self.gamma - 1) * rho * (x < xmid and 2 or 1e-6)
 	--]]
 	--[[ relativistic blast wave test problem 2, Marti & Muller 2008, table 5
 	-- also the relativistic blast wave initial conditions in the provided rppm code
@@ -142,8 +134,17 @@ function SRHD1D:initCell(sim,i)
 	self.gamma = 5/3
 	local rho = 1
 	local vx = 0
-	local P = x < 0 and 1000 or .01
+	local P = x < xmid and 1000 or .01
 	--]]
+	-- [[ Marti & Muller 2008 rppm relativistic blast wave interaction
+	self.gamma = 7/5
+	local lhs = .9 * sim.domain.xmin + .1 * sim.domain.xmax
+	local rhs = .1 * sim.domain.xmin + .9 * sim.domain.xmax
+	local rho = 1
+	local vx = 0
+	local P = x < lhs and 1000 or (x > rhs and 100 or .01)
+	--]]
+	
 	local eInt = self:calc_eInt_from_P(rho, P)
 	local vSq = vx*vx -- + vy*vy + vz*vz
 	local W = 1/math.sqrt(1 - vSq)

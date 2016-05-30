@@ -30,7 +30,7 @@ function Euler1DGodunov:init(args, ...)
 end
 
 -- same as Euler1DBuregers:calcDT
-function Euler1DGodunov:calcDT(getLeft, getRight)
+function Euler1DGodunov:calcDT()
 	local gamma = self.equation.gamma
 	
 	-- determine timestep based on cell velocity 
@@ -69,13 +69,11 @@ function Euler1DGodunov:reset()
 	end
 end
 
-function Euler1DGodunov:calcFlux(dt, getLeft, getRight)
+function Euler1DGodunov:calcFlux(dt)
 	local gamma = self.equation.gamma
 	local x_t = 0
 
 	for i=2,self.gridsize do
-		--local qL = getLeft and getLeft(self,i) or self.qs[i-1]
-		--local qR = getRight and getRight(self,i) or self.qs[i]
 		local qL = self.qs[i-1]
 		local qR = self.qs[i]
 		

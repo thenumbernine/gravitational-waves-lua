@@ -61,12 +61,12 @@ function Roe:reset()
 end
 
 -- calculates timestep and eigenbasis
-function Roe:calcDT(getLeft, getRight)
+function Roe:calcDT()
 	-- Roe solver:
 	-- 1) calculate eigenbasis at interface with Roe-weighted average of states
 	for i=2,self.gridsize do
-		local qL = getLeft and getLeft(self,i) or self.qs[i-1]
-		local qR = getRight and getRight(self,i) or self.qs[i]
+		local qL = self.qs[i-1]
+		local qR = self.qs[i]
 		
 		self.equation:calcInterfaceEigenBasis(self,i,qL,qR)
 
@@ -127,10 +127,10 @@ function Roe:calcDT(getLeft, getRight)
 	return Roe.super.calcDT(self)
 end
 
-function Roe:calcDeltaQTildes(getLeft, getRight)
+function Roe:calcDeltaQTildes()
 	for i=2,self.gridsize do
-		local qL = getLeft and getLeft(self,i) or self.qs[i-1]
-		local qR = getRight and getRight(self,i) or self.qs[i]
+		local qL = self.qs[i-1]
+		local qR = self.qs[i]
 		
 		local dq = {}
 		for j=1,self.numStates do
@@ -140,10 +140,10 @@ function Roe:calcDeltaQTildes(getLeft, getRight)
 	end
 end
 
-function Roe:calcRTildes(getLeft, getRight)
+function Roe:calcRTildes()
 	for i=2,self.gridsize do
-		local qL = getLeft and getLeft(self,i) or self.qs[i-1]
-		local qR = getRight and getRight(self,i) or self.qs[i]
+		local qL = self.qs[i-1]
+		local qR = self.qs[i]
 		for j=1,self.numStates do
 			if self.deltaQTildes[i][j] == 0 then
 				self.rTildes[i][j] = 0
@@ -202,16 +202,9 @@ function Roe:calcCellFluxForSide(i, q, dir)
 	return self.equation:eigenfieldsInverse(self, i, fluxTilde)
 end
 
---[[
-calc interface flux vector
-getLeft and getRight would be convenient for applying this to MUSCL
-but I would also like an arbitrary state vector ...
-combining the two concepts means making qs a parameter of getLeft/getRight ...
-not used by Roe (for efficiency's sake), but used by subclasses
---]]
-function Roe:calcCellFlux(i, getLeft, getRight)
-	local qL = getLeft and getLeft(self,i) or self.qs[i-1]
-	local qR = getRight and getRight(self,i) or self.qs[i]
+function Roe:calcCellFlux(i)
+	local qL = self.qs[i-1]
+	local qR = self.qs[i]
 	local fluxFromL = self:calcCellFluxForSide(i, qL, 1)
 	local fluxFromR = self:calcCellFluxForSide(i, qR, -1)
 	local result = {}
@@ -225,12 +218,12 @@ end
 calc derivative of state
 not used by Roe (for efficiency's sake), but used by subclasses
 --]]
-function Roe:calcDeriv(getLeft, getRight)
+function Roe:calcDeriv()
 	local dq_dt = self:newState()
 	for i=1,self.gridsize do
 		local dx = self.ixs[i+1] - self.ixs[i]
-		local fluxL = self:calcCellFlux(i, getLeft, getRight)
-		local fluxR = self:calcCellFlux(i+1, getLeft, getRight)
+		local fluxL = self:calcCellFlux(i)
+		local fluxR = self:calcCellFlux(i+1)
 		for j=1,self.numStates do
 			dq_dt[i][j] = (fluxL[j] - fluxR[j]) / dx
 		end		
@@ -242,13 +235,13 @@ end
 -- depends on self:calcDeltaQTildes and self:calcRTiles
 -- TODO this should be 'calcFluxes'
 -- and 'calcFlux' should be 'calcDerivByFlux' or something?
-function Roe:calcFluxesAtInterface(dt, getLeft, getRight, getLeft2, getRight2)
+function Roe:calcFluxesAtInterface(dt)
 	local useFluxMatrix = false
 	
 	-- transform back
 	for i=2,self.gridsize do
-		local qL = getLeft and getLeft(self,i) or self.qs[i-1]
-		local qR = getRight and getRight(self,i) or self.qs[i]
+		local qL = self.qs[i-1]
+		local qR = self.qs[i]
 
 		local qAvg = {}
 		for j=1,self.numStates do
@@ -284,16 +277,16 @@ function Roe:calcFluxesAtInterface(dt, getLeft, getRight, getLeft2, getRight2)
 	end
 end
 
-function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
+function Roe:calcFlux(dt)
 
 	-- calculate interface state difference in eigenbasis coordinates
-	self:calcDeltaQTildes(getLeft, getRight)
+	self:calcDeltaQTildes()
 
 	-- slope limit on interface difference
-	self:calcRTildes(getLeft, getRight)
+	self:calcRTildes()
 
 -- [=[ uses fluxes (and optionally the flux matrix)
-	self:calcFluxesAtInterface(dt, getLeft, getRight, getLeft2, getRight2)
+	self:calcFluxesAtInterface(dt)
 
 	local dq_dts = self:newState()
 	for i=1,self.gridsize do
@@ -309,7 +302,7 @@ function Roe:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
 	-- phis based on eigenvalues and flux limiter of rTildes
 	self:calcPhis(dt)
 	
-	return self:calcDeriv(getLeft, getRight)
+	return self:calcDeriv()
 --]=]
 end
 

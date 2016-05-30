@@ -19,7 +19,7 @@ local Euler1DBurgers = class(Solver)
 Euler1DBurgers.equation = Euler1D()
 Euler1DBurgers.name = 'Euler 1D Burgers'
 
-function Euler1DBurgers:calcDT(getLeft, getRight)
+function Euler1DBurgers:calcDT()
 	local gamma = self.equation.gamma
 	
 	-- determine timestep based on cell velocity 
@@ -58,16 +58,16 @@ function Euler1DBurgers:reset()
 	end
 end
 
-function Euler1DBurgers:calcFlux(dt, getLeft, getRight, getLeft2, getRight2)
+function Euler1DBurgers:calcFlux(dt)
 	local dq_dts = self:newState()
 	
 	local gamma = self.equation.gamma
 
 	for i=3,self.gridsize-1 do
-		local qL2 = getLeft2 and getLeft2(self,i) or self.qs[i-2]
-		local qL = getLeft and getLeft(self,i) or self.qs[i-1]
-		local qR = getRight and getRight(self,i) or self.qs[i]
-		local qR2 = getRight2 and getRight2(self,i) or self.qs[i+1]
+		local qL2 = self.qs[i-2]
+		local qL = self.qs[i-1]
+		local qR = self.qs[i]
+		local qR2 = self.qs[i+1]
 		local uL = qL[2] / qL[1]
 		local uR = qR[2] / qR[1]
 		local iu = .5 * (uL + uR)

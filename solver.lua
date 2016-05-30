@@ -19,7 +19,7 @@ function Solver:init(args)
 	self.iteration = args.iteration or 0
 	self.cfl = args.cfl or .5
 	self.fixed_dt = args.fixed_dt
-	self.stopAtTime = args.stopAtTime
+	self.stopAtTimes = args.stopAtTimes
 
 	self.usePPM = args.usePPM
 
@@ -36,11 +36,11 @@ function Solver:reset()
 	self.t = self.t0
 	
 	for i=1,self.gridsize do
-		self.xs[i] = (i-.5)/self.gridsize*(self.domain.xmax - self.domain.xmin) + self.domain.xmin
+		self.xs[i] = ((i-2)-.5)/(self.gridsize-4)*(self.domain.xmax - self.domain.xmin) + self.domain.xmin
 	end
 	-- interface center of coordinate system
 	for i=1,self.gridsize+1 do
-		self.ixs[i] = (i-1)/self.gridsize*(self.domain.xmax - self.domain.xmin) + self.domain.xmin
+		self.ixs[i] = ((i-2)-1)/(self.gridsize-4)*(self.domain.xmax - self.domain.xmin) + self.domain.xmin
 	end
 
 	-- state at cell centers
@@ -75,9 +75,9 @@ function Solver:getPPM(xi,j)
 end
 --]]
 
-function Solver:step(dt, getLeft, getRight)
+function Solver:step(dt)
 	self:integrate(dt, function()
-		local dq_dt = self:calcFlux(dt, getLeft, getRight)
+		local dq_dt = self:calcFlux(dt)
 		if self.equation.sourceTerm then
 			dq_dt = dq_dt + self.equation:sourceTerm(self, self.qs)
 		end
@@ -88,57 +88,9 @@ end
 function Solver:iterate()
 	self:applyBoundary()
 
-	local getLeft, getRight
--- [[ my attempt at PPM
-if self.usePPM then
-	self.ppm_iqs = self.ppm_iqs or self:newState()
-	-- left and right parabolic extrapolated values at each cell
-	self.ppm_qLs = self.ppm_qLs or self:newState()
-	self.ppm_qRs = self.ppm_qRs or self:newState()
-	for i=3,self.gridsize-1 do
-		for j=1,self.numStates do
-			self.ppm_iqs[i][j] = (7*(self.qs[i-1][j] + self.qs[i][j]) - (self.qs[i+1][j] + self.qs[i-2][j]))/12
-		end
-	end
-	for i=1,self.gridsize-2 do
-		for j=1,self.numStates do
-			self.ppm_qLs[i][j] = self.ppm_iqs[i][j]
-			self.ppm_qRs[i][j] = self.ppm_iqs[i+1][j]
-			-- [=[
-			if (self.ppm_qRs[i][j] - self.qs[i][j]) * (self.qs[i][j] - self.ppm_qLs[i][j]) <= 0 then
-				self.ppm_qLs[i][j] = self.qs[i][j]
-				self.ppm_qRs[i][j] = self.qs[i][j]
-			else
-				local deltaRL = self.ppm_qRs[i][j] - self.ppm_qLs[i][j]
-				local deltaRL2 = deltaRL * deltaRL  
-				local upperBound = deltaRL2 / 6
-				local lowerBound = -upperBound
-				local samplePoint = deltaRL * (self.qs[i][j] - 1/2 * (self.ppm_qLs[i][j] + self.ppm_qRs[i][j]))
-				if samplePoint > upperBound then
-					self.ppm_qLs[i][j] = 3 * self.qs[i][j] - 2 * self.ppm_qRs[i][j]
-				elseif lowerBound > samplePoint then
-					self.ppm_qRs[i][j] = 3 * self.qs[i][j] - 2 * self.ppm_qLs[i][j]
-				end
-			end
-			--]=]
-		end
-	end
-	-- get left and right at each interface
-	getLeft = function(sim,i) return sim.ppm_qRs[i-1] end
-	getRight = function(sim,i) return sim.ppm_qLs[i] end
-getLeft = function(sim,i) return sim.qs[i-1] end
-getRight = function(sim,i) return sim.qs[i] end
-else
---]]
--- [[ ordinary	
-	getLeft = function(sim,i) return sim.qs[i-1] end
-	getRight = function(sim,i) return sim.qs[i] end
---]]
-end
+	local dt = self:calcDT()
 
-	local dt = self:calcDT(getLeft, getRight)
-
-	self:step(dt, getLeft, getRight)
+	self:step(dt)
 
 	if self.postIterate then
 		self:postIterate(dt)

@@ -98,7 +98,7 @@ do
 
 	--[=[
 	for _,sim in ipairs(sims) do
-		sim.stopAtTime = 100
+		sim.stopAtTimes = {100}
 		sim.fixed_dt = 0.125
 	end
 	--]=]
@@ -256,8 +256,8 @@ end
 do
 	local args = {
 		equation = Euler1D(),
-		--stopAtTime = .1,
-		gridsize = 200,
+		--stopAtTimes = {.1},
+		gridsize = 1000,
 		domain = {xmin=-1, xmax=1},
 		boundaryMethod = boundaryMethods.freeFlow,
 		--boundaryMethod = boundaryMethods.freeFlow,
@@ -277,7 +277,7 @@ do
 	
 	-- [=[ compare schemes
 	--sims:insert(require 'euler1d_burgers'(args))
-	sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='exact', sampleMethod='alt'})))
+	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='exact', sampleMethod='alt'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='exact'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='pvrs'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})))
@@ -291,7 +291,15 @@ do
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
 	--sims:insert(Roe(table(args, {equation = MHD()})))
-	--sims:insert(require 'srhd1d_roe'(table(args, {gridsize=200, equation=require 'srhd1d'()})))
+
+	-- srhd Marti & Muller 2003 problem #1
+	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.4249], gridsize=400, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
+	-- srhd Marti & Muller 2003 problem #2
+	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.43}, gridsize=2000, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
+	-- srhd Marti & Muller 2003 blast wave interaction
+	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.1, .26, .426}, gridsize=4000, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
+	-- srhd versus euler
+	--sims:insert(Roe(table(args, {gridsize=2000})))
 	--]=]
 
 	--[=[ compare flux limiters
@@ -333,6 +341,8 @@ for _,sim in ipairs(sims) do
 	end
 	sim:reset()
 end
+if #sims >= 1 then sims[1].color = {.2,1,1} end
+if #sims >= 2 then sims[2].color = {1,.4,1} end
 
 --[[ text
 local printState = function()
@@ -375,9 +385,10 @@ function TestApp:initGL()
 	-- [[ need to get image loading working
 	local fonttex = GLTex2D{
 		filename = 'font.png',
-		minFilter = gl.GL_NEAREST,
+		minFilter = gl.GL_LINEAR_MIPMAP_LINEAR,
 		magFilter = gl.GL_LINEAR,
 	}
+	gl.glGenerateMipmap(gl.GL_TEXTURE_2D)
 	self.font = Font{tex=fonttex}
 	--]]
 end
@@ -412,11 +423,13 @@ function TestApp:update(...)
 	gl.glClear(gl.GL_COLOR_BUFFER_BIT)
 
 	for _,sim in ipairs(sims) do
-		if sim.stopAtTime then
+		if sim.stopAtTimes then
 			local t = sim.t
 			if self.oldt then
-				if t >= sim.stopAtTime and self.oldt < sim.stopAtTime then
-					self.doIteration = false
+				for _,t2 in ipairs(sim.stopAtTimes) do
+					if t >= t2 and self.oldt < t2 then
+						self.doIteration = false
+					end
 				end
 			end
 			self.oldt = t
@@ -521,7 +534,7 @@ function TestApp:update(...)
 		gl.glMatrixMode(gl.GL_MODELVIEW)
 		gl.glLoadIdentity()
 
-		gl.glColor3f(.25, .25, .25)
+		gl.glColor3f(.1, .1, .1)
 		local xrange = xmax - xmin
 		local xstep = 10^floor(log(xrange, 10) - .5)
 		local xticmin = floor(xmin/xstep)

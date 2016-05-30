@@ -23,14 +23,13 @@ do
 	local rho = q:_(1)
 	local mom = q:_(2)
 	local ETotal = q:_(3)
-	local eTotal = ETotal / rho
 	local vx = mom/rho
 	local EKin = .5 * rho * vx^2
 	local EInt = ETotal - EKin
 	local P = (gamma - 1) * EInt
 	local H = EInt * gamma
 	local S = P / rho^gamma
-
+	
 	Euler1D:buildGraphInfos{
 		-- prims
 		{rho = rho},
@@ -46,11 +45,17 @@ do
 		-- roe scheme
 		{['log eigenbasis error'] = function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end},
 		{['log reconstruction error'] = function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end},
+		
+		--[[ matching SRHD
+		{eInt = EInt / rho},
+		{h = H / rho},
+		{Sx = mom},
+		{tau = ETotal},
+		--]]
 	}
 end
 
 function Euler1D:initCell(sim,i)
-	local gamma = self.gamma
 	local x = sim.xs[i]
 	--[[ constant
 	local rho = 1
@@ -67,7 +72,7 @@ function Euler1D:initCell(sim,i)
 	local rho = math.exp(-x^2/sigma^2) + .1
 	-- drho/dx = (-2x/sigma^2) exp(-x^2/sigma^2)
 	local vx = 0
-	local P = 1 + .1 * (math.exp(-x^2/sigma^2) + 1) / ((gamma - 1) * rho)
+	local P = 1 + .1 * (math.exp(-x^2/sigma^2) + 1) / ((self.gamma - 1) * rho)
 	--]]
 	--[[ rarefaction wave
 	local delta = .1
@@ -75,7 +80,7 @@ function Euler1D:initCell(sim,i)
 	local vx = x<0 and .5-delta or .5+delta
 	local P = 1
 	--]]
-	-- [[ Sod
+	--[[ Sod
 	local rho = x < 0 and 1 or .125
 	local vx = 0
 	local P = x < 0 and 1 or .1
@@ -90,7 +95,32 @@ function Euler1D:initCell(sim,i)
 	local vx = 0
 	local P = i == math.floor(sim.gridsize/2) and 1e+3 or 1
 	--]]
-	return {rho, rho * vx, P/(gamma-1) + .5 * rho * vx^2}
+	
+
+	-- matching the SRHD results
+	
+	-- [[ Sod
+	self.gamma = 7/5
+	local rho = x < 0 and 1 or .125
+	local vx = 0
+	local P = x < 0 and 1 or .1
+	--]]
+	--[[ relativistic blast wave interaction
+	self.gamma = 7/5
+	local lhs = .9 * sim.domain.xmin + .1 * sim.domain.xmax
+	local rhs = .1 * sim.domain.xmin + .9 * sim.domain.xmax
+	local rho = 1
+	local vx = 0
+	local P = x < lhs and 1000 or (x > rhs and 100 or .01)
+	--]]
+	--[[ relativistic blast wave test problem 1
+	self.gamma = 5/3
+	local rho = x < 0 and 10 or 1
+	local vx = 0
+	local P = (self.gamma - 1) * rho * (x < 0 and 2 or 1e-6)
+	--]]
+
+	return {rho, rho * vx, P/(self.gamma-1) + .5 * rho * vx^2}
 end
 
 -- used by HLL
