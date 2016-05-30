@@ -13,7 +13,7 @@ function HLL:calcDT()
 	for i=2,self.gridsize do
 		local qL = self.qs[i-1]
 		local qR = self.qs[i]
-		self.equation:calcInterfaceEigenvalues(self, i, qL, qR, self.eigenvalues[i])
+		self.equation:calcInterfaceEigenvalues(self, i, qL, qR)
 	end
 
 	return HLL.super.calcDT(self)

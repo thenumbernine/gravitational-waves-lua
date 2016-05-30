@@ -16,19 +16,23 @@ function Euler1DSSEqn:calcFluxForState(sim, i, q, flux)
 	return flux
 end
 
+--[[ I've found this doesn't help
 -- used by HLL
 -- offset self-similar eigenvalues by coordinate
-function Euler1DSSEqn:calcInterfaceEigenvalues(sim, i, qL, qR, S)
-	local S = Euler1DSSEqn.super.calcInterfaceEigenvalues(self, sim, i, qL, qR, S)
+function Euler1DSSEqn:calcInterfaceEigenvalues(sim, i, qL, qR)
+	local lambda = self.eigenvalues[i]
+	Euler1DSSEqn.super.calcInterfaceEigenvalues(self, sim, i, qL, qR)
 	for j=1,3 do
-		S[j] = S[j] - sim.ixs[i]
+		lambda[j] = lambda[j] - sim.ixs[i]
 	end
 end
+--]]
 
 -- used by Roe
 if offsetLambdasByXi then
 	function Euler1DSSEqn:calcInterfaceEigenBasis(sim,i,qL,qR)
 		Euler1DSSEqn.super.calcInterfaceEigenBasis(self,sim,i,qL,qR)
+		--[[ doesn't help:
 		-- one option is offsetting the eigenvalues ... 
 		-- mathematically correct, but don't do this
 		-- it forms errors in discontinuities
@@ -36,10 +40,15 @@ if offsetLambdasByXi then
 		for j=1,3 do
 			S[j] = S[j] - sim.ixs[i]
 		end
+		--]]
+		--[[ isn't used
 		local F = sim.fluxMatrix[i]
+		-- TODO get back the primitives from the interface, and calculate conservative values from them
 		for j=1,3 do
-			F[j][j] = F[j][j] - sim.ixs[i]
+			F[j][j] = F[j][j] - sim.ixs[i] * self.iqs[i][j]
 		end
+		--]]
+		error"TODO: get the actual flux, computed at interface, before finite volume calculation, and offset that by -xi * q"
 	end
 end
 

@@ -141,20 +141,8 @@ function Euler1D:calcPrimFromCons(rho, mx, ETotal)
 		(gamma - 1) * (ETotal - .5 * rho * vx * vx)	-- P 
 end
 
--- used by HLL
-function Euler1D:calcFluxForState(sim, i, q, flux)
-	flux = flux or {}
-	local gamma = self.gamma
-	flux[1] = q[2]
-	flux[2] = (gamma - 1) * q[3] + (3 - gamma) / 2 * q[2] * q[2] / q[1]
-	flux[3] = gamma * q[2] * q[3] / q[1] + (1 - gamma) / 2 * q[2] * q[2] * q[2] / (q[1] * q[1])
-	return flux
-end
-
--- used by HLL
-function Euler1D:calcInterfaceEigenvalues(sim, i, qL, qR, lambdas)
-	lambdas = lambdas or {}
-	
+-- calculates the roe-averaged variables (often primitives) used for calculating interface eigenbasis
+function Euler1D:calcRoeValues(qL, qR)
 	local gamma = self.gamma
 	
 	local rhoL = qL[1]
@@ -163,7 +151,7 @@ function Euler1D:calcInterfaceEigenvalues(sim, i, qL, qR, lambdas)
 	local eIntL = eTotalL - .5 * vxL^2
 	local PL = (gamma - 1) * rhoL * eIntL
 	local hTotalL = eTotalL + PL / rhoL
-	local weightL = sqrt(rhoL)
+	local sqrtRhoL = sqrt(rhoL)
 	
 	local rhoR = qR[1]
 	local vxR = qR[2] / rhoR 
@@ -171,54 +159,22 @@ function Euler1D:calcInterfaceEigenvalues(sim, i, qL, qR, lambdas)
 	local eIntR = eTotalR - .5 * vxR^2
 	local PR = (gamma - 1) * rhoR * eIntR
 	local hTotalR = eTotalR + PR / rhoR
-	local weightR = sqrt(rhoR)
-	
-	local vx = (weightL * vxL + weightR * vxR) / (weightL + weightR)
-	local hTotal = (weightL * hTotalL + weightR * hTotalR) / (weightL + weightR)
-	
-	local Cs = sqrt((gamma - 1) * (hTotal - .5 * vx^2))
-	
-	lambdas[1] = vx - Cs
-	lambdas[2] = vx
-	lambdas[3] = vx + Cs
-	
-	return lambdas
+	local sqrtRhoR = sqrt(rhoR)
+
+	local rho = sqrtRhoL * sqrtRhoR
+	local vx = (sqrtRhoL * vxL + sqrtRhoR * vxR) / (sqrtRhoL + sqrtRhoR)
+	local hTotal = (sqrtRhoL * hTotalL + sqrtRhoR * hTotalR) / (sqrtRhoL + sqrtRhoR)
+	local Cs = sqrt((gamma - 1) * (hTotal - .5 * vx * vx))
+
+	return rho, vx, hTotal, Cs
 end
 
--- used by Roe
-function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
+function Euler1D:calcEigenvalues(vx, hTotal, Cs)
+	return vx - Cs, vx, vx + Cs
+end
+
+function Euler1D:calcEigenBasis(rho, vx, hTotal, Cs)
 	local gamma = self.gamma
-	
-	local rhoL = qL[1]
-	local vxL = qL[2] / rhoL 
-	local eTotalL = qL[3] / rhoL
-	local eIntL = eTotalL - .5 * vxL^2
-	local PL = (gamma - 1) * rhoL * eIntL
-	local hTotalL = eTotalL + PL / rhoL
-	local weightL = sqrt(rhoL)
-	
-	local rhoR = qR[1]
-	local vxR = qR[2] / rhoR 
-	local eTotalR = qR[3] / rhoR
-	local eIntR = eTotalR - .5 * vxR^2
-	local PR = (gamma - 1) * rhoR * eIntR
-	local hTotalR = eTotalR + PR / rhoR
-	local weightR = sqrt(rhoR)
-	
-	local rho = sqrt(weightL * weightR)
-	local vx = (weightL * vxL + weightR * vxR) / (weightL + weightR)
-	local hTotal = (weightL * hTotalL + weightR * hTotalR) / (weightL + weightR)
-	
-	local evR, lambda, evL, F = self:calcEigenBasis(sim, rho, vx, hTotal, Cs)
-	sim.fluxMatrix[i] = F
-	sim.eigenvectors[i] = evR
-	sim.eigenvalues[i] = lambda
-	sim.eigenvectorsInverse[i] = evL
-end
-
-function Euler1D:calcEigenBasis(sim, rho, vx, hTotal)
-	local gamma = self.gamma	
-	local Cs = sqrt((gamma - 1) * (hTotal - .5 * vx^2))
 
 	local F = {{},{},{}}
 	F[1][1] = 0
@@ -231,10 +187,7 @@ function Euler1D:calcEigenBasis(sim, rho, vx, hTotal)
 	F[3][2] = hTotal - (gamma - 1) * vx * vx
 	F[3][3] = gamma * vx
 	
-	local lambda = {}
-	lambda[1] = vx - Cs
-	lambda[2] = vx
-	lambda[3] = vx + Cs
+	local lambda = {self:calcEigenvalues(vx, hTotal, Cs)}
 	
 	local evR = {{},{},{}}
 	-- left
@@ -266,6 +219,42 @@ function Euler1D:calcEigenBasis(sim, rho, vx, hTotal)
 
 	return evR, lambda, evL, F
 end
+
+-- used by HLL
+-- TODO how often do we create new tables of this?
+function Euler1D:calcInterfaceEigenvalues(sim, i, qL, qR)
+	local rho, vx, hTotal, Cs = self:calcRoeValues(qL, qR)
+	
+	local lambda = {self:calcEigenvalues(vx, hTotal, Cs)}
+	for j=1,self.numStates do
+		sim.eigenvalues[i][j] = lambda[j]
+	end
+end
+
+-- used by HLL
+function Euler1D:calcFluxForState(sim, i, q, flux)
+	flux = flux or {}
+	local gamma = self.gamma
+	flux[1] = q[2]
+	flux[2] = (gamma - 1) * q[3] + (3 - gamma) / 2 * q[2] * q[2] / q[1]
+	flux[3] = gamma * q[2] * q[3] / q[1] + (1 - gamma) / 2 * q[2] * q[2] * q[2] / (q[1] * q[1])
+	return flux
+end
+
+-- used by Roe
+function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
+	local gamma = self.gamma
+
+	local rho, vx, hTotal, Cs = self:calcRoeValues(qL, qR)
+
+	local evR, lambda, evL, F = self:calcEigenBasis(rho, vx, hTotal, Cs)
+	sim.fluxMatrix[i] = F
+	sim.eigenvectors[i] = evR
+	sim.eigenvalues[i] = lambda
+	sim.eigenvectorsInverse[i] = evL
+end
+
+
 
 --[[ do something to prove source terms are working ...
 function Euler1D:sourceTerm(sim, qs)
