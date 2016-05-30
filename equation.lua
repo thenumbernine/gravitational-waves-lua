@@ -57,7 +57,7 @@ another note: eigenfields never have input vectors.  they are made of state vaul
 ...except the fact that some of the state variables are on the i'th entry, and some are of the i+1/2'th entry...
 --]]
 Equation.fluxTransform = buildField'fluxMatrix'
-Equation.eigenfields = buildField'eigenvectorsInverse'
-Equation.eigenfieldsInverse = buildField'eigenvectors'
+Equation.applyLeftEigenvectors = buildField'eigenvectorsInverse'
+Equation.applyRightEigenvectors = buildField'eigenvectors'
 
 return Equation

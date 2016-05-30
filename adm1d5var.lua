@@ -114,7 +114,7 @@ ADM1D5Var.fluxTransform = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, K_
 		v1*A_x + v3*alpha
 end)
 --[[fixme
-ADM1D5Var.eigenfields = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, K_xx, v1, v2, v3, v4, v5)
+ADM1D5Var.applyLeftEigenvectors = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, K_xx, v1, v2, v3, v4, v5)
 	return 
 		v1 * (gamma_xx * A_x / f - K_xx * sqrt(gamma_xx / f)) / (2 * alpha) + v3 * gamma_xx / (2 * f) - v5 * .5 * sqrt(gamma_xx / f),
 		v1 / alpha,
@@ -163,7 +163,7 @@ function ADM1D5Var:calcInterfaceEigenBasis(sim,i,qL,qR)
 	}
 	-- note that because we have zero eigenvalues that the eigendecomposition cannot reconstruct the flux matrix
 	--]]
-	-- [[ here's from the eigenfields <-> left eigenvectors
+	-- [[ here's from the left eigenvectors
 	sim.eigenvectorsInverse[i] = {
 		{0, 0, -1/sqrt_g, 0, sqrt_f/gamma_xx},	-- sqrt(f) K_xx / gamma_xx - A_x / sqrt(gamma_xx)
 		{1, 0, 0, 0, 0},								-- alpha

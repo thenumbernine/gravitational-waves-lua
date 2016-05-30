@@ -68,7 +68,7 @@ function Maxwell:calcInterfaceEigenBasis(sim,i,qL,qR)
 			v[2]/seu
 		}
 	end
-	self.eigenfields = function(self, sim, i, v)
+	self.applyLeftEigenvectors = function(self, sim, i, v)
 		return {
 			ise * v[3] + isu * v[5],
 			-ise * v[2] + isu * v[6],
@@ -78,7 +78,7 @@ function Maxwell:calcInterfaceEigenBasis(sim,i,qL,qR)
 			-ise * v[3] + isu * v[5]
 		}
 	end
-	self.eigenfieldsInverse = function(self, sim, i, v)
+	self.applyRightEigenvectors = function(self, sim, i, v)
 		return {
 			-se * v[3] + se * v[4],
 			-se * v[2] + se * v[5],

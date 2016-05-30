@@ -183,7 +183,7 @@ function ADM3D:fluxTransform(sim, i, v)
 	end
 
 	-- ... is the incoming vector
-	-- avgQ is the state used to make the eigenfield
+	-- avgQ is the state used to make the eigenvectors
 	return {
 		0,	--alpha
 		0,0,0,0,0,0,	--gamma_ij
@@ -196,9 +196,9 @@ function ADM3D:fluxTransform(sim, i, v)
 	}
 end
 
-function ADM3D:eigenfields(sim, i, v)
+function ADM3D:applyLeftEigenvectors(sim, i, v)
 
-	-- interface eigenfield varialbes
+	-- interface eigenvector variables
 	local avgQ = {}
 	for j=1,sim.numStates do 
 		avgQ[j] = (sim.qs[i-1][j] + sim.qs[i][j]) / 2
@@ -220,9 +220,9 @@ function ADM3D:eigenfields(sim, i, v)
 	-- what if, for the ADM equations, there is no distinction?
 	-- they're used for Roe's scheme for computing deltas in eigenbasis coordinates by which to scale coordinates coinciding with the lambdas ...
 	-- what about creating them solely from 'v' rather than using the average whatsoever?
-	-- this would mean ensuring the inputs to the eigenfields() functions were always the state variables themselves (not differences or averages)
-	-- 	and deferring differences or averages til after eigenfields() is called (assuming it is a linear function)
-	-- this also has an issue with eigenfieldsInverse(), which is called on a flux vector, i.e. at cell interface, which would probably need the average of cells for that input
+	-- this would mean ensuring the inputs to the applyLeftEigenvectors() functions were always the state variables themselves (not differences or averages)
+	-- 	and deferring differences or averages til after applyLeftEigenvectors() is called (assuming it is a linear function)
+	-- this also has an issue with applyRightEigenvectors(), which is called on a flux vector, i.e. at cell interface, which would probably need the average of cells for that input
 
 	-- left eigenvectors in x:
 	return {
@@ -266,9 +266,9 @@ function ADM3D:eigenfields(sim, i, v)
 	}
 end
 
-function ADM3D:eigenfieldsInverse(sim, i, v)
+function ADM3D:applyRightEigenvectors(sim, i, v)
 	
-	-- interface eigenfield varialbes
+	-- interface eigenvector varialbes
 	local avgQ = {}
 	for j=1,sim.numStates do 
 		avgQ[j] = (sim.qs[i-1][j] + sim.qs[i][j]) / 2

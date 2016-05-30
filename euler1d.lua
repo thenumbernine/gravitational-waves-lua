@@ -120,7 +120,25 @@ function Euler1D:initCell(sim,i)
 	local P = (self.gamma - 1) * rho * (x < 0 and 2 or 1e-6)
 	--]]
 
-	return {rho, rho * vx, P/(self.gamma-1) + .5 * rho * vx^2}
+	return {self:calcConsFromPrims(rho, vx, P)}
+end
+
+-- This is for an ideal gas
+-- Euler1D uses rho, vx, P as primitives (because Euler1D is commonly used with ideal gasses, which relate P and eInt.  And P is more intuitive than eInt.)
+-- SRHD uses rho, vx, eInt (because P is a function of eInt in general) 
+-- maybe I should switch to rho, vx, eInt for generalization's sake ...
+function Euler1D:calcConsFromPrims(rho, vx, P)
+	return rho, rho * vx, P/(self.gamma-1) + .5 * rho * vx*vx
+end
+
+-- rho is th density
+-- mx is momentum in x direction (densitized velocity)
+-- ETotal is densitized total energy
+function Euler1D:calcPrimsFromCons(rho, mx, ETotal)
+	return
+		rho,	-- rho
+		mx / rho,	-- vx
+		(gamma - 1) * (ETotal - .5 * rho * vx * vx)	-- P 
 end
 
 -- used by HLL
@@ -134,8 +152,8 @@ function Euler1D:calcFluxForState(sim, i, q, flux)
 end
 
 -- used by HLL
-function Euler1D:calcInterfaceEigenvalues(sim, i, qL, qR, S)
-	S = S or {}
+function Euler1D:calcInterfaceEigenvalues(sim, i, qL, qR, lambdas)
+	lambdas = lambdas or {}
 	
 	local gamma = self.gamma
 	
@@ -160,11 +178,11 @@ function Euler1D:calcInterfaceEigenvalues(sim, i, qL, qR, S)
 	
 	local Cs = sqrt((gamma - 1) * (hTotal - .5 * vx^2))
 	
-	S[1] = vx - Cs
-	S[2] = vx
-	S[3] = vx + Cs
+	lambdas[1] = vx - Cs
+	lambdas[2] = vx
+	lambdas[3] = vx + Cs
 	
-	return S
+	return lambdas
 end
 
 -- used by Roe
@@ -205,40 +223,40 @@ function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	F[3][2] = hTotal - (gamma - 1) * vx * vx
 	F[3][3] = gamma * vx
 	
-	local S = sim.eigenvalues[i]
-	S[1] = vx - Cs
-	S[2] = vx
-	S[3] = vx + Cs
+	local lambdas = sim.eigenvalues[i]
+	lambdas[1] = vx - Cs
+	lambdas[2] = vx
+	lambdas[3] = vx + Cs
 	
-	local U = sim.eigenvectors[i]
+	local evR = sim.eigenvectors[i]
 	-- slow
-	U[1][1] = 1
-	U[2][1] = vx - Cs
-	U[3][1] = hTotal - Cs * vx
+	evR[1][1] = 1
+	evR[2][1] = vx - Cs
+	evR[3][1] = hTotal - Cs * vx
 	-- vel
-	U[1][2] = 1
-	U[2][2] = vx
-	U[3][2] = .5 * vx * vx
+	evR[1][2] = 1
+	evR[2][2] = vx
+	evR[3][2] = .5 * vx * vx
 	-- fast
-	U[1][3] = 1
-	U[2][3] = vx + Cs
-	U[3][3] = hTotal + Cs * vx
+	evR[1][3] = 1
+	evR[2][3] = vx + Cs
+	evR[3][3] = hTotal + Cs * vx
 	
 	-- [[ symbolically
-	local V = sim.eigenvectorsInverse[i]
-	V[1][1] = (.5 * (gamma - 1) * vx^2 + Cs * vx) / (2 * Cs^2)
-	V[1][2] = -(Cs + (gamma - 1) * vx) / (2 * Cs^2)
-	V[1][3] = (gamma - 1) / (2 * Cs^2)
-	V[2][1] = 1 - (gamma - 1) * vx^2 / (2 * Cs^2)
-	V[2][2] = (gamma - 1) * vx / Cs^2
-	V[2][3] = -(gamma - 1) / Cs^2
-	V[3][1] = (.5 * (gamma - 1) * vx^2 - Cs * vx) / (2 * Cs^2)
-	V[3][2] = (Cs - (gamma - 1) * vx) / (2 * Cs^2)
-	V[3][3] = (gamma - 1) / (2 * Cs^2)
+	local evL = sim.eigenvectorsInverse[i]
+	evL[1][1] = (.5 * (gamma - 1) * vx^2 + Cs * vx) / (2 * Cs^2)
+	evL[1][2] = -(Cs + (gamma - 1) * vx) / (2 * Cs^2)
+	evL[1][3] = (gamma - 1) / (2 * Cs^2)
+	evL[2][1] = 1 - (gamma - 1) * vx^2 / (2 * Cs^2)
+	evL[2][2] = (gamma - 1) * vx / Cs^2
+	evL[2][3] = -(gamma - 1) / Cs^2
+	evL[3][1] = (.5 * (gamma - 1) * vx^2 - Cs * vx) / (2 * Cs^2)
+	evL[3][2] = (Cs - (gamma - 1) * vx) / (2 * Cs^2)
+	evL[3][3] = (gamma - 1) / (2 * Cs^2)
 	--]]
 	--[[ numerically via cramers rule
 	local mat33 = require 'mat33'
-	sim.eigenvectorsInverse[i] = mat33.inv(U)
+	sim.eigenvectorsInverse[i] = mat33.inv(evR)
 	--]]
 end
 

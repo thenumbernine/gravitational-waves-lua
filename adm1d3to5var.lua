@@ -89,7 +89,7 @@ ADM1D3to5Var.fluxTransform = buildField(function(alpha, f, gamma_xx, A_x, D_xxx,
 		v5 * 2 * alpha / sqrt(gamma_xx),
 		v3 * alpha / sqrt(gamma_xx)
 end)
-ADM1D3to5Var.eigenfields = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, ...)
+ADM1D3to5Var.applyLeftEigenvectors = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, ...)
 	local v1, v2, v3, v4, v5 = ... 
 	return
 		v3 / (2 * f) - v5 / (2 * sqrt(f)),	-- first column so it lines up with the min eigenvalue
@@ -98,7 +98,7 @@ ADM1D3to5Var.eigenfields = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, K
 		-2*v3/f + v4,
 		v3 / (2 * f) + v5 / (2 * sqrt(f))
 end)
-ADM1D3to5Var.eigenfieldsInverse = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, ...)
+ADM1D3to5Var.applyRightEigenvectors = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, ...)
 	local v1, v2, v3, v4, v5 = ...
 	return
 		v2,

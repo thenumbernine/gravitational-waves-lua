@@ -4,8 +4,7 @@ local SolverFV = require 'solverfv'
 local Roe = class(SolverFV)
 
 function Roe:init(args)
-	-- one of these had better be defined ...
-	self.equation = assert(self.equation or args.equation)
+	self.equation = assert(args.equation or self.equation)
 	
 	self.name = self.equation.name .. ' Roe'
 	
@@ -81,10 +80,10 @@ function Roe:calcDT()
 		-- fluxMatrixError = Q_jl L_l invQ_lk - A_jk
 		for j=1,self.numStates do
 			-- local basis_j = 0's everywhere except a 1 at the j'th entry
-			-- local eigencoords_j = {k,eigenfield[i][k](basis_j)}			<- dot input vector with eigenvector inverse row k
+			-- local eigencoords_j = {k,eigenvectorsInverse[i][k](basis_j)}			<- dot input vector with eigenvector inverse row k
 			-- local eigenscaled_j = eigencoords_j * lambda_j
-			-- local newbasis_j = {k,eigenfieldInverse[i][k](eigencoords_j)}	<- dot input vector with eigenvector row k
-			-- local newtransformed_j = {k,eigenfieldInverse[i][k](eigenscaled_j)}
+			-- local newbasis_j = {k,eigenvectors[i][k](eigencoords_j)}	<- dot input vector with eigenvector row k
+			-- local newtransformed_j = {k,eigenvectors[i][k](eigenscaled_j)}
 			-- sum up abs error between basis_j and newbasis_j 
 			-- sum up abs error between A_jk basis_k and newtransformed_j
 		
@@ -95,7 +94,7 @@ function Roe:calcDT()
 			end
 
 			-- eigenCoords_k = invQ_kl basis_l
-			local eigenCoords = self.equation:eigenfields(self, i, basis)
+			local eigenCoords = self.equation:applyLeftEigenvectors(self, i, basis)
 			for k=1,self.numStates do
 				assert(type(eigenCoords[k])=='number', "failed for coord "..k.." got type "..type(eigenCoords[k]))
 			end
@@ -107,10 +106,10 @@ function Roe:calcDT()
 			end
 			
 			-- newbasis_k = Q_kl eigenCoords_l
-			local newbasis = self.equation:eigenfieldsInverse(self, i, eigenCoords)
+			local newbasis = self.equation:applyRightEigenvectors(self, i, eigenCoords)
 			
 			-- newtransformed_k = Q_kl eigenScaled_l = Q_kl lambda_l eigenCoords_k
-			local newtransformed = self.equation:eigenfieldsInverse(self, i, eigenScaled)
+			local newtransformed = self.equation:applyRightEigenvectors(self, i, eigenScaled)
 
 			-- transformed_k = A_kl basis_l
 			local transformed = self.equation:fluxTransform(self, i, basis)
@@ -136,7 +135,7 @@ function Roe:calcDeltaQTildes()
 		for j=1,self.numStates do
 			dq[j] = qR[j] - qL[j]
 		end
-		self.deltaQTildes[i] = self.equation:eigenfields(self, i, dq)
+		self.deltaQTildes[i] = self.equation:applyLeftEigenvectors(self, i, dq)
 	end
 end
 
@@ -194,12 +193,12 @@ function Roe:calcCellFluxForSide(i, q, dir)
 		end
 		return zero
 	end
-	local qTilde = self.equation:eigenfields(self, i, q)
+	local qTilde = self.equation:applyLeftEigenvectors(self, i, q)
 	local fluxTilde = {}
 	for j=1,self.numStates do
 		fluxTilde[j] = .5 * self.eigenvalues[i][j] * qTilde[j] * (1 + dir * self.Phis[i][j])
 	end
-	return self.equation:eigenfieldsInverse(self, i, fluxTilde)
+	return self.equation:applyRightEigenvectors(self, i, fluxTilde)
 end
 
 function Roe:calcCellFlux(i)
@@ -259,13 +258,13 @@ function Roe:calcFluxesAtInterface(dt)
 		end
 		
 		if not useFluxMatrix then
-			local qAvgTildes = self.equation:eigenfields(self, i, qAvg)
+			local qAvgTildes = self.equation:applyLeftEigenvectors(self, i, qAvg)
 			for j=1,self.numStates do
 				fluxTilde[j] = fluxTilde[j] + self.eigenvalues[i][j] * qAvgTildes[j]
 			end
 		end
 		
-		self.fluxes[i] = self.equation:eigenfieldsInverse(self, i, fluxTilde)
+		self.fluxes[i] = self.equation:applyRightEigenvectors(self, i, fluxTilde)
 		
 		-- using the flux matrix itself allows for complete reconstruction even in the presence of zero-self.eigenvalues
 		if useFluxMatrix then

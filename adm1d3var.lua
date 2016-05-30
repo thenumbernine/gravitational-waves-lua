@@ -202,14 +202,14 @@ ADM1D3Var.fluxTransform = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KT
 		v1 * alpha / sqrt(gamma_xx)
 end)
 
-ADM1D3Var.eigenfields = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
+ADM1D3Var.applyLeftEigenvectors = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
 	return
 		v1 / (2 * f) - v3 / (2 * sqrt(f)),
 		-2*v1/f + v2,
 		v1 / (2 * f) + v3 / (2 * sqrt(f))
 end)
 
-ADM1D3Var.eigenfieldsInverse = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
+ADM1D3Var.applyRightEigenvectors = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
 	return
 		(v1 + v3) * f,
 		2 * v1 + v2 + 2 * v3,
