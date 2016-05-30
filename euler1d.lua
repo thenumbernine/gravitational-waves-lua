@@ -120,21 +120,21 @@ function Euler1D:initCell(sim,i)
 	local P = (self.gamma - 1) * rho * (x < 0 and 2 or 1e-6)
 	--]]
 
-	return {self:calcConsFromPrims(rho, vx, P)}
+	return {self:calcConsFromPrim(rho, vx, P)}
 end
 
 -- This is for an ideal gas
 -- Euler1D uses rho, vx, P as primitives (because Euler1D is commonly used with ideal gasses, which relate P and eInt.  And P is more intuitive than eInt.)
 -- SRHD uses rho, vx, eInt (because P is a function of eInt in general) 
 -- maybe I should switch to rho, vx, eInt for generalization's sake ...
-function Euler1D:calcConsFromPrims(rho, vx, P)
+function Euler1D:calcConsFromPrim(rho, vx, P)
 	return rho, rho * vx, P/(self.gamma-1) + .5 * rho * vx*vx
 end
 
 -- rho is th density
 -- mx is momentum in x direction (densitized velocity)
 -- ETotal is densitized total energy
-function Euler1D:calcPrimsFromCons(rho, mx, ETotal)
+function Euler1D:calcPrimFromCons(rho, mx, ETotal)
 	return
 		rho,	-- rho
 		mx / rho,	-- vx
@@ -186,7 +186,6 @@ function Euler1D:calcInterfaceEigenvalues(sim, i, qL, qR, lambdas)
 end
 
 -- used by Roe
--- TODO fluxMatrix and reconstruction error is broken
 function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local gamma = self.gamma
 	
@@ -210,9 +209,18 @@ function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local vx = (weightL * vxL + weightR * vxR) / (weightL + weightR)
 	local hTotal = (weightL * hTotalL + weightR * hTotalR) / (weightL + weightR)
 	
+	local evR, lambda, evL, F = self:calcEigenBasis(sim, rho, vx, hTotal, Cs)
+	sim.fluxMatrix[i] = F
+	sim.eigenvectors[i] = evR
+	sim.eigenvalues[i] = lambda
+	sim.eigenvectorsInverse[i] = evL
+end
+
+function Euler1D:calcEigenBasis(sim, rho, vx, hTotal)
+	local gamma = self.gamma	
 	local Cs = sqrt((gamma - 1) * (hTotal - .5 * vx^2))
-	
-	local F = sim.fluxMatrix[i]
+
+	local F = {{},{},{}}
 	F[1][1] = 0
 	F[1][2] = 1
 	F[1][3] = 0
@@ -223,13 +231,13 @@ function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	F[3][2] = hTotal - (gamma - 1) * vx * vx
 	F[3][3] = gamma * vx
 	
-	local lambdas = sim.eigenvalues[i]
-	lambdas[1] = vx - Cs
-	lambdas[2] = vx
-	lambdas[3] = vx + Cs
+	local lambda = {}
+	lambda[1] = vx - Cs
+	lambda[2] = vx
+	lambda[3] = vx + Cs
 	
-	local evR = sim.eigenvectors[i]
-	-- slow
+	local evR = {{},{},{}}
+	-- left
 	evR[1][1] = 1
 	evR[2][1] = vx - Cs
 	evR[3][1] = hTotal - Cs * vx
@@ -237,27 +245,26 @@ function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	evR[1][2] = 1
 	evR[2][2] = vx
 	evR[3][2] = .5 * vx * vx
-	-- fast
+	-- right
 	evR[1][3] = 1
 	evR[2][3] = vx + Cs
 	evR[3][3] = hTotal + Cs * vx
 	
-	-- [[ symbolically
-	local evL = sim.eigenvectorsInverse[i]
+	local evL = {{},{},{}}
+	-- left
 	evL[1][1] = (.5 * (gamma - 1) * vx^2 + Cs * vx) / (2 * Cs^2)
 	evL[1][2] = -(Cs + (gamma - 1) * vx) / (2 * Cs^2)
 	evL[1][3] = (gamma - 1) / (2 * Cs^2)
+	-- vel
 	evL[2][1] = 1 - (gamma - 1) * vx^2 / (2 * Cs^2)
 	evL[2][2] = (gamma - 1) * vx / Cs^2
 	evL[2][3] = -(gamma - 1) / Cs^2
+	-- right
 	evL[3][1] = (.5 * (gamma - 1) * vx^2 - Cs * vx) / (2 * Cs^2)
 	evL[3][2] = (Cs - (gamma - 1) * vx) / (2 * Cs^2)
 	evL[3][3] = (gamma - 1) / (2 * Cs^2)
-	--]]
-	--[[ numerically via cramers rule
-	local mat33 = require 'mat33'
-	sim.eigenvectorsInverse[i] = mat33.inv(evR)
-	--]]
+
+	return evR, lambda, evL, F
 end
 
 --[[ do something to prove source terms are working ...

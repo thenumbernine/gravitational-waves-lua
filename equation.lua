@@ -34,18 +34,11 @@ end
 -- so the graphs don't only have to match the first sim of the running set
 -- further future TODO: everything with ImGUI, and open and close windows and stuff
 
-local function buildField(matrixField)
-	return function(self, sim, i, v)
-		local m = sim[matrixField][i]
-		local result = {}
-		for j=1,sim.numStates do
-			local sum = 0
-			for k=1,sim.numStates do
-				sum = sum + m[j][k] * v[k]
-			end
-			result[j] = sum
-		end
-		return result 
+local solverLinearFunc = require 'solverlinearfunc'
+function Equation.buildField(matrixField)
+	local linearFunc = solverLinearFunc(matrixField)
+	return function(self, ...)	-- self isn't needed for linear systems.  but it is needed for some subclasses. 
+		return linearFunc(...)
 	end
 end
 
@@ -56,8 +49,8 @@ subclasses with sparse matrices (like ADM) will be able to override this and opt
 another note: eigenfields never have input vectors.  they are made of state vaules, and their input is state values, so there's no need to define an inner product.
 ...except the fact that some of the state variables are on the i'th entry, and some are of the i+1/2'th entry...
 --]]
-Equation.fluxTransform = buildField'fluxMatrix'
-Equation.applyLeftEigenvectors = buildField'eigenvectorsInverse'
-Equation.applyRightEigenvectors = buildField'eigenvectors'
+Equation.fluxTransform = Equation.buildField'fluxMatrix'
+Equation.applyLeftEigenvectors = Equation.buildField'eigenvectorsInverse'
+Equation.applyRightEigenvectors = Equation.buildField'eigenvectors'
 
 return Equation
