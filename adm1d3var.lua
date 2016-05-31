@@ -227,12 +227,24 @@ function ADM1D3Var:initCell(sim,i)
 	return {alpha=alpha, gamma_xx=gamma_xx, A_x, D_xxx, KTilde_xx}
 end
 
+function ADM1D3Var:calcEigenvalues(alpha, gamma_xx, f)
+	local lambda = alpha * math.sqrt(f / gamma_xx)
+	return -lambda, 0, lambda
+end
+
 function ADM1D3Var:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local alpha = (qL.alpha + qR.alpha) / 2
 	local gamma_xx = (qL.gamma_xx + qR.gamma_xx) / 2
 	local f = self.calc.f(alpha)
-	local lambda = alpha * sqrt(f / gamma_xx)
-	sim.eigenvalues[i] = {-lambda, 0, lambda}
+	sim.eigenvalues[i] = {self:calcEigenvalues(alpha, gamma_xx, f)}
+end
+
+function ADM1D3Var:calcCellMinMaxEigenvalues(sim, i)
+	local q = sim.qs[i]
+	local alpha = q.alpha
+	local gamma_xx = q.gamma_xx
+	local f = self.calc.f(alpha)
+	return firstAndLast(self:calcEigenvalues(alpha, gamma_xx, f))
 end
 
 function ADM1D3Var:sourceTerm(sim, qs)

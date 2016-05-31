@@ -124,6 +124,16 @@ ADM1D5Var.applyLeftEigenvectors = buildField(function(alpha, f, gamma_xx, A_x, D
 end),
 --]]
 
+function ADM1D5Var:calcMaxEigenvalue(alpha, gamma_xx)
+	local f = self.calc.f(alpha)
+	local lambda = alpha * math.sqrt(f / gamma_xx)
+	return lambda
+end
+
+function ADM1D5Var:calcEigenvaluesFromCons(alpha, gamma_xx, A_x, D_xxx, K_xx)
+	local lambda = self:calcMaxEigenvalue(alpha, gamma_xx)
+	return -lambda, 0, 0, 0, lambda
+end
 
 function ADM1D5Var:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local avgQ = {}
@@ -137,7 +147,8 @@ function ADM1D5Var:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local sqrt_f = sqrt(f)
 	local sqrt_g = sqrt(gamma_xx)
 	local lambda = alpha * sqrt_f / sqrt_g 
-	sim.eigenvalues[i] = {-lambda, 0, 0, 0, lambda}
+	fill(sim.eigenvalues[i], -lambda, 0, 0, 0, lambda)
+	
 	-- row-major, math-indexed
 	sim.fluxMatrix[i] = {
 		{0,0,0,0,0},

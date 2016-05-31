@@ -181,10 +181,6 @@ function Euler1D:calcEigenvaluesFromCons(rho, mx, ETotal)
 	return self:calcEigenvalues(vx, hTotal, Cs)
 end
 
-function Euler1D:calcMinMaxEigenvaluesFromCons(...)
-	return firstAndLast(self:calcEigenvaluesFromCons(...))
-end
-
 -- used by HLL
 function Euler1D:calcFluxForState(q)
 	local gamma = self.gamma
@@ -285,11 +281,6 @@ function Euler1D:calcEigenBasis(rho, vx, hTotal, Cs, F, lambda, evL, evR)
 end
 
 -- functions that use sim:
-
--- used by SolverFV
-function Euler1D:calcCellMinMaxEigenvalues(sim, i)
-	return self:calcMinMaxEigenvaluesFromCons(table.unpack(sim.qs[i]))
-end
 
 -- used by HLL
 -- TODO how often do we create new tables of this?

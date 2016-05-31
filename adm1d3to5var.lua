@@ -82,21 +82,23 @@ end
 
 ADM1D3to5Var.fluxTransform = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, ...)
 	local v1, v2, v3, v4, v5 = ... 
+	local alpha_over_sqrt_gamma_xx = alpha / math.sqrt(gamma_xx)
 	return
 		0,
 		0,
-		v5 * alpha * f / sqrt(gamma_xx),
-		v5 * 2 * alpha / sqrt(gamma_xx),
-		v3 * alpha / sqrt(gamma_xx)
+		v5 * f * alpha_over_sqrt_gamma_xx,
+		v5 * 2 * alpha_over_sqrt_gamma_xx,
+		v3 * alpha_over_sqrt_gamma_xx
 end)
 ADM1D3to5Var.applyLeftEigenvectors = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, ...)
 	local v1, v2, v3, v4, v5 = ... 
+	local sqrt_f = math.sqrt(f)
 	return
-		v3 / (2 * f) - v5 / (2 * sqrt(f)),	-- first column so it lines up with the min eigenvalue
+		v3 / (2 * f) - v5 / (2 * sqrt_f),	-- first column so it lines up with the min eigenvalue
 		v1,
 		v2,
 		-2*v3/f + v4,
-		v3 / (2 * f) + v5 / (2 * sqrt(f))
+		v3 / (2 * f) + v5 / (2 * sqrt_f)
 end)
 ADM1D3to5Var.applyRightEigenvectors = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, ...)
 	local v1, v2, v3, v4, v5 = ...
@@ -108,8 +110,6 @@ ADM1D3to5Var.applyRightEigenvectors = buildField(function(alpha, f, gamma_xx, A_
 		sqrt(f) * (-v1 + v5)
 end)
 
-
-
 function ADM1D3to5Var:initCell(sim,i)
 	local x = sim.xs[i]
 	local alpha = self.calc.alpha(x)
@@ -117,19 +117,29 @@ function ADM1D3to5Var:initCell(sim,i)
 	local A_x = self.calc.dx_alpha(x) / self.calc.alpha(x)
 	local D_xxx = 1/2 * self.calc.dx_gamma_xx(x)
 	local K_xx = self.calc.K_xx(x)
-	local KTilde_xx = K_xx / sqrt(gamma_xx)
+	local KTilde_xx = K_xx / math.sqrt(gamma_xx)
 	return {alpha, gamma_xx, A_x, D_xxx, KTilde_xx}
 end
 
 function ADM1D3to5Var:calcInterfaceEigenBasis(sim,i,qL,qR)
-	local avgQ = {}
-	for j=1,self.numStates do 
-		avgQ[j] = (qL[j] + qR[j]) / 2
-	end
-	local alpha, gamma_xx, A_x, D_xxx, KTilde_xx = unpack(avgQ)
+	local alpha = .5 * (qL[1] + qR[1])
+	local gamma_xx = .5 * (qL[2] + qR[2])
+	sim.eigenvalues[i] = {self:calcEigenvalues(alpha, gamma_xx)}
+end
+
+function ADM1D3to5Var:calcMaxEigenvalue(alpha, gamma_xx)
 	local f = self.calc.f(alpha)
-	local lambda = alpha * sqrt(f / gamma_xx)		
-	sim.eigenvalues[i] = {-lambda, 0, 0, 0, lambda}
+	local lambda = alpha * math.sqrt(f / gamma_xx)		
+	return lambda
+end
+
+function ADM1D3to5Var:calcEigenvalues(alpha, gamma_xx)
+	local lambda = self:calcMaxEigenvalue(alpha, gamma_xx)
+	return -lambda, 0, 0, 0, lambda
+end
+
+function ADM1D3to5Var:calcEigenvaluesFromCons(alpha, gamma_xx, A_x, D_xxx, KTilde_xx)
+	return self:calcEigenvalues(alpha, gamma_xx)
 end
 
 function ADM1D3to5Var:sourceTerm(sim, qs)
@@ -139,8 +149,8 @@ function ADM1D3to5Var:sourceTerm(sim, qs)
 		local f = self.calc.f(alpha)
 		local dalpha_f = self.calc.dalpha_f(alpha)
 		
-		source[i][1] = -alpha * alpha * f * KTilde_xx / (gamma_xx * sqrt(gamma_xx))
-		source[i][2] = -2 * alpha * KTilde_xx / sqrt(gamma_xx)
+		source[i][1] = -alpha * alpha * f * KTilde_xx / (gamma_xx * math.sqrt(gamma_xx))
+		source[i][2] = -2 * alpha * KTilde_xx / math.sqrt(gamma_xx)
 	end
 	return source
 end

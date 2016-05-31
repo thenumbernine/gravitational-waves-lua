@@ -383,21 +383,19 @@ function ADM3D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	for j=1,self.numStates do
 		avgQ[j] = (qL[j] + qR[j]) / 2
 	end
+	fill(sim.eigenvalues[i], self:calcEigenvaluesFromCons(table.unpack(avgQ)))
+end
 
-	local alpha = avgQ[1]
-	local gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz = unpack(avgQ, 2, 7)
-	local A_x, A_y, A_z = unpack(avgQ, 8, 10)
-	local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(avgQ, 11, 16)
-	local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(avgQ, 17, 22)
-	local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(avgQ, 23, 28)
-	local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = unpack(avgQ, 29, 34)
-	local V_x, V_y, V_z = unpack(avgQ, 35, 37)
+function ADM3D:calcEigenvaluesFromCons(
+		alpha, 
+		gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz,
+		...)
 	local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33sym.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
 	local f = self.calc.f(alpha)
-
 	local lambdaLight = alpha * sqrt(gammaUxx)
 	local lambdaGauge = lambdaLight * sqrt(f)
-	sim.eigenvalues[i] = {
+
+	return
 		-- gauge field
 		-lambdaGauge,
 		-- half of 10 along light cones ...
@@ -420,7 +418,6 @@ function ADM3D:calcInterfaceEigenBasis(sim,i,qL,qR)
 		lambdaLight,
 		-- gauge field
 		lambdaGauge
-	}
 end
 
 function ADM3D:sourceTerm(sim, qs)
