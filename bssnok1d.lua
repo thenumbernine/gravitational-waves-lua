@@ -244,12 +244,12 @@ function BSSNOK1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local f = self.calc.f(alpha)
 	local dalpha_f = self.calc.dalpha_f(alpha)
 	
-	local e2p = exp(2*phi)
+	local e2p = math.exp(2*phi)
 	local ie2p = 1/e2p
 	local ie4p = ie2p * ie2p
-	local f_1_2 = sqrt(f)
+	local f_1_2 = math.sqrt(f)
 	local f_3_2 = f * f_1_2
-	local lambda = -alpha * f_1_2 * ie2p
+	local lambda = alpha * f_1_2 * ie2p
 	sim.eigenvalues[i] = {-lambda, 0, 0, 0, 0, lambda}
 	-- row-major, math-indexed
 	sim.fluxMatrix[i] = {
@@ -277,6 +277,15 @@ function BSSNOK1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 		{0,0,-(12*f+4)*tmp1/(12*f) - (-6*f-2)*ie2p/(6*f_3_2), (12*f+4)*e2p/(72*f_3_2), -(12*f+4)/(12*f), 1},
 		{0, 0, tmp1/(12*f), -e2p/(72*f_3_2), 1/(12*f), 0},
 	}
+end
+
+function BSSNOK1D:calcEigenvaluesFromCons(alpha, phi, ...)
+	local f = self.calc.f(alpha)
+	local f_1_2 = math.sqrt(f)
+	local e2p = math.exp(2*phi)
+	local ie2p = 1/e2p
+	local lambda = alpha * f_1_2 * ie2p
+	return -lambda, 0, 0, 0, 0, lambda
 end
 
 function BSSNOK1D:sourceTerm(sim, qs)
