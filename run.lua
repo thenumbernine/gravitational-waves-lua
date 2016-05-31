@@ -4,8 +4,20 @@
 
 require 'ext'
 
+-- stack operations
+function first(...) return select(1, ...) end
+function last(...) return select(select('#', ...), ...) end
+function firstAndLast(...) return first(...), last(...) end
+function fill(t, ...)
+	for i=1,select('#', ...) do
+		t[i] = select(i, ...)
+	end
+end
+
+
 local fluxLimiters = require 'limiter' 
 local boundaryMethods = require 'boundary'
+local integrators = require 'integrators'
 
 -- here's some globals I have to get rid of
 
@@ -15,13 +27,12 @@ function index(k,v) return k[v] end
 -- makes math easier!
 for k,v in pairs(math) do _G[k] = v end
 
-
 local symmath = require 'symmath'
-
 
 -- solvers:
 local HLL = require 'hll'
 local Roe = require 'roe'
+local PLMBehavior = require 'plm'
 local RoeImplicitLinearized = require 'roe_implicit_linearized'
 -- equations:
 local Maxwell = require 'maxwell'
@@ -257,7 +268,7 @@ do
 	local args = {
 		equation = Euler1D(),
 		--stopAtTimes = {.1},
-		gridsize = 1000,
+		gridsize = 100,
 		domain = {xmin=-1, xmax=1},
 		boundaryMethod = boundaryMethods.freeFlow,
 		--boundaryMethod = boundaryMethods.freeFlow,
@@ -267,6 +278,8 @@ do
 		--linearSolver = require 'linearsolvers'.bicgstab,	-- working on this ...
 		--fluxLimiter = fluxLimiters.donorCell,
 		fluxLimiter = fluxLimiters.superbee,
+		integrator = integrators.ForwardEuler,
+		--integrator = integrators.RungeKutta4,
 		--[=[ TODO broken
 		scheme = require 'euler1d_muscl'{
 			baseScheme = require 'euler1d_burgers'(),
@@ -283,7 +296,7 @@ do
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
-	sims:insert(Roe(args))
+	--sims:insert(Roe(args))
 	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
 	--sims:insert(Roe(table(args, {usePPM=true})))
 	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .01})))
@@ -316,6 +329,19 @@ do
 	--sims:insert(require 'euler1d_muscl'(table(args, {baseScheme = Roe(args)})))	-- TODO I broke this
 	--sims:insert(require 'euler1d_muscl'(table(args, {baseScheme = HLL()})))	-- TODO I broke this
 	--sims:insert(Roe(table(args, {scheme = schemes.HLLC()})))	-- TODO 
+	--]=]
+
+	--[=[ compare integrators
+	args.stopAtTimes = {.4}
+	sims:insert(Roe(table(args, {integrator=integrators.ForwardEuler()})))
+	sims:insert(Roe(table(args, {integrator=integrators.RungeKutta4()})))
+	--]=]
+
+	-- [=[ compare constant vs piecewise linear
+	args.stopAtTimes = {.4}
+	sims:insert(Roe(args))
+	local Roe_PLM = class(PLMBehavior(Roe))
+	sims:insert(Roe_PLM(args)) 
 	--]=]
 end
 --]]

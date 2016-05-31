@@ -32,8 +32,8 @@ function HLL:calcFlux(dt)
 		local sL = self.eigenvalues[i][1]
 		local sR = self.eigenvalues[i][self.numStates]
 
-		local fluxL = self.equation:calcFluxForState(self, i, qL)
-		local fluxR = self.equation:calcFluxForState(self, i, qR)
+		local fluxL = {self.equation:calcFluxForState(qL)}
+		local fluxR = {self.equation:calcFluxForState(qR)}
 
 		local flux = self.fluxes[i]
 		for i=1,self.numStates do

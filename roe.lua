@@ -60,7 +60,10 @@ function Roe:reset()
 end
 
 -- calculates timestep and eigenbasis
-function Roe:calcDT()
+-- these are used by calcFlux as well
+-- so this method counts on the fact that calcDT is called first, before calcFlux
+-- however, for RK4 integration, shouldn't eigenbasis be recomputed at each intermediate state? 
+function Roe:calcInterfaceEigenBasis()
 	-- Roe solver:
 	-- 1) calculate eigenbasis at interface with Roe-weighted average of states
 	for i=2,self.gridsize do
@@ -122,14 +125,22 @@ function Roe:calcDT()
 		self.eigenbasisErrors[i] = eigenbasisError
 		self.fluxMatrixErrors[i] = fluxMatrixError
 	end
+end
 
-	return Roe.super.calcDT(self)
+-- get the q at the left side of the interface
+function Roe:get_qL(i)
+	return self.qs[i-1]
+end
+
+-- get the q at the right side of the interface
+function Roe:get_qR(i)
+	return self.qs[i]
 end
 
 function Roe:calcDeltaQTildes()
 	for i=2,self.gridsize do
-		local qL = self.qs[i-1]
-		local qR = self.qs[i]
+		local qL = self:get_qL(i)
+		local qR = self:get_qR(i)
 		
 		local dq = {}
 		for j=1,self.numStates do
@@ -139,10 +150,9 @@ function Roe:calcDeltaQTildes()
 	end
 end
 
+-- depends on calcDeltaQTildes
 function Roe:calcRTildes()
 	for i=2,self.gridsize do
-		local qL = self.qs[i-1]
-		local qR = self.qs[i]
 		for j=1,self.numStates do
 			if self.deltaQTildes[i][j] == 0 then
 				self.rTildes[i][j] = 0
@@ -239,8 +249,8 @@ function Roe:calcFluxesAtInterface(dt)
 	
 	-- transform back
 	for i=2,self.gridsize do
-		local qL = self.qs[i-1]
-		local qR = self.qs[i]
+		local qL = self:get_qL(i)
+		local qR = self:get_qR(i)
 
 		local qAvg = {}
 		for j=1,self.numStates do
@@ -277,6 +287,9 @@ function Roe:calcFluxesAtInterface(dt)
 end
 
 function Roe:calcFlux(dt)
+
+	-- used by all following methods in calcFlux
+	self:calcInterfaceEigenBasis()
 
 	-- calculate interface state difference in eigenbasis coordinates
 	self:calcDeltaQTildes()

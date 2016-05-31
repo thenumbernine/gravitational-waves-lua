@@ -24,7 +24,7 @@ do
 	local mom = q:_(2)
 	local ETotal = q:_(3)
 	local vx = mom/rho
-	local EKin = .5 * rho * vx^2
+	local EKin = .5 * rho * vx * vx
 	local EInt = ETotal - EKin
 	local P = (gamma - 1) * EInt
 	local H = EInt * gamma
@@ -135,36 +135,29 @@ end
 -- mx is momentum in x direction (densitized velocity)
 -- ETotal is densitized total energy
 function Euler1D:calcPrimFromCons(rho, mx, ETotal)
-	return
-		rho,	-- rho
-		mx / rho,	-- vx
-		(gamma - 1) * (ETotal - .5 * rho * vx * vx)	-- P 
+	local vx = mx / rho
+	local P = (self.gamma - 1) * (ETotal - .5 * rho * vx * vx)
+	return rho, vx, P
 end
 
 -- calculates the roe-averaged variables (often primitives) used for calculating interface eigenbasis
 function Euler1D:calcRoeValues(qL, qR)
 	local gamma = self.gamma
-	
-	local rhoL = qL[1]
-	local vxL = qL[2] / rhoL 
-	local eTotalL = qL[3] / rhoL
-	local eIntL = eTotalL - .5 * vxL^2
-	local PL = (gamma - 1) * rhoL * eIntL
-	local hTotalL = eTotalL + PL / rhoL
+
+	local ETotalL = qL[3]
+	local rhoL, vxL, PL = self:calcPrimFromCons(table.unpack(qL))
+	local hTotalL = self:calc_hTotal(rhoL, PL, ETotalL)
 	local sqrtRhoL = sqrt(rhoL)
 	
-	local rhoR = qR[1]
-	local vxR = qR[2] / rhoR 
-	local eTotalR = qR[3] / rhoR
-	local eIntR = eTotalR - .5 * vxR^2
-	local PR = (gamma - 1) * rhoR * eIntR
-	local hTotalR = eTotalR + PR / rhoR
+	local ETotalR = qR[3]
+	local rhoR, vxR, PR = self:calcPrimFromCons(table.unpack(qR))
+	local hTotalR = self:calc_hTotal(rhoR, PR, ETotalR)
 	local sqrtRhoR = sqrt(rhoR)
-
+	
 	local rho = sqrtRhoL * sqrtRhoR
 	local vx = (sqrtRhoL * vxL + sqrtRhoR * vxR) / (sqrtRhoL + sqrtRhoR)
 	local hTotal = (sqrtRhoL * hTotalL + sqrtRhoR * hTotalR) / (sqrtRhoL + sqrtRhoR)
-	local Cs = sqrt((gamma - 1) * (hTotal - .5 * vx * vx))
+	local Cs = self:calcSpeedOfSound(vx, hTotal)
 
 	return rho, vx, hTotal, Cs
 end
@@ -173,23 +166,96 @@ function Euler1D:calcEigenvalues(vx, hTotal, Cs)
 	return vx - Cs, vx, vx + Cs
 end
 
-function Euler1D:calcEigenBasis(rho, vx, hTotal, Cs)
+function Euler1D:calcSpeedOfSound(vx, hTotal)
+	return math.sqrt((self.gamma - 1) * (hTotal - .5 * vx * vx))
+end
+
+function Euler1D:calc_hTotal(rho, P, ETotal)
+	return (ETotal + P) / rho
+end
+
+function Euler1D:calcEigenvaluesFromCons(rho, mx, ETotal)
+	local rho, vx, P = self:calcPrimFromCons(rho, mx, ETotal)
+	local hTotal = self:calc_hTotal(rho, P, ETotal)
+	local Cs = self:calcSpeedOfSound(vx, hTotal)
+	return self:calcEigenvalues(vx, hTotal, Cs)
+end
+
+function Euler1D:calcMinMaxEigenvaluesFromCons(...)
+	return firstAndLast(self:calcEigenvaluesFromCons(...))
+end
+
+-- used by HLL
+function Euler1D:calcFluxForState(q)
+	local gamma = self.gamma
+	return 
+		q[2],
+		(gamma - 1) * q[3] + (3 - gamma) / 2 * q[2] * q[2] / q[1],
+		gamma * q[2] * q[3] / q[1] + (1 - gamma) / 2 * q[2] * q[2] * q[2] / (q[1] * q[1])
+end
+
+function Euler1D:calcEigenBasisWrtPrims(rho, vx, hTotal, Cs, F, lambda, evL, evR)
+	Cs = Cs or self:calcSpeedOfSound(vx, hTotal)
 	local gamma = self.gamma
 
-	local F = {{},{},{}}
-	F[1][1] = 0
-	F[1][2] = 1
-	F[1][3] = 0
-	F[2][1] = .5 * (gamma - 3) * vx * vx
-	F[2][2] = (3 - gamma) * vx
-	F[2][3] = gamma - 1
-	F[3][1] = vx * (.5 * (gamma - 1) * vx * vx - hTotal)
-	F[3][2] = hTotal - (gamma - 1) * vx * vx
-	F[3][3] = gamma * vx
+	fill(lambda, self:calcEigenvalues(vx, hTotal, Cs))
+
+	local CsSq = Cs * Cs
+
+	if F then
+		F[1][1] = vx
+		F[1][2] = rho
+		F[1][3] = 0
+		F[2][1] = 0
+		F[2][2] = vx
+		F[2][3] = 1/rho
+		F[3][1] = 0
+		F[3][2] = rho * CsSq
+		F[3][3] = vx
+	end
+
+	evL[1][1] = 1
+	evL[1][2] = rho / (2 * Cs)
+	evL[1][3] = -rho / (2 * Cs)
+	evL[2][1] = 0
+	evL[2][2] = 1/2
+	evL[2][3] = 1/2
+	evL[3][1] = 0
+	evL[3][2] = rho * Cs / 2
+	evL[3][3] = -rho * Cs / 2
+
+	evR[1][1] = 1
+	evR[2][1] = 0
+	evR[3][1] = 0
+	evR[1][2] = 0
+	evR[2][2] = 1
+	evR[3][2] = 1
+	evR[1][3] = -1/CsSq
+	evR[2][3] = 1 / (rho * Cs)
+	evR[3][3] = -1 / (rho * Cs)
+end
+
+function Euler1D:calcEigenBasis(rho, vx, hTotal, Cs, F, lambda, evL, evR)
+	Cs = Cs or self:calcSpeedOfSound(vx, hTotal)
 	
-	local lambda = {self:calcEigenvalues(vx, hTotal, Cs)}
+	local gamma = self.gamma
+	local CsSq = Cs * Cs
+	local vxSq = vx * vx
+
+	if F then
+		F[1][1] = 0
+		F[1][2] = 1
+		F[1][3] = 0
+		F[2][1] = .5 * (gamma - 3) * vxSq
+		F[2][2] = (3 - gamma) * vx
+		F[2][3] = gamma - 1
+		F[3][1] = vx * (.5 * (gamma - 1) * vxSq - hTotal)
+		F[3][2] = hTotal - (gamma - 1) * vxSq
+		F[3][3] = gamma * vx
+	end
+
+	fill(lambda, self:calcEigenvalues(vx, hTotal, Cs))
 	
-	local evR = {{},{},{}}
 	-- left
 	evR[1][1] = 1
 	evR[2][1] = vx - Cs
@@ -197,27 +263,32 @@ function Euler1D:calcEigenBasis(rho, vx, hTotal, Cs)
 	-- vel
 	evR[1][2] = 1
 	evR[2][2] = vx
-	evR[3][2] = .5 * vx * vx
+	evR[3][2] = .5 * vxSq
 	-- right
 	evR[1][3] = 1
 	evR[2][3] = vx + Cs
 	evR[3][3] = hTotal + Cs * vx
-	
-	local evL = {{},{},{}}
-	-- left
-	evL[1][1] = (.5 * (gamma - 1) * vx^2 + Cs * vx) / (2 * Cs^2)
-	evL[1][2] = -(Cs + (gamma - 1) * vx) / (2 * Cs^2)
-	evL[1][3] = (gamma - 1) / (2 * Cs^2)
-	-- vel
-	evL[2][1] = 1 - (gamma - 1) * vx^2 / (2 * Cs^2)
-	evL[2][2] = (gamma - 1) * vx / Cs^2
-	evL[2][3] = -(gamma - 1) / Cs^2
-	-- right
-	evL[3][1] = (.5 * (gamma - 1) * vx^2 - Cs * vx) / (2 * Cs^2)
-	evL[3][2] = (Cs - (gamma - 1) * vx) / (2 * Cs^2)
-	evL[3][3] = (gamma - 1) / (2 * Cs^2)
 
-	return evR, lambda, evL, F
+	-- left
+	evL[1][1] = (.5 * (gamma - 1) * vxSq + Cs * vx) / (2 * CsSq)
+	evL[1][2] = -(Cs + (gamma - 1) * vx) / (2 * CsSq)
+	evL[1][3] = (gamma - 1) / (2 * CsSq)
+	-- vel
+	evL[2][1] = 1 - (gamma - 1) * vxSq / (2 * CsSq)
+	evL[2][2] = (gamma - 1) * vx / CsSq
+	evL[2][3] = -(gamma - 1) / CsSq
+	-- right
+	evL[3][1] = (.5 * (gamma - 1) * vxSq - Cs * vx) / (2 * CsSq)
+	evL[3][2] = (Cs - (gamma - 1) * vx) / (2 * CsSq)
+	evL[3][3] = (gamma - 1) / (2 * CsSq)
+
+end
+
+-- functions that use sim:
+
+-- used by SolverFV
+function Euler1D:calcCellMinMaxEigenvalues(sim, i)
+	return self:calcMinMaxEigenvaluesFromCons(table.unpack(sim.qs[i]))
 end
 
 -- used by HLL
@@ -231,29 +302,15 @@ function Euler1D:calcInterfaceEigenvalues(sim, i, qL, qR)
 	end
 end
 
--- used by HLL
-function Euler1D:calcFluxForState(sim, i, q, flux)
-	flux = flux or {}
-	local gamma = self.gamma
-	flux[1] = q[2]
-	flux[2] = (gamma - 1) * q[3] + (3 - gamma) / 2 * q[2] * q[2] / q[1]
-	flux[3] = gamma * q[2] * q[3] / q[1] + (1 - gamma) / 2 * q[2] * q[2] * q[2] / (q[1] * q[1])
-	return flux
-end
-
 -- used by Roe
 function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
-	local gamma = self.gamma
-
 	local rho, vx, hTotal, Cs = self:calcRoeValues(qL, qR)
-
-	local evR, lambda, evL, F = self:calcEigenBasis(rho, vx, hTotal, Cs)
-	sim.fluxMatrix[i] = F
-	sim.eigenvectors[i] = evR
-	sim.eigenvalues[i] = lambda
-	sim.eigenvectorsInverse[i] = evL
+	local F = sim.fluxMatrix[i] 
+	local lambda = sim.eigenvalues[i]
+	local evL = sim.eigenvectorsInverse[i]
+	local evR = sim.eigenvectors[i]
+	self:calcEigenBasis(rho, vx, hTotal, Cs, F, lambda, evL, evR) 
 end
-
 
 
 --[[ do something to prove source terms are working ...

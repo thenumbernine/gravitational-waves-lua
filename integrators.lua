@@ -1,13 +1,13 @@
 local class = require 'ext.class'
 
 local ForwardEuler = class()
-
+ForwardEuler.name = 'F.E.'
 function ForwardEuler:integrate(qs, dt, dq_dts)
 	return qs + dt * dq_dts()
 end
 
 local RungeKutta4 = class()
-
+RungeKutta4.name = 'RK4'
 function RungeKutta4:integrate(qs, dt, dq_dts)
 	local k1 = dq_dts(qs)
 	local k2 = dq_dts(qs + .5 * k1)
