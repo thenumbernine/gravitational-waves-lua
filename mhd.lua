@@ -61,7 +61,7 @@ function MHD:initCell(sim,i)
 	local x = sim.xs[i]
 	local rho = x < 0 and 1 or .125
 	local vx, vy, vz = 0, 0, 0
-	--[[ Brio & Wu
+	-- [[ Brio & Wu
 	local bx = 1
 	local by = x < 0 and 1 or -1
 	local bz = 0
@@ -70,7 +70,7 @@ function MHD:initCell(sim,i)
 	local bx, by, bz = 0, sin(pi/2*x), 0
 	--local bx, by, bz = 0, 1, 0	-- constant field works
 	--]]
-	-- [[ Sod
+	--[[ Sod
 	local bx, by, bz = 0, 0, 0	-- zero field works ... sort of.
 	--]]
 	local P = x < 0 and 1 or .1
