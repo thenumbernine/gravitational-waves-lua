@@ -3,6 +3,7 @@ local Jacobi = require 'LinearSolvers.Jacobi'
 local ConjugateGradient = require 'LinearSolvers.ConjugateGradient'
 local ConjugateResidual = require 'LinearSolvers.ConjugateResidual'
 local BiconjugateGradientStabilized = require 'LinearSolvers.BiconjugateGradientStabilized'
+local GeneralizedMinimalResidual = require 'LinearSolvers.GeneralizedMinimalResidual'
 
 local function prepArgs(args)
 	args = table(args)
@@ -31,6 +32,9 @@ return {
 	end,
 	bicgstab = function(args)
 		return BiconjugateGradientStabilized(prepArgs(args))
+	end,
+	gmres = function(args)
+		return GeneralizedMinimalResidual(prepArgs(args))
 	end,
 }
 

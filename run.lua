@@ -48,7 +48,7 @@ local ADM3D = require 'adm3d'
 -- setup
 local sims = table()
 
--- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+--[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -64,7 +64,7 @@ do
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
 		fluxLimiter = fluxLimiters.donorCell,
-		linearSolver = require 'linearsolvers'.conjres,
+		linearSolver = require 'linearsolvers'.gmres,
 		linearSolverEpsilon = 1e-10,
 		linearSolverMaxIter = 100,
 	}
@@ -95,13 +95,17 @@ do
 
 	-- [=[ compare different equations/formalisms 
 	-- these two match:
-	--sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
-	--sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
+	sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
+	sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
+	
 	-- these two match, but differ from the first two:
-	sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
+	--sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
 	--sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
+	
 	-- this is similar to the last two, but off by just a bit (and has an asymmetric evolution of alpha)
-	sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
+	--sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
+	
+	-- and here's the start of my looking into implicit solvers.  they're broke at the moment:
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D3to5Var(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D5Var(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM3D(equationArgs)})))
@@ -266,7 +270,7 @@ end
 --]]
 
 
---[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+-- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
 	local args = {
 		equation = Euler1D(),
@@ -306,7 +310,7 @@ do
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
-	--sims:insert(Roe(table(args, {equation = MHD()})))
+	sims:insert(Roe(table(args, {equation = MHD()})))
 
 	-- srhd Marti & Muller 2003 problem #1
 	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.4249], gridsize=400, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
@@ -334,7 +338,7 @@ do
 	--sims:insert(Roe(table(args, {scheme = schemes.HLLC()})))	-- TODO 
 	--]=]
 
-	-- [=[ compare integrators
+	--[=[ compare integrators
 	args.stopAtTimes = {.4}
 	sims:insert(Roe(table(args, {integrator=integrators.ForwardEuler()})))
 	sims:insert(Roe(table(args, {integrator=integrators.RungeKutta4()})))

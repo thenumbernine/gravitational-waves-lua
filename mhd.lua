@@ -1,3 +1,4 @@
+-- using https://arxiv.org/pdf/0804.0402v1.pdf
 local class = require 'ext.class'
 local Equation = require 'equation'
 
@@ -77,8 +78,8 @@ function MHD:initCell(sim,i)
 	local EInt = rho * eInt
 	local eKin = .5*(vx*vx + vy*vy + vz*vz)
 	local EKin = rho * eKin
-	local bSq = bx*bx + by*by + bz*bz
-	local EMag = .5*bSq
+	local BSq = bx*bx + by*by + bz*bz
+	local EMag = .5*BSq
 	local ETotal = EInt + EKin + EMag 
 	local mx, my, mz = rho * vx, rho * vy, rho * vz
 	return {rho, mx, my, mz, bx, by, bz, ETotal}
@@ -95,6 +96,30 @@ function MHD:stateToPrims(rho, mx, my, mz, bx, by, bz, ETotal)
 	local PStar = P + EMag								
 	local H = (ETotal + PStar) / rho					
 	return rho, vx, vy, vz, bx, by, bz, H
+end
+
+-- 
+function MHD:calcMinMaxEigenvaluesFromCons(rho, mx, my, mz, bx, by, bz, ETotal)
+	local rho, vx, vy, vz, bx, by, bz, H = self:stateToPrims(rho, mx, my, mz, bx, by, bz, ETotal)
+	local vSq = vx*vx + vy*vy + vz*vz	
+	local bSq = bx*bx + by*by + bz*bz
+	local gamma = self.gamma	
+	local gammaPrime = gamma - 1
+	-- this usually goes on at interfaces, hence the X and Y calculations using L and R states
+	-- but the same paper that says how to calc the eigenvectors, also says to use cell-centered eigenvalues for the cfl timestep
+	local X = 0--((byL - byR)^2 + (bzL - bzR)^2) / (2 * (sqrt(rhoL) + sqrt(rhoR)))
+	local XPrime = (gamma - 2) * X
+	local Y = 1--(rhoL + rhoR) / (2 * rho)
+	local YPrime = (gamma - 2) * Y
+	local aTildeSq = gammaPrime * (H - vSq/2 - bSq/rho) - XPrime
+	local CAxSq = bx*bx / rho
+	local bPerpSq = by*by + bz*bz
+	local bStarPerpSq = (gammaPrime - YPrime) * bPerpSq
+	local CATildeSq = CAxSq + bStarPerpSq / rho
+	local CAx = math.sqrt(CAxSq)
+	local CfSq = .5 * ((aTildeSq + CATildeSq) + sqrt((aTildeSq + CATildeSq)^2 - 4 * aTildeSq * CAxSq))
+	local Cf = math.sqrt(CfSq)
+	return vx - Cf, vx + Cf
 end
 
 function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
@@ -135,6 +160,26 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local Y = (rhoL + rhoR) / (2 * rho)
 	local YPrime = (gamma - 2) * Y
 
+	-- [[ 7x7, paper-order
+	-- storing these matrices as 7x7 just as they are in the paper (i.e. rho, v, E, by, bz)
+	-- then in the mat mul function I'm going to rearrange the conservative vector before and after applying it 
+	local A51 = -vx*H + gammaPrime * vx * vSq/2 + bx * (bx * vx + by * vy + bz * vz) / rho - vx * XPrime
+	local A52 = -gammaPrime * vx^2 + H - bx^2 - bx^2/rho
+	local A53 = -gammaPrime * vx * vy - bx * by / rho
+	local A54 = -gammaPrime * vx * vz - bx * bz / rho
+	local A56 = -(bx * vy + by * vx * YPrime)
+	local A57 = -(bx * vz + bz * vx * YPrime)
+	sim.fluxMatrix[i] = {
+		{0, 1, 0, 0, 0, 0, 0},
+		{-vx^2+gammaPrime*vSq/2-XPrime, -(gamma-3)*vx, -gammaPrime*vy, -gammaPrime*vz, gammaPrime, -by*YPrime, -bz*YPrime},
+		{-vx*vy, vy, vx, 0, 0, -bx, 0},
+		{-vx*vz, vz, 0, vx, 0, 0, -bx},
+		{A51, A52, A53, A54, gamma*vx, A56, A57},
+		{(bx*vy-by*vx)/rho, by/rho, -bx/rho, 0, 0, vx, 0},
+		{(bx*vz-bz*vx)/rho, bz/rho, 0, -bx/rho, 0, 0, vx},
+	}
+	--]]
+	--[[ 8x8, my-order
 	local fluxMatrix = sim.fluxMatrix[i]
 	fluxMatrix[1][1] = 0
 	fluxMatrix[1][2] = 1
@@ -200,27 +245,39 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	fluxMatrix[8][6] = -(bx * vy - by * vx * YPrime)
 	fluxMatrix[8][7] = -(bx * vz - bz * vx * YPrime)
 	fluxMatrix[8][8] = gamma * vx
+	--]]
 
 	local aTildeSq = gammaPrime * (H - vSq/2 - bSq/rho) - XPrime
 	local CAxSq = bx*bx / rho
 	local bPerpSq = by*by + bz*bz
 	local bStarPerpSq = (gammaPrime - YPrime) * bPerpSq
 	local CATildeSq = CAxSq + bStarPerpSq / rho
-	local CAx = sqrt(CAxSq)
+	local CAx = math.sqrt(CAxSq)
 	local CfSq = .5 * ((aTildeSq + CATildeSq) + sqrt((aTildeSq + CATildeSq)^2 - 4 * aTildeSq * CAxSq))
 	local CsSq = .5 * ((aTildeSq + CATildeSq) - sqrt((aTildeSq + CATildeSq)^2 - 4 * aTildeSq * CAxSq))
-	local Cf = sqrt(CfSq)
-	local Cs = sqrt(CsSq)
+	local Cf = math.sqrt(CfSq)
+	local Cs = math.sqrt(CsSq)
 
 	local eigenvalues = sim.eigenvalues[i]
+	-- [[ 7x7, paper-order
 	eigenvalues[1] = vx - Cf
 	eigenvalues[2] = vx - CAx
 	eigenvalues[3] = vx - Cs
 	eigenvalues[4] = vx
-	eigenvalues[5] = 0
+	eigenvalues[5] = vx + Cs
+	eigenvalues[6] = vx + CAx
+	eigenvalues[7] = vx + Cf
+	--]]
+	--[[ 8x8, my-order
+	eigenvalues[1] = vx - Cf
+	eigenvalues[2] = vx - CAx
+	eigenvalues[3] = vx - Cs
+	eigenvalues[4] = vx
+	eigenvalues[5] = vx
 	eigenvalues[6] = vx + Cs
 	eigenvalues[7] = vx + CAx
 	eigenvalues[8] = vx + Cf
+	--]]
 
 	-- to prevent divide-by-zero errors
 	local epsilon = 1e-20
@@ -242,7 +299,7 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local Qs = Cs * alpha_s * S
 	local Af = aTilde * alpha_f * sqrtRho
 	local As = aTilde * alpha_s * sqrtRho
-	local bPerp = sqrt(bPerpSq)
+	local bPerp = math.sqrt(bPerpSq)
 	local beta_y, beta_z
 	if bPerp < epsilon then
 		beta_y = 1
@@ -273,6 +330,25 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 
 	local HPrime = H - bSq / rho		-- (densitized) total gas enthalpy (internal energy + kinetic energy + pressure)
 
+	-- [[7x7
+	local R51 = alpha_f * (HPrime - vx * Cf) + Qs * (vy * betaStar_y + vz * betaStar_z) + As * bStarPerp * betaStarPerpSq / rho
+	local R52 = -(vy * beta_z - vz * beta_y)
+	local R53 = alpha_s * (HPrime - vx * Cs) - Qf * (vy * betaStar_y + vz * betaStar_z) - Af * bStarPerp * betaStarPerpSq / rho
+	local R54 = vSq/2 + XPrime / gammaPrime
+	local R55 = alpha_s * (HPrime + vx * Cs) + Qf * (vy * betaStar_y + vz * betaStar_z) - Af * bStarPerp * betaStarPerpSq / rho
+	local R56 = -R52
+	local R57 = alpha_f * (HPrime + vx * Cf) - Qs * (vy * betaStar_y + vz * betaStar_z) + As * bStarPerp * betaStarPerpSq / rho
+	sim.eigenvectors[i] = {
+		{alpha_f, 0, alpha_s, 1, alpha_s, 0, alpha_f},
+		{Vxf-Cff, 0, Vxs-Css, vx, Vxs+Css, 0, Vxf+Cff},
+		{Vyf+Qs*betaStar_y, -beta_z, Vys-Qf*betaStar_y, vy, Vys+Qf*betaStar_y, beta_z, Vyf-Qs*betaStar_y},
+		{Vzf+Qs*betaStar_z, beta_y, Vzs-Qf*betaStar_z, vz, Vzs+Qf*betaStar_z, -beta_y, Vzf-Qs*betaStar_z},
+		{R51, R52, R53, R54, R55, R56, R57},
+		{As*betaStar_y/rho, -beta_z*S/sqrtRho, -Af*betaStar_y/rho, 0, -Af*betaStar_y/rho, -beta_z*S/sqrtRho, As*betaStar_y/rho},
+		{As*betaStar_z/rho, beta_y*S/sqrtRho, -Af*betaStar_z/rho, 0, -Af*betaStar_z/rho, beta_y*S/sqrtRho, As*betaStar_z/rho},
+	}
+	--]]
+	--[[8x8
 	local eigenvectors = sim.eigenvectors[i]
 	--right eigenvectors
 	--fast -
@@ -347,6 +423,8 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	eigenvectors[6][8] = As * betaStar_y / rho
 	eigenvectors[7][8] = As * betaStar_z / rho
 	eigenvectors[8][8] = alpha_f * (HPrime + vx * Cf) - Qs * (vy * betaStar_y + vz * betaStar_z) + As * bStarPerp * betaStarPerpSq / rho
+	--]]
+	local evR = sim.eigenvectors[i]
 
 	local QStar_y, QStar_z
 	if betaStarPerpSq < epsilon then
@@ -385,6 +463,25 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	
 	local vBarSq = vSq * barScalar * barScalar
 
+	-- [[ 7x7
+	local L11 = alphaBar_f*(vSq-HPrime)+CHat_ff*(Cf+vx)-QHat_s*(vy*QStar_y+vz*QStar_z)-AHat_s*bPerp/rho
+	local L21 = (vy*beta_z-vz*beta_y)/2
+	local L31 = alphaBar_s*(vSq-HPrime)+CHat_ss*(Cs+vx)+QHat_f*(vy*QStar_y+vz*QStar_z)+AHat_f*bPerp/rho
+	local L41 = 1 - vBarSq + 2 * XHatPrime^2
+	local L51 = alphaBar_s*(vSq-HPrime)+CHat_ss*(Cs-vx)-QHat_f*(vy*QStar_y+vz*QStar_z)+AHat_f*bPerp/rho
+	local L61 = -L21
+	local L71 = alphaBar_f*(vSq-HPrime)+CHat_ff*(Cf-vx)+QHat_s*(vy*QStar_y+vz*QStar_z)-AHat_s*bPerp/rho
+	sim.eigenvectorsInverse[i] = {
+		{L11, -VBar_xf*CHat_ff, -VBar_yf+QHat_s*QStar_y, -VBar_zf+QHat_s*QStar_z, alphaBar_f, AHat_s*QStar_y-alphaBar_f*by, AHat_s*QStar_z-alphaBar_f*bz},
+		{L21, 0, -beta_z/2, beta_y/2, 0, -beta_z*S*sqrtRho/2, beta_y*S*sqrtRho/2},
+		{L31, -VBar_xs-CHat_ss, -VBar_ys-QHat_f*QStar_y, -VBar_zs-QHat_f*QStar_z, alphaBar_s, -AHat_f*QStar_y-alphaBar_s*by, -AHat_f*QStar_z-alphaBar_s*bz},
+		{L41, 2*vBar_x, 2*vBar_y, 2*vBar_z, -gammaPrime/aSq, 2*bBar_y, 2*bBar_z},
+		{L51, -VBar_xs+CHat_ss, -VBar_ys+QHat_f*QStar_y, -VBar_zs+QHat_f*QStar_z, alphaBar_s, -AHat_f*QStar_y-alphaBar_s*by, -AHat_f*QStar_z-alphaBar_s*bz},
+		{L61, 0, beta_z/2, -beta_y/2, 0, -beta_z*S*sqrtRho/2, beta_y*S*sqrtRho/2},
+		{L71, -VBar_xf+CHat_ff, -VBar_yf-QHat_s*QStar_y, -VBar_zf-QHat_s*QStar_z, alphaBar_f, AHat_s*QStar_y-alphaBar_f*by, AHat_s*QStar_z-alphaBar_f*bz},
+	}
+	--]]
+	--[[ 8x8
 	-- use linear solver for eigenvector inverse
 	local eigenvectorsInverse = sim.eigenvectorsInverse[i]
 	--fast -
@@ -459,22 +556,55 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	eigenvectorsInverse[8][6] = AHat_s * QStar_y - alphaBar_f * by
 	eigenvectorsInverse[8][7] = AHat_s * QStar_z - alphaBar_f * bz
 	eigenvectorsInverse[8][8] = alphaBar_f
+	--]]
+	local evL = sim.eigenvectorsInverse[i]
 
 	print()
 	print('error of eigenbasis '..i)
 	local evErr = {}
-	for i=1,8 do
+	for i=1,#evR do
 		evErr[i] = table()
-		for j=1,8 do
+		for j=1,#evR do
 			local sum = 0
-			for k=1,8 do
-				sum = sum + eigenvectorsInverse[i][k] * eigenvectors[k][j]
+			for k=1,#evR do
+				sum = sum + evL[i][k] * evR[k][j]
 			end
 			evErr[i][j] = sum
 		end
 		print(evErr[i]:concat', ')
 	end
 end
+
+local function permute(cons8)
+	local rho, mx, my, mz, bx, by, bz, E = table.unpack(cons8)
+	return {rho, mx, my, mz, E, by, bz}, bx
+end
+
+local function unpermute(cons7, bx)
+	local rho, mx, my, mz, E, by, bz = table.unpack(cons7)
+	return {rho, mx, my, mz, bx, by, bz, E}
+end
+
+local function applyPermuteMatrixField(field)
+	return function(self, solver, i, vOrig)
+		local v, bx = permute(vOrig)
+		local m = solver[field][i]
+		local result = {}
+		for j=1,7 do
+			local sum = 0
+			for k=1,7 do
+				sum = sum + m[j][k] * v[k]
+			end
+			result[j] = sum
+		end
+		return unpermute(result, bx)
+	end
+end
+
+MHD.fluxTransform = applyPermuteMatrixField'fluxMatrix'
+MHD.applyLeftEigenvectors = applyPermuteMatrixField'eigenvectorsInverse'
+MHD.applyRightEigenvectors = applyPermuteMatrixField'eigenvectors'
+
 
 return MHD
 

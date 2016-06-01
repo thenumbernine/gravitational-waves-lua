@@ -47,12 +47,8 @@ function Maxwell:initCell(sim, i)
 end
 
 function Maxwell:calcInterfaceEigenBasis(sim,i,qL,qR)
-	local avgQ = {}
-	for j=1,sim.numStates do
-		avgQ[j] = (qL[j] + qR[j]) / 2
-	end
-	local lambda = 1/sqrt(e0 * u0)
-	sim.eigenvalues[i] = {-lambda, -lambda, 0, 0, lambda, lambda}
+	fill(sim.eigenvalues[i], self:calcEigenvalues())
+
 	local se = sqrt(e0/2)
 	local su = sqrt(u0/2)
 	local seu = sqrt(e0/u0)/u0
@@ -88,6 +84,22 @@ function Maxwell:calcInterfaceEigenBasis(sim,i,qL,qR)
 			su * v[2] + su * v[5]
 		}
 	end
+end
+
+function Maxwell:calcMaxEigenvalue()
+	local lambda = 1/math.sqrt(e0 * u0)
+	return lambda
+end
+
+function Maxwell:calcEigenvalues(...)
+	local lambda = self:calcMaxEigenvalue()
+	return -lambda, -lambda, 0, 0, lambda, lambda
+end
+Maxwell.calcEigenvaluesFromCons = Maxwell.calcEigenvalues
+
+function Maxwell:calcMinMaxEigenvaluesFromCons(...)
+	local lambda = self:calcMaxEigenvalue()
+	return -lambda, lambda
 end
 
 local sigma = 1	-- conductivity

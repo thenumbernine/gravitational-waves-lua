@@ -231,6 +231,14 @@ function ADM2DSpherical:calcInterfaceEigenBasis(sim,i,qL,qR)
 	}
 end
 
+function ADM2DSpherical:calcEigenvaluesFromCons(alpha, gamma_rr, ...) 
+	local f = self.calc_f(alpha)
+	local l1 = alpha / math.sqrt(gamma_rr)
+	local l2 = alpha * math.sqrt(f / gamma_rr)
+	return -l2, -l1, 0, 0, 0, 0, 0, l1, l2
+
+end
+
 function ADM2DSpherical:sourceTerm(sim, qs)
 	local source = sim:newState()
 	for i=1,sim.gridsize do

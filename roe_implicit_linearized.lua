@@ -6,7 +6,7 @@ local RoeImplicitLinearized = class(Roe)
 function RoeImplicitLinearized:init(args)
 	RoeImplicitLinearized.super.init(self, args)
 	
-	self.linearSolver = args.linearSolver or require 'linearsolvers'.conjres
+	self.linearSolver = args.linearSolver or require 'linearsolvers'.gmres
 	self.linearSolverEpsilon = args.linearSolverEpsilon or 1e-10
 	self.linearSolverMaxIter = args.linearSolverMaxIter or 100
 	self.errorLogging = args.errorLogging
@@ -20,7 +20,8 @@ function RoeImplicitLinearized:step(dt)
 	--calcDT extra params: getLeft, getRight, getLeft2, getRight2
 	-- the previous call in Solver:iterate is to self:calcDT
 	-- which calls self.equation:calcInterfaceEigenBasis, which fills the self.eigenvalues table
-
+	
+	self:calcInterfaceEigenBasis()
 	self:calcDeltaQTildes()
 	self:calcRTildes()
 	self:calcPhis(dt)
@@ -38,7 +39,7 @@ function RoeImplicitLinearized:step(dt)
 		return dq_dt
 	end
 
---[[ implicit via some linear solver
+-- [[ implicit via some linear solver
 	local qs = self.qs
 
 	local linearSolverArgs = {
@@ -46,7 +47,7 @@ function RoeImplicitLinearized:step(dt)
 		x0 = qs:clone(),
 		epsilon = self.linearSolverEpsilon, 
 		maxiter = self.linearSolverMaxIter,
-		-- mostly true ... mostly ...
+		--[=[ mostly true ... mostly ...
 		-- not true for any 2nd derivative terms
 		-- this method is only used for Jacobi method, so I don't really care
 		ADiag = (function()
@@ -58,6 +59,7 @@ function RoeImplicitLinearized:step(dt)
 			end
 			return n
 		end)(),
+		--]=]
 		-- logging:
 		errorCallback = self.errorLogging and function(err, convergenceIteration)
 			print(self.t, convergenceIteration, err)
@@ -74,7 +76,7 @@ function RoeImplicitLinearized:step(dt)
 		--qs = qs - dt * calc_dq_dt(self.qs)
 		-- ... but 
 		qs = qs - dt * calc_dq_dt(qs)
-		self.boundaryMethod(qs)
+		--self.boundaryMethod(qs)
 		return qs
 	end
 	--]=]
@@ -96,7 +98,7 @@ function RoeImplicitLinearized:step(dt)
 		print()
 	end
 --]]
--- [[ explicit - forward Euler - for debugging
+--[[ explicit - forward Euler - for debugging
 	self.qs = self.qs + dt * calc_dq_dt(self.qs)
 --]]
 end
