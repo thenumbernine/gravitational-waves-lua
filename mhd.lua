@@ -472,7 +472,7 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local L61 = -L21
 	local L71 = alphaBar_f*(vSq-HPrime)+CHat_ff*(Cf-vx)+QHat_s*(vy*QStar_y+vz*QStar_z)-AHat_s*bPerp/rho
 	sim.eigenvectorsInverse[i] = {
-		{L11, -VBar_xf*CHat_ff, -VBar_yf+QHat_s*QStar_y, -VBar_zf+QHat_s*QStar_z, alphaBar_f, AHat_s*QStar_y-alphaBar_f*by, AHat_s*QStar_z-alphaBar_f*bz},
+		{L11, -VBar_xf-CHat_ff, -VBar_yf+QHat_s*QStar_y, -VBar_zf+QHat_s*QStar_z, alphaBar_f, AHat_s*QStar_y-alphaBar_f*by, AHat_s*QStar_z-alphaBar_f*bz},
 		{L21, 0, -beta_z/2, beta_y/2, 0, -beta_z*S*sqrtRho/2, beta_y*S*sqrtRho/2},
 		{L31, -VBar_xs-CHat_ss, -VBar_ys-QHat_f*QStar_y, -VBar_zs-QHat_f*QStar_z, alphaBar_s, -AHat_f*QStar_y-alphaBar_s*by, -AHat_f*QStar_z-alphaBar_s*bz},
 		{L41, 2*vBar_x, 2*vBar_y, 2*vBar_z, -gammaPrime/aSq, 2*bBar_y, 2*bBar_z},
