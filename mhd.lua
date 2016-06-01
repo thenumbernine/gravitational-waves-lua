@@ -73,9 +73,8 @@ function MHD:initCell(sim,i)
 	-- [[ Sod
 	local bx, by, bz = 0, 0, 0	-- zero field works ... sort of.
 	--]]
-	local p = x < 0 and 1 or .1
-	local eInt = p / (gamma-1)
-	local EInt = rho * eInt
+	local P = x < 0 and 1 or .1
+	local EInt = P / (gamma-1)
 	local eKin = .5*(vx*vx + vy*vy + vz*vz)
 	local EKin = rho * eKin
 	local BSq = bx*bx + by*by + bz*bz
