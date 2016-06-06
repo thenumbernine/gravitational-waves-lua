@@ -2,10 +2,6 @@ local class = require 'ext.class'
 local Equation = require 'equation'
 local mat33 = require 'mat33'
 
-local function assertfinite(x, msg)
-	assert(math.isfinite(x), msg or 'is not finite!')
-end
-
 local SRHD1D = class(Equation)
 SRHD1D.name = 'SRHD 1D'
 SRHD1D.numStates = 3

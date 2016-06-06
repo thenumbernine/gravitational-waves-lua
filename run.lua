@@ -14,6 +14,10 @@ function fill(t, ...)
 	end
 end
 
+-- useful
+function assertfinite(x, msg)
+	assert(math.isfinite(x), msg or 'is not finite!')
+end
 
 local fluxLimiters = require 'limiter' 
 local boundaryMethods = require 'boundary'
@@ -310,7 +314,8 @@ do
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
-	sims:insert(Roe(table(args, {equation = MHD()})))
+	--sims:insert(Roe(table(args, {equation = MHD()})))
+	sims:insert(Roe(table(args, {equation = require 'mhd_v2'()})))
 
 	-- srhd Marti & Muller 2003 problem #1
 	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.4249], gridsize=400, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))

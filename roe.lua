@@ -53,6 +53,11 @@ function Roe:reset()
 			self.fluxMatrix[i][j] = {}
 			self.eigenvectors[i][j] = {}
 			self.eigenvectorsInverse[i][j] = {}
+			for k=1,self.numStates do
+				self.fluxMatrix[i][j][k] = 0
+				self.eigenvectors[i][j][k] = 0
+				self.eigenvectorsInverse[i][j][k] = 0
+			end
 		end
 		self.eigenbasisErrors[i] = 0
 		self.fluxMatrixErrors[i] = 0
@@ -244,8 +249,8 @@ end
 -- depends on self:calcDeltaQTildes and self:calcRTiles
 -- TODO this should be 'calcFluxes'
 -- and 'calcFlux' should be 'calcDerivByFlux' or something?
+Roe.useFluxMatrix = false
 function Roe:calcFluxesAtInterface(dt)
-	local useFluxMatrix = false
 	
 	-- transform back
 	for i=2,self.gridsize do
@@ -267,7 +272,7 @@ function Roe:calcFluxesAtInterface(dt)
 			fluxTilde[j] = -.5 * deltaFluxTilde * (theta + phi * (epsilon - theta))
 		end
 		
-		if not useFluxMatrix then
+		if not self.useFluxMatrix then
 			local qAvgTildes = self.equation:applyLeftEigenvectors(self, i, qAvg)
 			for j=1,self.numStates do
 				fluxTilde[j] = fluxTilde[j] + self.eigenvalues[i][j] * qAvgTildes[j]
@@ -277,7 +282,7 @@ function Roe:calcFluxesAtInterface(dt)
 		self.fluxes[i] = self.equation:applyRightEigenvectors(self, i, fluxTilde)
 		
 		-- using the flux matrix itself allows for complete reconstruction even in the presence of zero-self.eigenvalues
-		if useFluxMatrix then
+		if self.useFluxMatrix then
 			local fluxQs = self.equation:fluxTransform(self, i, qAvg)
 			for j=1,self.numStates do
 				self.fluxes[i][j] = self.fluxes[i][j] + fluxQs[j]

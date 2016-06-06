@@ -1,12 +1,12 @@
--- using https://arxiv.org/pdf/0804.0402v1.pdf
+-- https://arxiv.org/pdf/0804.0402v1.pdf
+-- based on Athena's eigenvectors of derivative of adiabatic MHD flux wrt conservative variables
 local class = require 'ext.class'
 local Equation = require 'equation'
 
-local function isnan(x) return x ~= x end
-local function isinf(x) return x == math.huge or x == -math.huge end
-local function isfinite(x) return not isnan(x) and not isinf(x) end
-
 local MHD = class(Equation)
+
+-- whether to use the 7x7 system
+local use7x7
 
 MHD.numStates = 8
 MHD.gamma = 5/3	
@@ -61,14 +61,16 @@ function MHD:initCell(sim,i)
 	local x = sim.xs[i]
 	local rho = x < 0 and 1 or .125
 	local vx, vy, vz = 0, 0, 0
-	-- [[ Brio & Wu
+	--[[ Brio & Wu
 	local bx = 1
 	local by = x < 0 and 1 or -1
 	local bz = 0
 	--]]
-	--[[ some other tests
-	local bx, by, bz = 0, sin(pi/2*x), 0
-	--local bx, by, bz = 0, 1, 0	-- constant field works
+	-- [[ some other tests
+	--local bx, by, bz = 0, sin(pi/2*x), 0
+	--local bx, by, bz = 1, 0, 0	-- constant x field 
+	--local bx, by, bz = 0, 1, 0	-- constant y field
+	local bx, by, bz = 0, 1, 0	-- constant z field
 	--]]
 	--[[ Sod
 	local bx, by, bz = 0, 0, 0	-- zero field works ... sort of.
@@ -140,26 +142,47 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local by = (sqrtRhoL*byL + sqrtRhoR*byR)*invDenom
 	local bz = (sqrtRhoL*bzL + sqrtRhoR*bzR)*invDenom
 	local H = (sqrtRhoL*HL + sqrtRhoR*HR)*invDenom
+assertfinite(sqrtRhoL)
+assertfinite(sqrtRhoR)
+assertfinite(invDenom)
+assertfinite(rho)
+assertfinite(vx)
+assertfinite(vy)
+assertfinite(vz)
+assertfinite(bx)
+assertfinite(by)
+assertfinite(bz)
+assertfinite(H)
 
 	-- eqn 56 says to average H
 	-- but B8 says H = (E + P + b^2/2)/rho
 
 	local vSq = vx*vx + vy*vy + vz*vz
+assertfinite(vSq)
 
 	local sqrtRho = sqrt(rho)
+assertfinite(sqrtRho)
 
 	-- TODO divide by mu instead?
 	local oneOverSqrtMu = 1 / sqrt(4 * pi)
+assertfinite(oneOverSqrtMu)
 	local bSq = bx*bx + by*by + bz*bz
+assertfinite(bSq)
 	local bDotV = bx*vx + by*vy + bz*vz
+assertfinite(bDotV)
 
 	local gammaPrime = gamma - 1
 	local X = ((byL - byR)^2 + (bzL - bzR)^2) / (2 * (sqrt(rhoL) + sqrt(rhoR)))
+assertfinite(X)
 	local XPrime = (gamma - 2) * X
+assertfinite(XPrime)
 	local Y = (rhoL + rhoR) / (2 * rho)
+assertfinite(Y)
 	local YPrime = (gamma - 2) * Y
+assertfinite(YPrime)
 
-	-- [[ 7x7, paper-order
+if use7x7 then
+	-- , paper-order
 	-- storing these matrices as 7x7 just as they are in the paper (i.e. rho, v, E, by, bz)
 	-- then in the mat mul function I'm going to rearrange the conservative vector before and after applying it 
 	local A51 = -vx*H + gammaPrime * vx * vSq/2 + bx * (bx * vx + by * vy + bz * vz) / rho - vx * XPrime
@@ -177,8 +200,7 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 		{(bx*vy-by*vx)/rho, by/rho, -bx/rho, 0, 0, vx, 0},
 		{(bx*vz-bz*vx)/rho, bz/rho, 0, -bx/rho, 0, 0, vx},
 	}
-	--]]
-	--[[ 8x8, my-order
+else
 	local fluxMatrix = sim.fluxMatrix[i]
 	fluxMatrix[1][1] = 0
 	fluxMatrix[1][2] = 1
@@ -244,30 +266,41 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	fluxMatrix[8][6] = -(bx * vy - by * vx * YPrime)
 	fluxMatrix[8][7] = -(bx * vz - bz * vx * YPrime)
 	fluxMatrix[8][8] = gamma * vx
-	--]]
+end
 
 	local aTildeSq = gammaPrime * (H - vSq/2 - bSq/rho) - XPrime
+aTildeSq = math.max(1e-7, aTildeSq)
+--if aTildeSq < 0 then error(tolua({aTildeSq=aTildeSq, H=H, vSq=vSq, bSq=bSq, rho=rho, XPrime=XPrime}, {indent=true})) end
 	local CAxSq = bx*bx / rho
+assertfinite(CAxSq)
 	local bPerpSq = by*by + bz*bz
+assertfinite(bPerpSq)
 	local bStarPerpSq = (gammaPrime - YPrime) * bPerpSq
+assertfinite(bStarPerpSq)
 	local CATildeSq = CAxSq + bStarPerpSq / rho
+assertfinite(CATildeSq)
 	local CAx = math.sqrt(CAxSq)
+assertfinite(CAx)
 	local CfSq = .5 * ((aTildeSq + CATildeSq) + sqrt((aTildeSq + CATildeSq)^2 - 4 * aTildeSq * CAxSq))
+assertfinite(CfSq)
 	local CsSq = .5 * ((aTildeSq + CATildeSq) - sqrt((aTildeSq + CATildeSq)^2 - 4 * aTildeSq * CAxSq))
+assertfinite(CsSq)
 	local Cf = math.sqrt(CfSq)
+assertfinite(Cf)
 	local Cs = math.sqrt(CsSq)
+assertfinite(Cs)
 
 	local eigenvalues = sim.eigenvalues[i]
-	-- [[ 7x7, paper-order
+if use7x7 then -- paper-order
 	eigenvalues[1] = vx - Cf
 	eigenvalues[2] = vx - CAx
 	eigenvalues[3] = vx - Cs
 	eigenvalues[4] = vx
+	eigenvalues[5] = 0
 	eigenvalues[5] = vx + Cs
 	eigenvalues[6] = vx + CAx
 	eigenvalues[7] = vx + Cf
-	--]]
-	--[[ 8x8, my-order
+else -- my-order
 	eigenvalues[1] = vx - Cf
 	eigenvalues[2] = vx - CAx
 	eigenvalues[3] = vx - Cs
@@ -276,29 +309,44 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	eigenvalues[6] = vx + Cs
 	eigenvalues[7] = vx + CAx
 	eigenvalues[8] = vx + Cf
-	--]]
+end
+
+for j=1,#eigenvalues do
+assertfinite(eigenvalues[j])
+end
 
 	-- to prevent divide-by-zero errors
 	local epsilon = 1e-20
 
 	-- eqn A13-A17, replace 'a' with 'aTilde'
 	local aTilde = sqrt(aTildeSq)
+if not math.isfinite(aTilde) then error(tolua({aTilde=aTilde, aTildeSq=aTildeSq}, {indent=true})) end
 	local S = bx >= 0 and 1 or -1
+assertfinite(S)
 	local alpha_f, alpha_s
-	if CaSq == aTildeSq and CAxSq == aTildeSq then
+	if CfSq == CsSq then-- CaSq == aTildeSq and CAxSq == aTildeSq then
 		alpha_f = 1
 		alpha_s = 0
 	else
 		alpha_f = (aTildeSq - CsSq) / (CfSq - CsSq)
 		alpha_s = (CfSq - aTildeSq) / (CfSq - CsSq)
 	end
+assertfinite(alpha_s)
+assertfinite(alpha_f)
 	local Cff = Cf * alpha_f
+assertfinite(Cff)
 	local Css = Cs * alpha_s
+assertfinite(Css)
 	local Qf = Cf * alpha_f * S
+assertfinite(Qf)
 	local Qs = Cs * alpha_s * S
+assertfinite(Qs)
 	local Af = aTilde * alpha_f * sqrtRho
+assertfinite(Af)
 	local As = aTilde * alpha_s * sqrtRho
+assertfinite(As)
 	local bPerp = math.sqrt(bPerpSq)
+assertfinite(bPerp)
 	local beta_y, beta_z
 	if bPerp < epsilon then
 		beta_y = 1
@@ -307,16 +355,25 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 		beta_y = by / bPerp
 		beta_z = bz / bPerp
 	end
+assertfinite(beta_y)
+assertfinite(beta_z)
 
 	-- V[xyz][fs] = v[xyz] * alpha_[fs]
 	local Vxf = vx * alpha_f
+assertfinite(Vxf)
 	local Vyf = vy * alpha_f
+assertfinite(Vyf)
 	local Vzf = vz * alpha_f
+assertfinite(Vzf)
 	local Vxs = vx * alpha_s
+assertfinite(Vxs)
 	local Vys = vy * alpha_s
+assertfinite(Vys)
 	local Vzs = vz * alpha_s
+assertfinite(Vzs)
 
 	local bStarPerp = sqrt(bStarPerpSq)
+assertfinite(bStarPerp)
 	local betaStar_y, betaStar_z
 	if bStarPerp < epsilon then
 		betaStar_y = 1
@@ -325,11 +382,14 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 		betaStar_y = by / bStarPerp
 		betaStar_z = bz / bStarPerp
 	end
+assertfinite(betaStar_y)
+assertfinite(betaStar_z)
 	local betaStarPerpSq = betaStar_y * betaStar_y + betaStar_z * betaStar_z
-
+assertfinite(betaStarPerpSq)
 	local HPrime = H - bSq / rho		-- (densitized) total gas enthalpy (internal energy + kinetic energy + pressure)
+assertfinite(HPrime)
 
-	-- [[7x7
+if use7x7 then
 	local R51 = alpha_f * (HPrime - vx * Cf) + Qs * (vy * betaStar_y + vz * betaStar_z) + As * bStarPerp * betaStarPerpSq / rho
 	local R52 = -(vy * beta_z - vz * beta_y)
 	local R53 = alpha_s * (HPrime - vx * Cs) - Qf * (vy * betaStar_y + vz * betaStar_z) - Af * bStarPerp * betaStarPerpSq / rho
@@ -346,8 +406,7 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 		{As*betaStar_y/rho, -beta_z*S/sqrtRho, -Af*betaStar_y/rho, 0, -Af*betaStar_y/rho, -beta_z*S/sqrtRho, As*betaStar_y/rho},
 		{As*betaStar_z/rho, beta_y*S/sqrtRho, -Af*betaStar_z/rho, 0, -Af*betaStar_z/rho, beta_y*S/sqrtRho, As*betaStar_z/rho},
 	}
-	--]]
-	--[[8x8
+else
 	local eigenvectors = sim.eigenvectors[i]
 	--right eigenvectors
 	--fast -
@@ -422,8 +481,14 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	eigenvectors[6][8] = As * betaStar_y / rho
 	eigenvectors[7][8] = As * betaStar_z / rho
 	eigenvectors[8][8] = alpha_f * (HPrime + vx * Cf) - Qs * (vy * betaStar_y + vz * betaStar_z) + As * bStarPerp * betaStarPerpSq / rho
-	--]]
+end
 	local evR = sim.eigenvectors[i]
+	
+	for j=1,#evR do
+		for k=1,#evR do
+			assertfinite(evR[j][k])
+		end
+	end
 
 	local QStar_y, QStar_z
 	if betaStarPerpSq < epsilon then
@@ -433,36 +498,62 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 		QStar_y = betaStar_y / betaStarPerpSq
 		QStar_z = betaStar_z / betaStarPerpSq
 	end
+assertfinite(QStar_y)
+assertfinite(QStar_z)
 
 	--local aSq = gamma * P / rho	-- adiabatic sound speed
 	local aSq = gammaPrime * (HPrime - .5 * vSq)
+assertfinite(aSq)
 	local hatScalar = 1 / (2 * aSq)
+assertfinite(hatScalar)
 	local QHat_f = Qf * hatScalar
+assertfinite(QHat_f)
 	local QHat_s = Qs * hatScalar
+assertfinite(QHat_s)
 	local AHat_f = Af * hatScalar	
+assertfinite(AHat_f)
 	local AHat_s = As * hatScalar	
+assertfinite(AHat_s)
 	local CHat_ff = Cff * hatScalar
+assertfinite(CHat_ff)
 	local CHat_ss = Css * hatScalar
+assertfinite(CHat_ss)
 	local XHatPrime = XPrime * hatScalar
+assertfinite(XHatPrime)
 	
 	local barScalar = gammaPrime * hatScalar
+assertfinite(barScalar)
 	local alphaBar_f = alpha_f * barScalar
+assertfinite(alphaBar_f)
 	local alphaBar_s = alpha_s * barScalar
+assertfinite(alphaBar_s)
 	local VBar_xf = Vxf * barScalar
+assertfinite(VBar_xf)
 	local VBar_yf = Vyf * barScalar
+assertfinite(VBar_yf)
 	local VBar_zf = Vzf * barScalar
+assertfinite(VBar_zf)
 	local VBar_xs = Vxs * barScalar
+assertfinite(VBar_xs)
 	local VBar_ys = Vys * barScalar
+assertfinite(VBar_ys)
 	local VBar_zs = Vzs * barScalar
+assertfinite(VBar_zs)
 	local vBar_x = vx * barScalar
+assertfinite(vBar_x)
 	local vBar_y = vy * barScalar
+assertfinite(vBar_y)
 	local vBar_z = vz * barScalar
+assertfinite(vBar_z)
 	local bBar_y = by * barScalar
+assertfinite(bBar_y)
 	local bBar_z = bz * barScalar
+assertfinite(bBar_z)
 	
 	local vBarSq = vSq * barScalar * barScalar
+assertfinite(vBarSq)
 
-	-- [[ 7x7
+if use7x7 then
 	local L11 = alphaBar_f*(vSq-HPrime)+CHat_ff*(Cf+vx)-QHat_s*(vy*QStar_y+vz*QStar_z)-AHat_s*bPerp/rho
 	local L21 = (vy*beta_z-vz*beta_y)/2
 	local L31 = alphaBar_s*(vSq-HPrime)+CHat_ss*(Cs+vx)+QHat_f*(vy*QStar_y+vz*QStar_z)+AHat_f*bPerp/rho
@@ -479,8 +570,7 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 		{L61, 0, beta_z/2, -beta_y/2, 0, -beta_z*S*sqrtRho/2, beta_y*S*sqrtRho/2},
 		{L71, -VBar_xf+CHat_ff, -VBar_yf-QHat_s*QStar_y, -VBar_zf-QHat_s*QStar_z, alphaBar_f, AHat_s*QStar_y-alphaBar_f*by, AHat_s*QStar_z-alphaBar_f*bz},
 	}
-	--]]
-	--[[ 8x8
+else
 	-- use linear solver for eigenvector inverse
 	local eigenvectorsInverse = sim.eigenvectorsInverse[i]
 	--fast -
@@ -555,25 +645,37 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	eigenvectorsInverse[8][6] = AHat_s * QStar_y - alphaBar_f * by
 	eigenvectorsInverse[8][7] = AHat_s * QStar_z - alphaBar_f * bz
 	eigenvectorsInverse[8][8] = alphaBar_f
-	--]]
+end
 	local evL = sim.eigenvectorsInverse[i]
 
+	for j=1,#evR do
+		for k=1,#evR do
+			assertfinite(evL[j][k])
+		end
+	end
+
+-- [[
 	print()
 	print('error of eigenbasis '..i)
+	local errTotal = 0
 	local evErr = {}
-	for i=1,#evR do
-		evErr[i] = table()
-		for j=1,#evR do
+	for j=1,#evR do
+		evErr[j] = table()
+		for k=1,#evR do
 			local sum = 0
-			for k=1,#evR do
-				sum = sum + evL[i][k] * evR[k][j]
+			for l=1,#evR do
+				sum = sum + evL[j][l] * evR[l][k]
 			end
-			evErr[i][j] = sum
+			evErr[j][k] = sum
+			errTotal = errTotal + math.abs(sum - (j == k and 1 or 0))
 		end
-		print(evErr[i]:concat', ')
+		print(evErr[j]:concat', ')
 	end
+	print('error total',errTotal)
+--]]
 end
 
+if use7x7 then
 local function permute(cons8)
 	local rho, mx, my, mz, bx, by, bz, E = table.unpack(cons8)
 	return {rho, mx, my, mz, E, by, bz}, bx
@@ -603,7 +705,14 @@ end
 MHD.fluxTransform = applyPermuteMatrixField'fluxMatrix'
 MHD.applyLeftEigenvectors = applyPermuteMatrixField'eigenvectorsInverse'
 MHD.applyRightEigenvectors = applyPermuteMatrixField'eigenvectors'
+end
 
+function MHD:postIterate(sim)
+	if MHD.super.postIterate then MHD.super.postIterate(self, sim) end
+	for i=1,sim.gridsize do
+		local q = sim.qs[i]
+		q[1] = math.max(q[1], 1e-7)	-- min bound for rho
+	end
+end
 
 return MHD
-
