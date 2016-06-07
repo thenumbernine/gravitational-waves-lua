@@ -27,17 +27,17 @@ function Euler1DBurgers:calcDT()
 	if self.fixed_dt then
 		dt = self.fixed_dt
 	else
-		local result = huge
+		local result = math.huge
 		for i=1,self.gridsize do
 			local rho = self.qs[i][1]
 			local u = self.qs[i][2] / rho
 			local eTotal = self.qs[i][3] / rho
 			local eInt = eTotal - .5 * u * u
-			local Cs = sqrt(gamma * (gamma - 1) * eInt)
+			local Cs = math.sqrt(gamma * (gamma - 1) * eInt)
 
 			local dx = self.ixs[i+1] - self.ixs[i]
-			local dum = dx / (Cs + abs(u))
-			result = min(result, dum)
+			local dum = dx / (Cs + math.abs(u))
+			result = math.min(result, dum)
 		end
 		dt = result * self.cfl
 	end
@@ -83,7 +83,7 @@ function Euler1DBurgers:calcFlux(dt)
 			self.fluxes[i][j] =
 				.5 * iu * ((1 + theta) * qL[j] + (1 - theta) * qR[j])
 				-- why does a + make things worse, and a - make things *much* smoother?  (original: http://www.mpia.de/homes/dullemon/lectures/fluiddynamics/Chapter_4.pdf says + )
-				+ .5 * dq * phi * abs(iu) * (1 - abs(iu * dt/dx))
+				+ .5 * dq * phi * math.abs(iu) * (1 - math.abs(iu * dt/dx))
 		end
 	end
 

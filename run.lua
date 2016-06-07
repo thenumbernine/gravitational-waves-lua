@@ -28,9 +28,6 @@ local integrators = require 'integrators'
 -- meta __index operation -- equivalent of operator[]() in C++
 function index(k,v) return k[v] end
 
--- makes math easier!
-for k,v in pairs(math) do _G[k] = v end
-
 local symmath = require 'symmath'
 
 -- solvers:
@@ -307,7 +304,7 @@ do
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
-	--sims:insert(Roe(args))
+	sims:insert(Roe(args))
 	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
 	--sims:insert(Roe(table(args, {usePPM=true})))
 	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .01})))
@@ -315,7 +312,7 @@ do
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
 	--sims:insert(Roe(table(args, {equation = MHD()})))
-	sims:insert(Roe(table(args, {equation = require 'mhd_v2'()})))
+	--sims:insert(Roe(table(args, {equation = require 'mhd_v2'()})))
 
 	-- srhd Marti & Muller 2003 problem #1
 	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.4249], gridsize=400, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
@@ -508,7 +505,7 @@ function TestApp:update(...)
 						--error("failed to get for getter "..info.name)
 					else
 						sim.ys[i] = y
-						if y == y and abs(y) < huge then
+						if y == y and math.abs(y) < math.huge then
 							if not simymin or y < simymin then simymin = y end
 							if not simymax or y > simymax then simymax = y end
 						end
@@ -522,13 +519,13 @@ function TestApp:update(...)
 			if not simymin or not simymax or simymin ~= simymin or simymax ~= simymax then
 				--simymin = -1
 				--simymax = 1
-			--elseif abs(simymin) == huge or abs(simymax) == huge then
+			--elseif math.abs(simymin) == math.huge or math.abs(simymax) == math.huge then
 			else
 				local base = 10	-- round to nearest base-10
 				local scale = 10 -- ...with increments of 10
 				simymin, simymax = 1.1 * simymin - .1 * simymax, 1.1 * simymax - .1 * simymin	
-				local newymin = (simymin<0 and -1 or 1)*(abs(simymin)==huge and 1e+100 or base^log(abs(simymin),base))
-				local newymax = (simymax<0 and -1 or 1)*(abs(simymax)==huge and 1e+100 or base^log(abs(simymax),base))
+				local newymin = (simymin<0 and -1 or 1)*(math.abs(simymin)==math.huge and 1e+100 or base^math.log(math.abs(simymin),base))
+				local newymax = (simymax<0 and -1 or 1)*(math.abs(simymax)==math.huge and 1e+100 or base^math.log(math.abs(simymax),base))
 				simymin, simymax = newymin, newymax
 				do
 					local minDeltaY = 1e-5
@@ -574,9 +571,9 @@ function TestApp:update(...)
 
 		gl.glColor3f(.1, .1, .1)
 		local xrange = xmax - xmin
-		local xstep = 10^floor(log(xrange, 10) - .5)
-		local xticmin = floor(xmin/xstep)
-		local xticmax = ceil(xmax/xstep)
+		local xstep = 10^math.floor(math.log(xrange, 10) - .5)
+		local xticmin = math.floor(xmin/xstep)
+		local xticmax = math.ceil(xmax/xstep)
 		gl.glBegin(gl.GL_LINES)
 		for x=xticmin,xticmax do
 			gl.glVertex2f(x*xstep,ymin)
@@ -584,9 +581,9 @@ function TestApp:update(...)
 		end
 		gl.glEnd()
 		local yrange = ymax - ymin
-		local ystep = 10^floor(log(yrange, 10) - .5)
-		local yticmin = floor(ymin/ystep)
-		local yticmax = ceil(ymax/ystep)
+		local ystep = 10^math.floor(math.log(yrange, 10) - .5)
+		local yticmin = math.floor(ymin/ystep)
+		local yticmax = math.ceil(ymax/ystep)
 		gl.glBegin(gl.GL_LINES)
 		for y=yticmin,yticmax do
 			gl.glVertex2f(xmin,y*ystep)
@@ -661,7 +658,7 @@ end
 				local fontSizeX = (xmax - xmin) * .05
 				local fontSizeY = (ymax - ymin) * .05
 				local ystep = ystep * 2
-				for y=floor(ymin/ystep)*ystep,ceil(ymax/ystep)*ystep,ystep do
+				for y=math.floor(ymin/ystep)*ystep,math.ceil(ymax/ystep)*ystep,ystep do
 					self.font:draw{
 						pos={xmin * .9 + xmax * .1, y + fontSizeY * .5},
 						text=tostring(y),

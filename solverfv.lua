@@ -40,13 +40,13 @@ function SolverFV:calcDT()
 	if self.fixed_dt then
 		return self.fixed_dt
 	else
-		local result = huge
+		local result = math.huge
 		for i=1,self.gridsize do
 			--[[ using interface 
 			local eigenvaluesL = self.eigenvalues[i]
 			local eigenvaluesR = self.eigenvalues[i+1]
-			local lambdaMax = max(0, unpack(eigenvaluesL))
-			local lambdaMin = min(0, unpack(eigenvaluesR))
+			local lambdaMax = math.max(0, unpack(eigenvaluesL))
+			local lambdaMin = math.min(0, unpack(eigenvaluesR))
 			--]]
 			-- [[ using cell
 			local lambdaMin, lambdaMax = self.equation:calcCellMinMaxEigenvalues(self, i)
@@ -54,8 +54,8 @@ function SolverFV:calcDT()
 			lambdaMax = math.max(0, lambdaMax)
 			--]]
 			local dx = self.ixs[i+1] - self.ixs[i]
-			local dum = dx / (abs(lambdaMax - lambdaMin) + 1e-9)
-			result = min(result, dum)
+			local dum = dx / (math.abs(lambdaMax - lambdaMin) + 1e-9)
+			result = math.min(result, dum)
 		end
 		return result * self.cfl
 	end

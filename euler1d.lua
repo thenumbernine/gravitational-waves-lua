@@ -18,17 +18,23 @@ Euler1D.numStates = 3
 Euler1D.gamma = 5/3	
 
 do
-	local q = function(self,i) return self.qs[i] end
-	local gamma = function(self,i) return self.equation.gamma end
+	local I = function(...) return ... end -- identity function
+	local q = I._:bind(I:_'qs'):uncurry(2):swap()
+	local gamma = I:_'equation':_'gamma'
 	local rho = q:_(1)
-	local mom = q:_(2)
+	local mx = q:_(2)
 	local ETotal = q:_(3)
-	local vx = mom/rho
-	local EKin = .5 * rho * vx * vx
+	local vx = mx/rho
+	local eKin = .5 * vx * vx
+	local EKin = rho * eKin
 	local EInt = ETotal - EKin
+	local eInt = EInt / rho
 	local P = (gamma - 1) * EInt
-	local H = EInt * gamma
 	local S = P / rho^gamma
+	local H = EInt + P 
+	local h = H / rho 
+	local HTotal = ETotal + P 
+	local hTotal = HTotal / rho
 	
 	Euler1D:buildGraphInfos{
 		-- prims
@@ -40,16 +46,20 @@ do
 		{H = H},
 		{S = S},
 		-- conservative
-		{mom = mom},
+		{mx = mx},
 		{ETotal = ETotal},
 		-- roe scheme
-		{['log eigenbasis error'] = function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end},
-		{['log reconstruction error'] = function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end},
+		{['log eigenbasis error'] = function(self,i)
+			return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i])
+		end},
+		{['log reconstruction error'] = function(self,i)
+			return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i])
+		end},
 		
 		--[[ matching SRHD
 		{eInt = EInt / rho},
 		{h = H / rho},
-		{Sx = mom},
+		{Sx = mx},
 		{tau = ETotal},
 		--]]
 	}
@@ -147,12 +157,12 @@ function Euler1D:calcRoeValues(qL, qR)
 	local ETotalL = qL[3]
 	local rhoL, vxL, PL = self:calcPrimFromCons(table.unpack(qL))
 	local hTotalL = self:calc_hTotal(rhoL, PL, ETotalL)
-	local sqrtRhoL = sqrt(rhoL)
+	local sqrtRhoL = math.sqrt(rhoL)
 	
 	local ETotalR = qR[3]
 	local rhoR, vxR, PR = self:calcPrimFromCons(table.unpack(qR))
 	local hTotalR = self:calc_hTotal(rhoR, PR, ETotalR)
-	local sqrtRhoR = sqrt(rhoR)
+	local sqrtRhoR = math.sqrt(rhoR)
 	
 	local rho = sqrtRhoL * sqrtRhoR
 	local vx = (sqrtRhoL * vxL + sqrtRhoR * vxR) / (sqrtRhoL + sqrtRhoR)

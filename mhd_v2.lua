@@ -6,10 +6,6 @@
 local class = require 'ext.class'
 local Equation = require 'equation'
 
-local function isnan(x) return x ~= x end
-local function isinf(x) return x == math.huge or x == -math.huge end
-local function isfinite(x) return not isnan(x) and not isinf(x) end
-
 local MHD = class(Equation)
 MHD.name = 'MHD'
 
@@ -39,7 +35,11 @@ do
 		{rho=rho},
 		{vx=vx}, {vy=vy}, {vz=vz},
 		{bx=bx}, {by=by}, {bz=bz},
-		{P=P}, {PTotal=PTotal},
+		
+		{P=P}, 
+		--{PTotal=PTotal},
+		{S=S},
+		
 		{ETotal=ETotal}, {EKin=EKin}, {EInt=EInt}, {EHydro=EHydro}, {EMag=EMag},
 		{['eigenbasis error'] = function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end},
 		{['reconstruction error'] = function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end},
@@ -68,12 +68,15 @@ function MHD:initCell(sim,i)
 	local rho = x < 0 and 1 or .125
 	local vx, vy, vz = 0, 0, 0
 	--[[ Brio & Wu
-	local bx = 1
-	local by = x < 0 and 1 or -1
+	--local b = 1
+	--local b = 1/math.sqrt(4*math.pi)
+	local b = 1
+	local bx = b
+	local by = x < 0 and b or -b
 	local bz = 0
 	--]]
 	-- [[ some other tests
-	local bx, by, bz = 0, sin(pi/2*x), 0
+	local bx, by, bz = 0, math.sin(math.pi/2*x), 0
 	--local bx, by, bz = 0, 1, 0	-- constant field works
 	--]]
 	--[[ Sod

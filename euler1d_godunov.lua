@@ -38,7 +38,7 @@ function Euler1DGodunov:calcDT()
 	if self.fixed_dt then
 		dt = self.fixed_dt
 	else
-		local result = huge
+		local result = math.huge
 		for i=2,self.gridsize do
 			local q = self.qs[i]
 			local rho = q[1]
@@ -157,9 +157,9 @@ function Euler1DGodunov:calcPressureAndVelocityAdaptive(dl, ul, pl, cl, dr, ur, 
 	-- compute guess pressure from pvrs riemann solver
 	local cup  = .25*(dl + dr)*(cl + cr)
 	local ppv  = .5*(pl + pr) + .5*(ul - ur)*cup
-	local ppv  = max(0, ppv)
-	local pmin = min(pl,  pr)
-	local pmax = max(pl,  pr)
+	local ppv  = math.max(0, ppv)
+	local pmin = math.min(pl,  pr)
+	local pmax = math.max(pl,  pr)
 	local qmax = pmax/pmin
 	local PM, uM
 	if qmax <= quser and pmin <= ppv and ppv <= pmax then

@@ -67,7 +67,7 @@ function MHD:initCell(sim,i)
 	local bz = 0
 	--]]
 	-- [[ some other tests
-	--local bx, by, bz = 0, sin(pi/2*x), 0
+	--local bx, by, bz = 0, math.sin(math.pi/2*x), 0
 	--local bx, by, bz = 1, 0, 0	-- constant x field 
 	--local bx, by, bz = 0, 1, 0	-- constant y field
 	local bx, by, bz = 0, 1, 0	-- constant z field
@@ -108,7 +108,7 @@ function MHD:calcMinMaxEigenvaluesFromCons(rho, mx, my, mz, bx, by, bz, ETotal)
 	local gammaPrime = gamma - 1
 	-- this usually goes on at interfaces, hence the X and Y calculations using L and R states
 	-- but the same paper that says how to calc the eigenvectors, also says to use cell-centered eigenvalues for the cfl timestep
-	local X = 0--((byL - byR)^2 + (bzL - bzR)^2) / (2 * (sqrt(rhoL) + sqrt(rhoR)))
+	local X = 0--((byL - byR)^2 + (bzL - bzR)^2) / (2 * (math.sqrt(rhoL) + math.sqrt(rhoR)))
 	local XPrime = (gamma - 2) * X
 	local Y = 1--(rhoL + rhoR) / (2 * rho)
 	local YPrime = (gamma - 2) * Y
@@ -118,7 +118,7 @@ function MHD:calcMinMaxEigenvaluesFromCons(rho, mx, my, mz, bx, by, bz, ETotal)
 	local bStarPerpSq = (gammaPrime - YPrime) * bPerpSq
 	local CATildeSq = CAxSq + bStarPerpSq / rho
 	local CAx = math.sqrt(CAxSq)
-	local CfSq = .5 * ((aTildeSq + CATildeSq) + sqrt((aTildeSq + CATildeSq)^2 - 4 * aTildeSq * CAxSq))
+	local CfSq = .5 * ((aTildeSq + CATildeSq) + math.sqrt((aTildeSq + CATildeSq)^2 - 4 * aTildeSq * CAxSq))
 	local Cf = math.sqrt(CfSq)
 	return vx - Cf, vx + Cf
 end
@@ -131,8 +131,8 @@ function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local rhoR, vxR, vyR, vzR, bxR, byR, bzR, HR = self:stateToPrims(unpack(qR))
 
 	-- eqn 56 - averaging
-	local sqrtRhoL = sqrt(rhoL)
-	local sqrtRhoR = sqrt(rhoR)
+	local sqrtRhoL = math.sqrt(rhoL)
+	local sqrtRhoR = math.sqrt(rhoR)
 	local invDenom = 1 / (sqrtRhoL + sqrtRhoR)
 	local rho = sqrtRhoL * sqrtRhoR
 	local vx = (sqrtRhoL*vxL + sqrtRhoR*vxR)*invDenom
@@ -160,11 +160,11 @@ assertfinite(H)
 	local vSq = vx*vx + vy*vy + vz*vz
 assertfinite(vSq)
 
-	local sqrtRho = sqrt(rho)
+	local sqrtRho = math.sqrt(rho)
 assertfinite(sqrtRho)
 
 	-- TODO divide by mu instead?
-	local oneOverSqrtMu = 1 / sqrt(4 * pi)
+	local oneOverSqrtMu = 1 / math.sqrt(4 * math.pi)
 assertfinite(oneOverSqrtMu)
 	local bSq = bx*bx + by*by + bz*bz
 assertfinite(bSq)
@@ -172,7 +172,7 @@ assertfinite(bSq)
 assertfinite(bDotV)
 
 	local gammaPrime = gamma - 1
-	local X = ((byL - byR)^2 + (bzL - bzR)^2) / (2 * (sqrt(rhoL) + sqrt(rhoR)))
+	local X = ((byL - byR)^2 + (bzL - bzR)^2) / (2 * (math.sqrt(rhoL) + math.sqrt(rhoR)))
 assertfinite(X)
 	local XPrime = (gamma - 2) * X
 assertfinite(XPrime)
@@ -281,9 +281,9 @@ assertfinite(bStarPerpSq)
 assertfinite(CATildeSq)
 	local CAx = math.sqrt(CAxSq)
 assertfinite(CAx)
-	local CfSq = .5 * ((aTildeSq + CATildeSq) + sqrt((aTildeSq + CATildeSq)^2 - 4 * aTildeSq * CAxSq))
+	local CfSq = .5 * ((aTildeSq + CATildeSq) + math.sqrt((aTildeSq + CATildeSq)^2 - 4 * aTildeSq * CAxSq))
 assertfinite(CfSq)
-	local CsSq = .5 * ((aTildeSq + CATildeSq) - sqrt((aTildeSq + CATildeSq)^2 - 4 * aTildeSq * CAxSq))
+	local CsSq = .5 * ((aTildeSq + CATildeSq) - math.sqrt((aTildeSq + CATildeSq)^2 - 4 * aTildeSq * CAxSq))
 assertfinite(CsSq)
 	local Cf = math.sqrt(CfSq)
 assertfinite(Cf)
@@ -319,7 +319,7 @@ end
 	local epsilon = 1e-20
 
 	-- eqn A13-A17, replace 'a' with 'aTilde'
-	local aTilde = sqrt(aTildeSq)
+	local aTilde = math.sqrt(aTildeSq)
 if not math.isfinite(aTilde) then error(tolua({aTilde=aTilde, aTildeSq=aTildeSq}, {indent=true})) end
 	local S = bx >= 0 and 1 or -1
 assertfinite(S)
@@ -372,7 +372,7 @@ assertfinite(Vys)
 	local Vzs = vz * alpha_s
 assertfinite(Vzs)
 
-	local bStarPerp = sqrt(bStarPerpSq)
+	local bStarPerp = math.sqrt(bStarPerpSq)
 assertfinite(bStarPerp)
 	local betaStar_y, betaStar_z
 	if bStarPerp < epsilon then
