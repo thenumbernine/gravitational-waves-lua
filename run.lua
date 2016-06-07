@@ -403,19 +403,22 @@ os.exit()
 --]]
 
 -- [=[ graphics
-local GLApp = require 'glapp'
+local ffi = require 'ffi'
 local gl = require 'ffi.OpenGL'
-local GLTex2D = require 'gl.tex2d'
+local ig = require 'ffi.imgui'
 local sdl = require 'ffi.sdl'
+local GLTex2D = require 'gl.tex2d'
+local ImGuiApp = require 'imguiapp'
 local Font = require 'gui.font'
 
-local TestApp = class(GLApp)
+local TestApp = class(ImGuiApp)
 
 TestApp.width = 800
 TestApp.height = 600
 TestApp.showFPS = false
 
-function TestApp:initGL()
+function TestApp:initGL(...)
+	TestApp.super.initGL(self, ...)
 	self.doIteration = false
 	-- [[ need to get image loading working
 	local fonttex = GLTex2D{
@@ -454,9 +457,61 @@ TestApp.keyDownCallbacks = {
 	end,
 }
 
+local graphNamesEnabled = table()
+for _,sim in ipairs(sims) do
+	for _,graphInfo in ipairs(sim.equation.graphInfos) do
+		if not graphNamesEnabled:find(graphInfo.name) then
+			graphNamesEnabled:insert{
+				name = graphInfo.name,
+				ptr = ffi.new('bool[1]', true),
+			}
+		end
+	end
+end
+--[[
+graphNamesEnabled = graphNamesEnabled:keys():sort(function(a,b)
+	if #a.name ~= #b then return #a < #b end
+	return a.name < b.name
+end)
+--]]
+
+function TestApp:updateGUI()
+	ig.igText('simulations:')
+	local toRemove
+	for i,sim in ipairs(sims) do
+		ig.igPushIdStr(i..' '..sim.name)
+		if ig.igButton('X') then
+			toRemove = toRemove or table()
+			toRemove:insert(1,i)	-- insert last-to-first
+		end
+		ig.igSameLine()
+		ig.igText(sim.name)
+		ig.igPopId()
+	end
+	if toRemove then
+		for _,i in ipairs(toRemove) do
+			sims:remove(i)
+		end
+	end
+
+	newSimType = newSimType or ffi.new('int[1]', 0)
+	local simNames = sims:map(function(sim) return sim.name end)
+	ig.igCombo('new sim type', newSimType, simNames)
+	if ig.igButton('Add New...') then
+		print('adding new sim '..newSimType[0]..' named '..sims[newSimType[0]+1].name)
+	end
+
+	ig.igText('variables:')
+	for i,graphNameEnabled in ipairs(graphNamesEnabled) do
+		ig.igPushIdStr(tostring(i))
+		ig.igCheckbox(graphNameEnabled.name, graphNameEnabled.ptr)
+		ig.igPopId()
+	end
+end
+
 function TestApp:update(...)
 	gl.glClear(gl.GL_COLOR_BUFFER_BIT)
-
+	
 	for _,sim in ipairs(sims) do
 		if sim.stopAtTimes then
 			local t = sim.t
@@ -489,227 +544,250 @@ function TestApp:update(...)
 	end
 
 	local w, h = self:size()
-	
+
+	local numEnabled = 0
+	for _,graphNameEnabled in ipairs(graphNamesEnabled) do
+		if graphNameEnabled.ptr[0] then
+			numEnabled = numEnabled + 1
+		end
+	end
+	local graphsWide = math.ceil(math.sqrt(numEnabled))
+	local graphsHigh = math.ceil(numEnabled/graphsWide)
+	local graphCol = 0
+	local graphRow = 0
+
 	-- just use the first sim's infos
-	for name,info in pairs(sims[1].equation.graphInfoForNames) do
-			
-		local xmin, xmax, ymin, ymax
-		for _,sim in ipairs(sims) do
-			sim.ys = {}
-			local simymin, simymax
-			for i=3,sim.gridsize-2 do
-				local siminfo = sim.equation.graphInfoForNames[name]
-				if siminfo then
-					local y = siminfo.getter(sim,i)
-					if not y then 
-						--error("failed to get for getter "..info.name)
-					else
-						sim.ys[i] = y
-						if y == y and math.abs(y) < math.huge then
-							if not simymin or y < simymin then simymin = y end
-							if not simymax or y > simymax then simymax = y end
+	--for name,info in pairs(sims[1].equation.graphInfoForNames) do
+	for _,graphNameEnabled in ipairs(graphNamesEnabled) do
+		if graphNameEnabled.ptr[0] then		
+			local name = graphNameEnabled.name
+			local info = sims[1].equation.graphInfoForNames[name]
+
+			local xmin, xmax, ymin, ymax
+			for _,sim in ipairs(sims) do
+				sim.ys = {}
+				local simymin, simymax
+				for i=3,sim.gridsize-2 do
+					local siminfo = sim.equation.graphInfoForNames[name]
+					if siminfo then
+						
+						local y = siminfo.getter(sim,i)
+						if not y then 
+							--error("failed to get for getter "..info.name)
+						else
+							sim.ys[i] = y
+							if y == y and math.abs(y) < math.huge then
+								if not simymin or y < simymin then simymin = y end
+								if not simymax or y > simymax then simymax = y end
+							end
 						end
 					end
 				end
-			end
-			if self.reportError then
-				print(info.name, 'min', simymin, 'max', simymax)
-			end
+				if self.reportError then
+					print(info.name, 'min', simymin, 'max', simymax)
+				end
 
-			if not simymin or not simymax or simymin ~= simymin or simymax ~= simymax then
-				--simymin = -1
-				--simymax = 1
-			--elseif math.abs(simymin) == math.huge or math.abs(simymax) == math.huge then
-			else
-				local base = 10	-- round to nearest base-10
-				local scale = 10 -- ...with increments of 10
-				simymin, simymax = 1.1 * simymin - .1 * simymax, 1.1 * simymax - .1 * simymin	
-				local newymin = (simymin<0 and -1 or 1)*(math.abs(simymin)==math.huge and 1e+100 or base^math.log(math.abs(simymin),base))
-				local newymax = (simymax<0 and -1 or 1)*(math.abs(simymax)==math.huge and 1e+100 or base^math.log(math.abs(simymax),base))
-				simymin, simymax = newymin, newymax
-				do
-					local minDeltaY = 1e-5
-					local deltaY = simymax - simymin
-					if deltaY < minDeltaY then
-						simymax = simymax + .5 * minDeltaY
-						simymin = simymin - .5 * minDeltaY
+				if not simymin or not simymax or simymin ~= simymin or simymax ~= simymax then
+					--simymin = -1
+					--simymax = 1
+				--elseif math.abs(simymin) == math.huge or math.abs(simymax) == math.huge then
+				else
+					local base = 10	-- round to nearest base-10
+					local scale = 10 -- ...with increments of 10
+					simymin, simymax = 1.1 * simymin - .1 * simymax, 1.1 * simymax - .1 * simymin	
+					local newymin = (simymin<0 and -1 or 1)*(math.abs(simymin)==math.huge and 1e+100 or base^math.log(math.abs(simymin),base))
+					local newymax = (simymax<0 and -1 or 1)*(math.abs(simymax)==math.huge and 1e+100 or base^math.log(math.abs(simymax),base))
+					simymin, simymax = newymin, newymax
+					do
+						local minDeltaY = 1e-5
+						local deltaY = simymax - simymin
+						if deltaY < minDeltaY then
+							simymax = simymax + .5 * minDeltaY
+							simymin = simymin - .5 * minDeltaY
+						end
 					end
 				end
+
+				local simxmin, simxmax = sim.domain.xmin, sim.domain.xmax
+				simxmin, simxmax = 1.1 * simxmin - .1 * simxmax, 1.1 * simxmax - .1 * simxmin
+
+				xmin = xmin or simxmin
+				xmax = xmax or simxmax
+				ymin = ymin or simymin
+				ymax = ymax or simymax
+					
+				if xmin and simxmin then xmin = math.min(xmin, simxmin) end
+				if xmax and simxmax then xmax = math.max(xmax, simxmax) end
+				if ymin and simymin then ymin = math.min(ymin, simymin) end
+				if ymax and simymax then ymax = math.max(ymax, simymax) end
+			end
+			
+			if not ymin or not ymax or ymin ~= ymin or ymax ~= ymax then
+				ymin = -1
+				ymax = 1
 			end
 
-			local simxmin, simxmax = sim.domain.xmin, sim.domain.xmax
-			simxmin, simxmax = 1.1 * simxmin - .1 * simxmax, 1.1 * simxmax - .1 * simxmin
+			-- display
+			-- TODO viewports per variable and maybe ticks too
+			gl.glViewport(
+				graphCol / graphsWide * w,
+				(1 - (graphRow + 1) / graphsHigh) * h,
+				w / graphsWide,
+				h / graphsHigh)
+			gl.glMatrixMode(gl.GL_PROJECTION)
+			gl.glLoadIdentity()
+			gl.glOrtho(xmin, xmax, ymin, ymax, -1, 1)
+			gl.glMatrixMode(gl.GL_MODELVIEW)
+			gl.glLoadIdentity()
 
-			xmin = xmin or simxmin
-			xmax = xmax or simxmax
-			ymin = ymin or simymin
-			ymax = ymax or simymax
+			gl.glColor3f(.1, .1, .1)
+			local xrange = xmax - xmin
+			local xstep = 10^math.floor(math.log(xrange, 10) - .5)
+			local xticmin = math.floor(xmin/xstep)
+			local xticmax = math.ceil(xmax/xstep)
+			gl.glBegin(gl.GL_LINES)
+			for x=xticmin,xticmax do
+				gl.glVertex2f(x*xstep,ymin)
+				gl.glVertex2f(x*xstep,ymax)
+			end
+			gl.glEnd()
+			local yrange = ymax - ymin
+			local ystep = 10^math.floor(math.log(yrange, 10) - .5)
+			local yticmin = math.floor(ymin/ystep)
+			local yticmax = math.ceil(ymax/ystep)
+			gl.glBegin(gl.GL_LINES)
+			for y=yticmin,yticmax do
+				gl.glVertex2f(xmin,y*ystep)
+				gl.glVertex2f(xmax,y*ystep)
+			end
+			gl.glEnd()
 				
-			if xmin and simxmin then xmin = math.min(xmin, simxmin) end
-			if xmax and simxmax then xmax = math.max(xmax, simxmax) end
-			if ymin and simymin then ymin = math.min(ymin, simymin) end
-			if ymax and simymax then ymax = math.max(ymax, simymax) end
-		end
+			gl.glColor3f(.5, .5, .5)
+			gl.glBegin(gl.GL_LINES)
+			gl.glVertex2f(xmin, 0)
+			gl.glVertex2f(xmax, 0)
+			gl.glVertex2f(0, ymin)
+			gl.glVertex2f(0, ymax)
+			gl.glEnd()
 		
-		if not ymin or not ymax or ymin ~= ymin or ymax ~= ymax then
-			ymin = -1
-			ymax = 1
-		end
-
-		-- display
-		-- TODO viewports per variable and maybe ticks too
-		gl.glViewport(
-			info.viewport[1] * w,
-			(1 - info.viewport[2] - info.viewport[4]) * h,
-			info.viewport[3] * w,
-			info.viewport[4] * h)
-		gl.glMatrixMode(gl.GL_PROJECTION)
-		gl.glLoadIdentity()
-		gl.glOrtho(xmin, xmax, ymin, ymax, -1, 1)
-		gl.glMatrixMode(gl.GL_MODELVIEW)
-		gl.glLoadIdentity()
-
-		gl.glColor3f(.1, .1, .1)
-		local xrange = xmax - xmin
-		local xstep = 10^math.floor(math.log(xrange, 10) - .5)
-		local xticmin = math.floor(xmin/xstep)
-		local xticmax = math.ceil(xmax/xstep)
-		gl.glBegin(gl.GL_LINES)
-		for x=xticmin,xticmax do
-			gl.glVertex2f(x*xstep,ymin)
-			gl.glVertex2f(x*xstep,ymax)
-		end
-		gl.glEnd()
-		local yrange = ymax - ymin
-		local ystep = 10^math.floor(math.log(yrange, 10) - .5)
-		local yticmin = math.floor(ymin/ystep)
-		local yticmax = math.ceil(ymax/ystep)
-		gl.glBegin(gl.GL_LINES)
-		for y=yticmin,yticmax do
-			gl.glVertex2f(xmin,y*ystep)
-			gl.glVertex2f(xmax,y*ystep)
-		end
-		gl.glEnd()
-			
-		gl.glColor3f(.5, .5, .5)
-		gl.glBegin(gl.GL_LINES)
-		gl.glVertex2f(xmin, 0)
-		gl.glVertex2f(xmax, 0)
-		gl.glVertex2f(0, ymin)
-		gl.glVertex2f(0, ymax)
-		gl.glEnd()
-	
-		-- should I show ghost cells? for some derived values it causes errors...
-		for _,sim in ipairs(sims) do
-			gl.glColor3f(unpack(sim.color))
-			gl.glPointSize(2)
-			if #sim.ys > 0 then
-				for _,mode in ipairs{
-					gl.GL_LINE_STRIP,
-					DEBUG_PPM and gl.GL_POINTS
-				} do
-					gl.glBegin(mode)
+			-- should I show ghost cells? for some derived values it causes errors...
+			for _,sim in ipairs(sims) do
+				gl.glColor3f(unpack(sim.color))
+				gl.glPointSize(2)
+				if #sim.ys > 0 then
+					for _,mode in ipairs{
+						gl.GL_LINE_STRIP,
+						DEBUG_PPM and gl.GL_POINTS
+					} do
+						gl.glBegin(mode)
+						for i=3,sim.gridsize-2 do
+							gl.glVertex2f(sim.xs[i], sim.ys[i])
+						end
+						gl.glEnd()
+					end
+				end
+	-- [[ special PPM hack
+	if DEBUG_PPM then
+				local channel = 2
+				local ppmCount = 0
+				local ppmYs = table()
+				gl.glColor3f(1,1,0)
+				gl.glBegin(gl.GL_LINE_STRIP)
+				for n=0,#sim.xs*10 do
+					local x = (xmax - xmin) / (#sim.xs*10) * n + xmin
+					-- getter ... abstracts the index of the state variable ...
+					local y = sim:getPPM(x,channel)
+					if y then
+						ppmYs:insert(y)
+						ppmCount = ppmCount + 1
+						gl.glVertex2f(x,y)
+					end
+				end
+				gl.glEnd()
+				--print(unpack(ppmYs,1,10))
+				--print(ppmCount) 
+				if sim.ppm_iqs then
+					gl.glColor3f(0,1,0)
+					gl.glBegin(gl.GL_LINES)
 					for i=3,sim.gridsize-2 do
-						gl.glVertex2f(sim.xs[i], sim.ys[i])
+						gl.glVertex2f(sim.ixs[i], sim.ppm_qLs[i][channel])
+						gl.glVertex2f(sim.ixs[i+1], sim.ppm_qRs[i][channel])
+					end
+					gl.glEnd()
+					gl.glColor3f(1,0,1)
+					gl.glBegin(gl.GL_POINTS)
+					for i=3,sim.gridsize-1 do
+						gl.glVertex2f(sim.ixs[i],sim.ppm_iqs[i][channel])
 					end
 					gl.glEnd()
 				end
-			end
--- [[ special PPM hack
-if DEBUG_PPM then
-			local channel = 2
-			local ppmCount = 0
-			local ppmYs = table()
-			gl.glColor3f(1,1,0)
-			gl.glBegin(gl.GL_LINE_STRIP)
-			for n=0,#sim.xs*10 do
-				local x = (xmax - xmin) / (#sim.xs*10) * n + xmin
-				-- getter ... abstracts the index of the state variable ...
-				local y = sim:getPPM(x,channel)
-				if y then
-					ppmYs:insert(y)
-					ppmCount = ppmCount + 1
-					gl.glVertex2f(x,y)
-				end
-			end
-			gl.glEnd()
-			--print(unpack(ppmYs,1,10))
-			--print(ppmCount) 
-			if sim.ppm_iqs then
-				gl.glColor3f(0,1,0)
-				gl.glBegin(gl.GL_LINES)
-				for i=3,sim.gridsize-2 do
-					gl.glVertex2f(sim.ixs[i], sim.ppm_qLs[i][channel])
-					gl.glVertex2f(sim.ixs[i+1], sim.ppm_qRs[i][channel])
-				end
-				gl.glEnd()
-				gl.glColor3f(1,0,1)
-				gl.glBegin(gl.GL_POINTS)
-				for i=3,sim.gridsize-1 do
-					gl.glVertex2f(sim.ixs[i],sim.ppm_iqs[i][channel])
-				end
-				gl.glEnd()
-			end
-end
---]]
-			gl.glPointSize(1)
-			
-			if self.font then
-				local fontSizeX = (xmax - xmin) * .05
-				local fontSizeY = (ymax - ymin) * .05
-				local ystep = ystep * 2
-				for y=math.floor(ymin/ystep)*ystep,math.ceil(ymax/ystep)*ystep,ystep do
+	end
+	--]]
+				gl.glPointSize(1)
+				
+				if self.font then
+					local fontSizeX = (xmax - xmin) * .05
+					local fontSizeY = (ymax - ymin) * .05
+					local ystep = ystep * 2
+					for y=math.floor(ymin/ystep)*ystep,math.ceil(ymax/ystep)*ystep,ystep do
+						self.font:draw{
+							pos={xmin * .9 + xmax * .1, y + fontSizeY * .5},
+							text=tostring(y),
+							color = {1,1,1,1},
+							fontSize={fontSizeX, -fontSizeY},
+							multiLine=false,
+						}
+					end
 					self.font:draw{
-						pos={xmin * .9 + xmax * .1, y + fontSizeY * .5},
-						text=tostring(y),
+						pos={xmin, ymax},
+						text=info.name,
 						color = {1,1,1,1},
 						fontSize={fontSizeX, -fontSizeY},
 						multiLine=false,
 					}
 				end
-				self.font:draw{
-					pos={xmin, ymax},
-					text=info.name,
-					color = {1,1,1,1},
-					fontSize={fontSizeX, -fontSizeY},
-					multiLine=false,
-				}
+			
+			end
+
+			gl.glViewport(0,0,w,h)
+			gl.glMatrixMode(gl.GL_PROJECTION)
+			gl.glLoadIdentity()
+			gl.glOrtho(0, w/h, 0, 1, -1, 1)
+			gl.glMatrixMode(gl.GL_MODELVIEW)
+			gl.glLoadIdentity()
+
+			if self.font then
+				local strings = sims:map(function(sim)
+					return {
+						text = ('(%.3f) '):format(sim.t)..sim.name,
+						color = sim.color,
+					}
+				end)
+				local fontSizeX = .02
+				local fontSizeY = .02
+				local maxlen = strings:map(function(string)
+					return self.font:draw{
+						text = string.text,
+						fontSize = {fontSizeX, -fontSizeY},
+						dontRender = true,
+						multiLine = false,
+					}
+				end):inf()
+				for i,string in ipairs(strings) do
+					self.font:draw{
+						pos = {w/h-maxlen,fontSizeY*(i+1)},
+						text = string.text,
+						color = {string.color[1],string.color[2],string.color[3],1},
+						fontSize = {fontSizeX, -fontSizeY},
+						multiLine = false,
+					}
+				end
 			end
 		
-		end
-
-		gl.glViewport(0,0,w,h)
-		gl.glMatrixMode(gl.GL_PROJECTION)
-		gl.glLoadIdentity()
-		gl.glOrtho(0, w/h, 0, 1, -1, 1)
-		gl.glMatrixMode(gl.GL_MODELVIEW)
-		gl.glLoadIdentity()
-
-		if self.font then
-			local strings = sims:map(function(sim)
-				return {
-					text = ('(%.3f) '):format(sim.t)..sim.name,
-					color = sim.color,
-				}
-			end)
-			local fontSizeX = .02
-			local fontSizeY = .02
-			local maxlen = strings:map(function(string)
-				return self.font:draw{
-					text = string.text,
-					fontSize = {fontSizeX, -fontSizeY},
-					dontRender = true,
-					multiLine = false,
-				}
-			end):inf()
-			for i,string in ipairs(strings) do
-				self.font:draw{
-					pos = {w/h-maxlen,fontSizeY*(i+1)},
-					text = string.text,
-					color = {string.color[1],string.color[2],string.color[3],1},
-					fontSize = {fontSizeX, -fontSizeY},
-					multiLine = false,
-				}
+			graphCol = graphCol + 1
+			if graphCol == graphsWide then
+				graphCol = 0
+				graphRow = graphRow + 1
 			end
 		end
 	end
@@ -717,7 +795,10 @@ end
 		self.reportError = false
 	end
 	gl.glViewport(0,0,w,h)
+	
+	TestApp.super.update(self, ...)
 end
+
 TestApp():run()
 --]=]
 

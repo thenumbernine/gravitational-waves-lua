@@ -9,22 +9,13 @@ Equation.State = require 'state'
 function Equation:buildGraphInfos(getters)
 	-- TODO give this functionality to Equation
 	self.graphInfos = table()
-	local w = math.ceil(math.sqrt(#getters))
-	local h = math.ceil(#getters/w)
-	local i,j = 0,0
 	for _,getter in ipairs(getters) do
 		local name = next(getter)
 		local func = getter[name]
 		self.graphInfos:insert{
-			viewport = {i/w, j/h, 1/w, 1/h},
 			getter = getter[name],
 			name = name,
 		}
-		i = i + 1
-		if i == w then
-			i = 0
-			j = j + 1
-		end
 	end
 	self.graphInfoForNames = self.graphInfos:map(function(info,i)
 		return info, info.name
