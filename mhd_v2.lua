@@ -16,13 +16,13 @@ MHD.mu = 1
 do
 	local q = function(self,i) return self.qs[i] end
 	local mu = function(self,i) return self.equation.mu end
-	local gamma = function(self,i) return (self.equation.gamma - 1) end
+	local gamma = function(self,i) return self.equation.gamma end
 	local rho = q:_(1)
 	local mx, my, mz = q:_(2), q:_(3), q:_(4)
 	local bx, by, bz = q:_(5), q:_(6), q:_(7)
 	local ETotal = q:_(8)
 	local vx, vy, vz = mx/rho, my/rho, mz/rho
-	local EMag = .5*(bx^2 + by^2 + bz^2) / mu
+	local EMag = .5*(bx^2 + by^2 + bz^2)
 	local EHydro = ETotal - EMag
 	local EKin = .5 * rho * (vx^2 + vy^2 + vz^2)
 	local EInt = EHydro - EKin
@@ -86,10 +86,10 @@ function MHD:initCell(sim,i)
 	local bx, by, bz = 0, 0, 0	-- zero field works ... sort of.
 	--]]
 	local P = x < 0 and 1 or .1
-	return {self:consFromPrim(rho, vx, vy, vz, bx, by, bz, P)}
+	return {self:calcConsFromPrim(rho, vx, vy, vz, bx, by, bz, P)}
 end
 
-function MHD:consFromPrim(rho, vx, vy, vz, bx, by, bz, P)
+function MHD:calcConsFromPrim(rho, vx, vy, vz, bx, by, bz, P)
 	local gamma = self.gamma
 	local EInt = P / (gamma-1)
 	local eKin = .5*(vx*vx + vy*vy + vz*vz)
@@ -262,18 +262,7 @@ assertfinite(invDenom)
 	if alphaS < 1e-7 then alphaS = 0 end
 	if alphaF < 1e-7 then alphaF = 0 end
 assertfinite(alphaS)
-if not math.isfinite(alphaF) then
-	error(tolua({
-		alphaF=alphaF,
-		aSq=aSq,
-		CsSq=CsSq,
-		['aSq-CsSq']=aSq-CsSq,
-		invDenom=invDenom,
-		CfSq=CfSq,
-		CsSq=CsSq,
-		['CfSq-CsSq']=CfSq-CsSq,
-	}, {indent=true}))
-end
+assertfinite(alphaF)
 	
 	local sbx = bx >= 0 and 1 or -1
 	
@@ -305,6 +294,34 @@ assertfinite(Cax)
 	local gamma_1 = gamma - 1
 	local gamma_2 = gamma - 2
 	local gamma_3 = gamma - 3
+	
+	-- for conservatives ordered: rho, mx, my, mz, bx, by, bz, ETotal 
+	-- and primitives ordered: rho, vx, vy, vz, bx, by, bz, P
+	
+	local du_dw = {
+		{1,0,0,0,0,0,0,0},
+		{vx,rho,0,0,0,0,0,0},
+		{vy,0,rho,0,0,0,0,0},
+		{vz,0,0,rho,0,0,0,0},
+		{0,0,0,0,1,0,0,0},
+		{0,0,0,0,0,1,0,0},
+		{0,0,0,0,0,0,1,0},
+		{.5*vSq,rho*vx,rho*vy,rho*vz,bx,by,bz,1/(gamma-1)},
+	}
+
+	local dw_du = {
+		{1,0,0,0,0,0,0,0},
+		{-vx/rho,1/rho,0,0,0,0,0,0},
+		{-vy/rho,0,1/rho,0,0,0,0,0},
+		{-vz/rho,0,0,1/rho,0,0,0,0},
+		{0,0,0,0,1,0,0,0},
+		{0,0,0,0,0,1,0,0},
+		{0,0,0,0,0,0,1,0},
+		{.5*gamma_1*vSq,-gamma_1*vx,-gamma_1*vy,-gamma_1*vz,-gamma_1*bx,-gamma_1*by,-gamma_1*bz,gamma_1},
+	}
+	
+	
+	-- [=[ defining dF/dU directly
 	local dF_dU = sim.fluxMatrix[i]
 	--[[ identity for bx dimension 
 	local Au25 = 0
@@ -316,6 +333,7 @@ assertfinite(Cax)
 	local Au85 = 0
 	--]]
 	--[[ analytical calculations for dF/bx column which coincide with the 8-variable flux, which itself coincides with the dF/by and dF/bz flux derivative columns used in the Athena paper 
+	-- Athena's 8-var flux, rearranged to put ETotal last ... then differentiated: F -> dW/dU.dF/dW -> dF/dW.dW/dU ... gives the same thing
 	local Au25 = -gamma * bx
 	local Au35 = -by
 	local Au45 = -bz
@@ -324,14 +342,21 @@ assertfinite(Cax)
 	local Au75 = -vz
 	local Au85 = -gamma_1 * vx * bx - b_v
 	--]]
-	-- [[ Athena's 7x7, rearranged to put P last
+	-- [[ Athena's provided 7x7 dF/dW, extended to 8x8 (with some fuzziness of what goes in A[8,8]), rearranged to put P last
+	-- working fine so long as there is no bx term
 	local Au25 = -gamma_1*bx
 	local Au35 = 0
 	local Au45 = 0
-	local Au55 = vx
+	-- The flux reconstruction is working fine so long as there is no bx field.
+	-- Ravi's eigenvectors reconstruct a vx as the sole element of the 5th row and column of the flux derivative wrt primitives
+	-- should the eigenvalue be zero? does that mean the value of the flux here is irrelevant?  should this value be 0? 1? vx? 
+	-- all these choices produce errors in the flux reconstruction with bx fields.
+	--local Au55 = vx
+	local Au55 = 0
+	--local Au55 = 1
 	local Au65 = 0
 	local Au75 = 0
-	local Au85 = -gamma_1*bx*vx
+	local Au85 = -gamma*bx*vx
 	--]]
 	fill(dF_dU[1], 0, 											1,										0,							0,							0,		0,						0,						0		)
 	fill(dF_dU[2], -vx*vx + .5*gamma_1*vSq,						-gamma_3*vx,							-gamma_1*vy,				-gamma_1*vz,				Au25,	-gamma_2*by,			-gamma_2*bz,			gamma_1	)
@@ -341,13 +366,46 @@ assertfinite(Cax)
 	fill(dF_dU[6], (bx*vy - by*vx)/rho,							by/rho,									-bx/rho,					0, 							Au65,	vx,						0,						0		)
 	fill(dF_dU[7], (bx*vz - bz*vx)/rho,							bz/rho,									0,							-bx/rho, 					Au75,	0,						vx,						0		)
 	fill(dF_dU[8], vx*(.5*gamma_1*vSq - hTotal) + bx*b_v/rho,	-gamma_1*vx*vx + hTotal - bx*bx/rho,	-gamma_1*vx*vy - bx*by/rho,	-gamma_1*vx*vz - bx*bz/rho,	Au85,	-gamma_2*by*vx - bx*vy,	-gamma_2*bz*vx - bx*vz,	gamma*vx)
-
+	--]=]
+	--[=[ defining dF/dW quasilinear (i.e. A_W=dW/dU*dF/dW) and multiplying that by A_U=dU/dW*A*dW/dU
+	local dF_dW_quasi = {
+		{vx, rho, 0, 0, 0, 0, 0, 0},
+		{0, vx, 0, 0, -bx/rho, by/rho, bz/rho, 1/rho},
+		{0, 0, vx, 0, -by/rho, -bx/rho, 0, 0},
+		{0, 0, 0, vx, -bz/rho, 0, -bx/rho, 0},
+		{0, 0, 0, 0, 0, 0, 0, 0},
+		{0, by, -bx, 0, -vy, vx, 0, 0},
+		{0, bz, 0, -bx, -vz, 0, vx, 0},
+		{0, rho*aSq, 0, 0, gamma_1*b_v, 0, 0, vx},
+	}
+	local dF_dW = {}
+	for j=1,8 do
+		dF_dW[j] = {}
+		for k=1,8 do
+			local sum = 0
+			for l=1,8 do
+				sum = sum + du_dw[j][l] * dF_dW_quasi[l][k]
+			end
+			dF_dW[j][k] = sum
+		end
+	end
+	for j=1,8 do
+		for k=1,8 do
+			local sum = 0
+			for l=1,8 do
+				sum = sum + dF_dW[j][l] * dw_du[l][k]
+			end
+			sim.fluxMatrix[i][j][k] = sum
+		end
+	end
+	--]=]
 	local eigenvalues = sim.eigenvalues[i]
 	eigenvalues[1] = vx - Cf
 	eigenvalues[2] = vx - Cax
 	eigenvalues[3] = vx - Cs
 	eigenvalues[4] = vx
-	eigenvalues[5] = vx
+	eigenvalues[5] = 0
+	--eigenvalues[5] = vx
 	eigenvalues[6] = vx + Cax
 	eigenvalues[7] = vx + Cs
 	eigenvalues[8] = vx + Cf
@@ -392,23 +450,34 @@ for j=1,8 do
 	for k=1,8 do
 		if not math.isfinite(evrw[j][k]) then
 			error(tolua({
-				tmp=tmp,
+				['j,k'] = j..','..k,
+				gamma=gamma,
+				rho=rho,
+				sqrtRho=sqrtRho,
+				aSq=aSq,
+				bSq=bSq,
+				vSq=vSq,
+				hTotal=hTotal,
+				a=a,
+				alphaF=alphaF,
+				alphaS=alphaS,
+				betaY=betaZ,
 				betaZ=betaZ,
-				--evrw=evrw,
+				evrw=table.map(evrw, function(row) return tolua(row) end),	-- convert rows with no indent
 			},{indent=true}))
 		end
 	end
 end
 
 	local evlw = {
-		{0,-.5*alphaF*Cf*_1_aSq,.5*alphaS*Cs*sbx*betaY*_1_aSq,.5*alphaS*Cs*sbx*betaZ*_1_aSq,0,.5*alphaS*betaY*_1_sqrtRho*_1_a,.5*alphaS*betaZ*_1_sqrtRho*_1_a,.5*alphaF*_1_rho*_1_aSq},
-		{0,0,-.5*betaZ,.5*betaY,0,-.5*sbx*betaZ*_1_sqrtRho,.5*sbx*betaY*_1_sqrtRho,0},
-		{0,-.5*alphaS*Cs*_1_aSq,-.5*alphaF*Cf*sbx*betaY*_1_aSq,-.5*alphaF*Cf*sbx*betaZ*_1_aSq,0,-.5*alphaF*betaY*_1_sqrtRho*_1_a,-.5*alphaF*betaZ*_1_sqrtRho*_1_a,.5*alphaS*_1_rho*_1_aSq},
-		{1,0,0,0,0,0,0,-_1_aSq},
-		{0,0,0,0,1,0,0,0},
-		{0,.5*alphaS*Cs*_1_aSq,.5*alphaF*Cf*sbx*betaY*_1_aSq,.5*alphaF*Cf*sbx*betaZ*_1_aSq,0,-.5*alphaF*betaY*_1_sqrtRho*_1_a,-.5*alphaF*betaZ*_1_sqrtRho*_1_a,.5*alphaS*_1_rho*_1_aSq},
-		{0,0,.5*betaZ,-.5*betaY,0,-.5*sbx*betaZ*_1_sqrtRho,.5*sbx*betaY*_1_sqrtRho,0},
-		{0,.5*alphaF*Cf*_1_aSq,-.5*alphaS*Cs*sbx*betaY*_1_aSq,-.5*alphaS*Cs*sbx*betaZ*_1_aSq,0,.5*alphaS*betaY*_1_sqrtRho*_1_a,.5*alphaS*betaZ*_1_sqrtRho*_1_a,.5*alphaF*_1_rho*_1_aSq}
+		{0,	-.5*alphaF*Cf*_1_aSq,	.5*alphaS*Cs*sbx*betaY*_1_aSq,	.5*alphaS*Cs*sbx*betaZ*_1_aSq,	0,	.5*alphaS*betaY*_1_sqrtRho*_1_a,	.5*alphaS*betaZ*_1_sqrtRho*_1_a,	.5*alphaF*_1_rho*_1_aSq	},
+		{0,	0,						-.5*betaZ,						.5*betaY,						0,	-.5*sbx*betaZ*_1_sqrtRho,			.5*sbx*betaY*_1_sqrtRho,			0						},
+		{0,	-.5*alphaS*Cs*_1_aSq,	-.5*alphaF*Cf*sbx*betaY*_1_aSq,	-.5*alphaF*Cf*sbx*betaZ*_1_aSq,	0,	-.5*alphaF*betaY*_1_sqrtRho*_1_a,	-.5*alphaF*betaZ*_1_sqrtRho*_1_a,	.5*alphaS*_1_rho*_1_aSq	},
+		{1,	0,						0,								0,								0,	0,									0,									-_1_aSq					},
+		{0,	0,						0,								0,								1,	0,									0,									0						},
+		{0,	.5*alphaS*Cs*_1_aSq,	.5*alphaF*Cf*sbx*betaY*_1_aSq,	.5*alphaF*Cf*sbx*betaZ*_1_aSq,	0,	-.5*alphaF*betaY*_1_sqrtRho*_1_a,	-.5*alphaF*betaZ*_1_sqrtRho*_1_a,	.5*alphaS*_1_rho*_1_aSq	},
+		{0,	0,						.5*betaZ,						-.5*betaY,						0,	-.5*sbx*betaZ*_1_sqrtRho,			.5*sbx*betaY*_1_sqrtRho,			0,						},
+		{0,	.5*alphaF*Cf*_1_aSq,	-.5*alphaS*Cs*sbx*betaY*_1_aSq,	-.5*alphaS*Cs*sbx*betaZ*_1_aSq,	0,	.5*alphaS*betaY*_1_sqrtRho*_1_a,	.5*alphaS*betaZ*_1_sqrtRho*_1_a,	.5*alphaF*_1_rho*_1_aSq	},
 	}
 
 for j=1,8 do
@@ -416,31 +485,6 @@ for j=1,8 do
 		assertfinite(evlw[j][k])
 	end
 end
-
-	-- for conservatives ordered: rho, mx, my, mz, bx, by, bz, ETotal 
-	-- and primitives ordered: rho, vx, vy, vz, bx, by, bz, P
-	
-	local du_dw = {
-		{1,0,0,0,0,0,0,0},
-		{vx,rho,0,0,0,0,0,0},
-		{vy,0,rho,0,0,0,0,0},
-		{vz,0,0,rho,0,0,0,0},
-		{0,0,0,0,1,0,0,0},
-		{0,0,0,0,0,1,0,0},
-		{0,0,0,0,0,0,1,0},
-		{.5*vSq,rho*vx,rho*vy,rho*vz,bx,by,bz,1/(gamma-1)},
-	}
-
-	local dw_du = {
-		{1,0,0,0,0,0,0,0},
-		{-vx/rho,1/rho,0,0,0,0,0,0},
-		{-vy/rho,0,1/rho,0,0,0,0,0},
-		{-vz/rho,0,0,1/rho,0,0,0,0},
-		{0,0,0,0,1,0,0,0},
-		{0,0,0,0,0,1,0,0},
-		{0,0,0,0,0,0,1,0},
-		{.5*gamma_1*vSq,-gamma_1*vx,-gamma_1*vy,-gamma_1*vz,-gamma_1*bx,-gamma_1*by,-gamma_1*bz,gamma_1},
-	}
 
 	-- Ru = du/dw Rw
 	local evru = sim.eigenvectors[i]
@@ -487,7 +531,7 @@ end
 --]]
 end
 
---[[ should I prevent unphysical densities and pressures here or in calcPrimFromCons?
+-- [[ should I prevent unphysical densities and pressures here or in calcPrimFromCons?
 -- turns out certain proportionality differences between P and ETotal makes it so even constraining things here
 -- then recomputing them into conservative still creates conservative that give rise to nonphysical primitives
 -- so I'll put the correction code in calcPrimFromCons
@@ -497,10 +541,11 @@ function MHD:postIterate(sim)
 		local rho, vx, vy, vz, bx, by, bz, P = self:calcPrimFromCons(table.unpack(sim.qs[i]))
 		rho = math.max(rho, 1e-7)
 		P = math.max(P, 1e-7)
-		fill(sim.qs[i], self:consFromPrim(rho, vx, vy, vz, bx, by, bz, P))
+		fill(sim.qs[i], self:calcConsFromPrim(rho, vx, vy, vz, bx, by, bz, P))
 		-- hmm, what to do when the conservative variables don't want to stay conservative ...
-		local rho, vx, vy, vz, bx, by, bz, P = self:calcPrimFromCons(table.unpack(sim.qs[i]))
-		assert(P >= 1e-7)
+		--local rho, vx, vy, vz, bx, by, bz, P = self:calcPrimFromCons(table.unpack(sim.qs[i]))
+		--assert(P >= 1e-7)
+		-- ... we put the constraint in the conversion function!
 	end
 end
 --]]
