@@ -76,7 +76,10 @@ function MHD:initCell(sim,i)
 	local bz = 0
 	--]]
 	-- [[ some other tests
-	local bx, by, bz = 0, math.sin(math.pi/2*x), 0
+	local bx = 1 - math.sin(math.pi/2*x)
+	local by = math.cos(math.pi/2*x)
+	local bz = math.sin(math.pi/2*x)
+	--local bx, by, bz = 0, math.sin(math.pi/2*x), 0
 	--local bx, by, bz = 0, 1, 0	-- constant field works
 	--]]
 	--[[ Sod
