@@ -292,7 +292,7 @@ assertfinite(Cax)
 	local gamma_2 = gamma - 2
 	local gamma_3 = gamma - 3
 	local dF_dU = sim.fluxMatrix[i]
-	-- [[ identity for bx dimension 
+	--[[ identity for bx dimension 
 	local Au25 = 0
 	local Au35 = 0
 	local Au45 = 0
@@ -310,14 +310,23 @@ assertfinite(Cax)
 	local Au75 = -vz
 	local Au85 = -gamma_1 * vx * bx - b_v
 	--]]
+	-- [[ Athena's 7x7, rearranged to put P last
+	local Au25 = -gamma_1*bx
+	local Au35 = 0
+	local Au45 = 0
+	local Au55 = vx
+	local Au65 = 0
+	local Au75 = 0
+	local Au85 = -gamma_1*bx*vx
+	--]]
 	fill(dF_dU[1], 0, 											1,										0,							0,							0,		0,						0,						0		)
-	fill(dF_dU[2], -vx*vx+.5*gamma_1*vSq,						-gamma_3*vx,							-gamma_1*vy,				-gamma_1*vz,				Au25,	-gamma_2*by,			-gamma_2*bz,			gamma_1	)
+	fill(dF_dU[2], -vx*vx + .5*gamma_1*vSq,						-gamma_3*vx,							-gamma_1*vy,				-gamma_1*vz,				Au25,	-gamma_2*by,			-gamma_2*bz,			gamma_1	)
 	fill(dF_dU[3], -vx*vy,										vy,										vx,							0, 							Au35,	-bx,					0,						0		)
 	fill(dF_dU[4], -vx*vz,										vz,										0,							vx, 						Au45,	0,						-bx,					0		)
 	fill(dF_dU[5], 0,											0,										0,							0, 							Au55,	0,						0,						0		)
 	fill(dF_dU[6], (bx*vy - by*vx)/rho,							by/rho,									-bx/rho,					0, 							Au65,	vx,						0,						0		)
 	fill(dF_dU[7], (bx*vz - bz*vx)/rho,							bz/rho,									0,							-bx/rho, 					Au75,	0,						vx,						0		)
-	fill(dF_dU[8], vx*(.5*gamma_1*vSq - hTotal) + bx*b_v/rho,	-gamma_1*vx*vx + hTotal - bx*bx/rho,	-gamma_1*vx*vy - bx*by/rho,	-gamma_1*vx*vz - bx*bz/rho,	Au85,	gamma_2*by*vx - bx*vy,	gamma_2*bz*vx - bx*vz,	gamma*vx)
+	fill(dF_dU[8], vx*(.5*gamma_1*vSq - hTotal) + bx*b_v/rho,	-gamma_1*vx*vx + hTotal - bx*bx/rho,	-gamma_1*vx*vy - bx*by/rho,	-gamma_1*vx*vz - bx*bz/rho,	Au85,	-gamma_2*by*vx - bx*vy,	-gamma_2*bz*vx - bx*vz,	gamma*vx)
 
 	local eigenvalues = sim.eigenvalues[i]
 	eigenvalues[1] = vx - Cf
@@ -355,14 +364,14 @@ end
 	--]]
 
 	local evrw = {
-		{rho*alphaF,0,rho*alphaS,1,0,rho*alphaS,0,rho*alphaF},
-		{-alphaF*Cf,0,-alphaS*Cs,0,0,alphaS*Cs,0,alphaF*Cf},
-		{alphaS*Cs*sbx*betaY,-betaZ,-alphaF*Cf*sbx*betaY,0,0,alphaF*Cf*sbx*betaY,betaZ,-alphaS*Cs*sbx*betaY},
-		{alphaS*Cs*sbx*betaZ,betaY,-alphaF*Cf*sbx*betaZ,0,0,alphaF*Cf*sbx*betaZ,-betaY,-alphaS*Cs*sbx*betaZ},
-		{0,0,0,0,1,0,0,0},
-		{sqrtRho*alphaS*a*betaY,-sqrtRho*sbx*betaZ,-sqrtRho*alphaF*a*betaY,0,0,-sqrtRho*alphaF*a*betaY,-sqrtRho*sbx*betaZ,sqrtRho*alphaS*a*betaY},
-		{sqrtRho*alphaS*a*betaZ,sqrtRho*sbx*betaY,-sqrtRho*alphaF*a*betaZ,0,0,-sqrtRho*alphaF*a*betaZ,sqrtRho*sbx*betaY,sqrtRho*alphaS*a*betaZ},
-		{rho*alphaF*aSq,0,rho*alphaS*aSq,0,0,rho*alphaS*aSq,0,rho*alphaF*aSq}
+		{rho*alphaF,				0,					rho*alphaS,					1,	0,	rho*alphaS,					0,					rho*alphaF				},
+		{-alphaF*Cf,				0,					-alphaS*Cs,					0,	0,	alphaS*Cs,					0,					alphaF*Cf				},
+		{alphaS*Cs*sbx*betaY,		-betaZ,				-alphaF*Cf*sbx*betaY,		0,	0,	alphaF*Cf*sbx*betaY,		betaZ,				-alphaS*Cs*sbx*betaY	},
+		{alphaS*Cs*sbx*betaZ,		betaY,				-alphaF*Cf*sbx*betaZ,		0,	0,	alphaF*Cf*sbx*betaZ,		-betaY,				-alphaS*Cs*sbx*betaZ	},
+		{0,							0,					0,							0,	1,	0,							0,					0						},
+		{sqrtRho*alphaS*a*betaY,	-sqrtRho*sbx*betaZ,	-sqrtRho*alphaF*a*betaY,	0,	0,	-sqrtRho*alphaF*a*betaY,	-sqrtRho*sbx*betaZ,	sqrtRho*alphaS*a*betaY	},
+		{sqrtRho*alphaS*a*betaZ,	sqrtRho*sbx*betaY,	-sqrtRho*alphaF*a*betaZ,	0,	0,	-sqrtRho*alphaF*a*betaZ,	sqrtRho*sbx*betaY,	sqrtRho*alphaS*a*betaZ	},
+		{rho*alphaF*aSq,			0,					rho*alphaS*aSq,				0,	0,	rho*alphaS*aSq,				0,					rho*alphaF*aSq			},
 	}
 
 for j=1,8 do
