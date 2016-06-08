@@ -76,9 +76,9 @@ function MHD:initCell(sim,i)
 	local bz = 0
 	--]]
 	-- [[ some other tests
-	local bx = 1 - math.sin(math.pi/2*x)
-	local by = math.cos(math.pi/2*x)
-	local bz = math.sin(math.pi/2*x)
+	local bx = 1 -- 1 - math.sin(math.pi/2*x)
+	local by = 0-- math.cos(math.pi/2*x)
+	local bz = 0-- math.sin(math.pi/2*x)
 	--local bx, by, bz = 0, math.sin(math.pi/2*x), 0
 	--local bx, by, bz = 0, 1, 0	-- constant field works
 	--]]
@@ -257,12 +257,23 @@ assertfinite(CsSq)
 
 	local invDenom = 1 / (CfSq - CsSq)
 assertfinite(invDenom)
-	local alphaS = math.sqrt((CfSq - aSq) * invDenom)
-	local alphaF = math.sqrt((aSq - CsSq) * invDenom)
+	local alphaS = math.sqrt(math.max(0, CfSq - aSq) * invDenom)
+	local alphaF = math.sqrt(math.max(0, aSq - CsSq) * invDenom)
 	if alphaS < 1e-7 then alphaS = 0 end
 	if alphaF < 1e-7 then alphaF = 0 end
 assertfinite(alphaS)
-assertfinite(alphaF)
+if not math.isfinite(alphaF) then
+	error(tolua({
+		alphaF=alphaF,
+		aSq=aSq,
+		CsSq=CsSq,
+		['aSq-CsSq']=aSq-CsSq,
+		invDenom=invDenom,
+		CfSq=CfSq,
+		CsSq=CsSq,
+		['CfSq-CsSq']=CfSq-CsSq,
+	}, {indent=true}))
+end
 	
 	local sbx = bx >= 0 and 1 or -1
 	
