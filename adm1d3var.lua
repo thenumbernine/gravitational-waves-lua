@@ -168,9 +168,14 @@ do
 		{gamma_xx = gamma_xx},
 		{D_xxx = D_xxx},
 		{K_xx = K_xx},
+		{KTildee_xx = KTilde_xx},
 		{volume = volume},
-		{['log eigenbasis error'] = function(self,i) return math.log(self.eigenbasisErrors[i]) end},
-		{['log reconstuction error'] = function(self,i) return math.log(self.fluxMatrixErrors[i]) end},
+		{['log eigenbasis error'] = function(self,i)
+			return math.log(self.eigenbasisErrors[i])
+		end},
+		{['log reconstuction error'] = function(self,i)
+			return math.log(self.fluxMatrixErrors[i])
+		end},
 	}
 end
 
@@ -197,23 +202,23 @@ end
 
 ADM1D3Var.fluxTransform = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
 	return
-		v3 * alpha * f / sqrt(gamma_xx),
-		v3 * 2 * alpha / sqrt(gamma_xx),
-		v1 * alpha / sqrt(gamma_xx)
+		v3 * alpha * f / math.sqrt(gamma_xx),
+		v3 * 2 * alpha / math.sqrt(gamma_xx),
+		v1 * alpha / math.sqrt(gamma_xx)
 end)
 
 ADM1D3Var.applyLeftEigenvectors = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
 	return
-		v1 / (2 * f) - v3 / (2 * sqrt(f)),
+		v1 / (2 * f) - v3 / (2 * math.sqrt(f)),
 		-2*v1/f + v2,
-		v1 / (2 * f) + v3 / (2 * sqrt(f))
+		v1 / (2 * f) + v3 / (2 * math.sqrt(f))
 end)
 
 ADM1D3Var.applyRightEigenvectors = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
 	return
 		(v1 + v3) * f,
 		2 * v1 + v2 + 2 * v3,
-		sqrt(f) * (-v1 + v3)
+		math.sqrt(f) * (-v1 + v3)
 end)
 
 function ADM1D3Var:initCell(sim,i)
@@ -223,7 +228,7 @@ function ADM1D3Var:initCell(sim,i)
 	local A_x = self.calc.dx_alpha(x) / self.calc.alpha(x)
 	local D_xxx = 1/2 * self.calc.dx_gamma_xx(x)
 	local K_xx = self.calc.K_xx(x) 
-	local KTilde_xx = K_xx / sqrt(gamma_xx)
+	local KTilde_xx = K_xx / math.sqrt(gamma_xx)
 	return {alpha=alpha, gamma_xx=gamma_xx, A_x, D_xxx, KTilde_xx}
 end
 
@@ -256,8 +261,8 @@ function ADM1D3Var:sourceTerm(sim, qs)
 		local f = self.calc.f(alpha)
 		local dalpha_f = self.calc.dalpha_f(alpha)
 		
-		source[i].alpha = -alpha * alpha * f * KTilde_xx / (gamma_xx * sqrt(gamma_xx))
-		source[i].gamma_xx = -2 * alpha * KTilde_xx / sqrt(gamma_xx)
+		source[i].alpha = -alpha * alpha * f * KTilde_xx / (gamma_xx * math.sqrt(gamma_xx))
+		source[i].gamma_xx = -2 * alpha * KTilde_xx / math.sqrt(gamma_xx)
 	end
 	return source
 end

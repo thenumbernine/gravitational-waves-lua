@@ -18,9 +18,15 @@ Euler1D.numStates = 3
 Euler1D.gamma = 5/3	
 
 do
+	--[[ just to know i could ...
 	local I = function(...) return ... end -- identity function
 	local q = I._:bind(I:_'qs'):uncurry(2):swap()
 	local gamma = I:_'equation':_'gamma'
+	--]]
+	-- [[
+	local q = function(self, i) return self.qs[i] end
+	local gamma = function(self) return self.equation.gamma end
+	--]]
 	local rho = q:_(1)
 	local mx = q:_(2)
 	local ETotal = q:_(3)

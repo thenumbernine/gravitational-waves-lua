@@ -378,14 +378,14 @@ for j=1,8 do
 end
 
 	local evlw = {
-		{0,-(alphaF*Cf)/(2*aSq),(alphaS*Cs*sbx*betaY)/(2*aSq),(alphaS*Cs*sbx*betaZ)/(2*aSq),0,(alphaS*betaY)/(2*sqrtRho*a),(alphaS*betaZ)/(2*sqrtRho*a),alphaF/(2*rho*aSq)},
-		{0,0,-betaZ/2,betaY/2,0,-(sbx*betaZ)/(2*sqrtRho),(sbx*betaY)/(2*sqrtRho),0},
-		{0,-(alphaS*Cs)/(2*aSq),-(alphaF*Cf*sbx*betaY)/(2*aSq),-(alphaF*Cf*sbx*betaZ)/(2*aSq),0,-(alphaF*betaY)/(2*sqrtRho*a),-(alphaF*betaZ)/(2*sqrtRho*a),alphaS/(2*rho*aSq)},
-		{1,0,0,0,0,0,0,-1/aSq},
+		{0,-.5*alphaF*Cf*_1_aSq,.5*alphaS*Cs*sbx*betaY*_1_aSq,.5*alphaS*Cs*sbx*betaZ*_1_aSq,0,.5*alphaS*betaY*_1_sqrtRho*_1_a,.5*alphaS*betaZ*_1_sqrtRho*_1_a,.5*alphaF*_1_rho*_1_aSq},
+		{0,0,-.5*betaZ,.5*betaY,0,-.5*sbx*betaZ*_1_sqrtRho,.5*sbx*betaY*_1_sqrtRho,0},
+		{0,-.5*alphaS*Cs*_1_aSq,-.5*alphaF*Cf*sbx*betaY*_1_aSq,-.5*alphaF*Cf*sbx*betaZ*_1_aSq,0,-.5*alphaF*betaY*_1_sqrtRho*_1_a,-.5*alphaF*betaZ*_1_sqrtRho*_1_a,.5*alphaS*_1_rho*_1_aSq},
+		{1,0,0,0,0,0,0,-_1_aSq},
 		{0,0,0,0,1,0,0,0},
-		{0,(alphaS*Cs)/(2*aSq),(alphaF*Cf*sbx*betaY)/(2*aSq),(alphaF*Cf*sbx*betaZ)/(2*aSq),0,-(alphaF*betaY)/(2*sqrtRho*a),-(alphaF*betaZ)/(2*sqrtRho*a),alphaS/(2*rho*aSq)},
-		{0,0,betaZ/2,-betaY/2,0,-(sbx*betaZ)/(2*sqrtRho),(sbx*betaY)/(2*sqrtRho),0},
-		{0,(alphaF*Cf)/(2*aSq),-(alphaS*Cs*sbx*betaY)/(2*aSq),-(alphaS*Cs*sbx*betaZ)/(2*aSq),0,(alphaS*betaY)/(2*sqrtRho*a),(alphaS*betaZ)/(2*sqrtRho*a),alphaF/(2*rho*aSq)}
+		{0,.5*alphaS*Cs*_1_aSq,.5*alphaF*Cf*sbx*betaY*_1_aSq,.5*alphaF*Cf*sbx*betaZ*_1_aSq,0,-.5*alphaF*betaY*_1_sqrtRho*_1_a,-.5*alphaF*betaZ*_1_sqrtRho*_1_a,.5*alphaS*_1_rho*_1_aSq},
+		{0,0,.5*betaZ,-.5*betaY,0,-.5*sbx*betaZ*_1_sqrtRho,.5*sbx*betaY*_1_sqrtRho,0},
+		{0,.5*alphaF*Cf*_1_aSq,-.5*alphaS*Cs*sbx*betaY*_1_aSq,-.5*alphaS*Cs*sbx*betaZ*_1_aSq,0,.5*alphaS*betaY*_1_sqrtRho*_1_a,.5*alphaS*betaZ*_1_sqrtRho*_1_a,.5*alphaF*_1_rho*_1_aSq}
 	}
 
 for j=1,8 do

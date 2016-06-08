@@ -222,7 +222,6 @@ do
 	}
 end
 
-
 function BSSNOK1D:initCell(sim,i)
 	local x = sim.xs[i]
 	local alpha = self.calc.alpha(x)

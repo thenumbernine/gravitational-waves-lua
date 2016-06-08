@@ -61,6 +61,7 @@ do
 		{gamma_xx = gamma_xx},
 		{D_xxx = D_xxx},
 		{K_xx = K_xx},
+		{KTilde_xx = KTilde_xx},
 		{volume = volume},
 		{['log eigenbasis error'] = function(self,i) return math.log(self.eigenbasisErrors[i]) end},
 		{['log reconstuction error'] = function(self,i) return math.log(self.fluxMatrixErrors[i]) end},
@@ -107,7 +108,7 @@ ADM1D3to5Var.applyRightEigenvectors = buildField(function(alpha, f, gamma_xx, A_
 		v3,
 		(v1 + v5) * f,
 		2 * v1 + v4 + 2 * v5,
-		sqrt(f) * (-v1 + v5)
+		math.sqrt(f) * (-v1 + v5)
 end)
 
 function ADM1D3to5Var:initCell(sim,i)

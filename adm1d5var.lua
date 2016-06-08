@@ -116,11 +116,11 @@ end)
 --[[fixme
 ADM1D5Var.applyLeftEigenvectors = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, K_xx, v1, v2, v3, v4, v5)
 	return 
-		v1 * (gamma_xx * A_x / f - K_xx * sqrt(gamma_xx / f)) / (2 * alpha) + v3 * gamma_xx / (2 * f) - v5 * .5 * sqrt(gamma_xx / f),
+		v1 * (gamma_xx * A_x / f - K_xx * math.sqrt(gamma_xx / f)) / (2 * alpha) + v3 * gamma_xx / (2 * f) - v5 * .5 * math.sqrt(gamma_xx / f),
 		v1 / alpha,
 		-v1 * (gamma_xx * A_x) / (alpha * f) - v3 * gamma_xx / f + v4,
 		v2,
-		v1 * (gamma_xx * A_x / f + K_xx * sqrt(gamma_xx / f)) / (2 * alpha) + v3 * gamma_xx / (2 * f) + v5 * .5 * sqrt(gamma_xx / f) 
+		v1 * (gamma_xx * A_x / f + K_xx * math.sqrt(gamma_xx / f)) / (2 * alpha) + v3 * gamma_xx / (2 * f) + v5 * .5 * math.sqrt(gamma_xx / f) 
 end),
 --]]
 
@@ -144,8 +144,8 @@ function ADM1D5Var:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local alpha, gamma_xx, A_x, D_xxx, K_xx = unpack(avgQ)
 	local x = sim.ixs[i]
 	local f = self.calc.f(alpha)
-	local sqrt_f = sqrt(f)
-	local sqrt_g = sqrt(gamma_xx)
+	local sqrt_f = math.sqrt(f)
+	local sqrt_g = math.sqrt(gamma_xx)
 	local lambda = alpha * sqrt_f / sqrt_g 
 	fill(sim.eigenvalues[i], -lambda, 0, 0, 0, lambda)
 	
@@ -166,21 +166,21 @@ function ADM1D5Var:calcInterfaceEigenBasis(sim,i,qL,qR)
 		{-sqrt_f/sqrt_g,-K_xx,		0,	0,	sqrt_f/sqrt_g	},	-- K_xx
 	}
 	sim.eigenvectorsInverse[i] = {
-		{(gamma_xx * A_x / f - K_xx * sqrt(gamma_xx / f)) / (2 * alpha), 0, gamma_xx / (2 * f), 0, -.5 * sqrt(gamma_xx / f)}, 
+		{(gamma_xx * A_x / f - K_xx * math.sqrt(gamma_xx / f)) / (2 * alpha), 0, gamma_xx / (2 * f), 0, -.5 * math.sqrt(gamma_xx / f)}, 
 		{1 / alpha, 0, 0, 0, 0}, 
 		{-(gamma_xx * A_x) / (alpha * f), 0, -gamma_xx / f, 1, 0}, 
 		{0, 1, 0, 0, 0}, 
-		{(gamma_xx * A_x / f + K_xx * sqrt(gamma_xx / f)) / (2 * alpha), 0, gamma_xx / (2 * f), 0, .5 * sqrt(gamma_xx / f)}, 
+		{(gamma_xx * A_x / f + K_xx * math.sqrt(gamma_xx / f)) / (2 * alpha), 0, gamma_xx / (2 * f), 0, .5 * math.sqrt(gamma_xx / f)}, 
 	}
 	-- note that because we have zero eigenvalues that the eigendecomposition cannot reconstruct the flux matrix
 	--]]
 	-- [[ here's from the left eigenvectors
 	sim.eigenvectorsInverse[i] = {
-		{0, 0, -1/sqrt_g, 0, sqrt_f/gamma_xx},	-- sqrt(f) K_xx / gamma_xx - A_x / sqrt(gamma_xx)
+		{0, 0, -1/sqrt_g, 0, sqrt_f/gamma_xx},	-- math.sqrt(f) K_xx / gamma_xx - A_x / math.sqrt(gamma_xx)
 		{1, 0, 0, 0, 0},								-- alpha
 		{0, 1, 0, 0, 0},								-- gamma_xx
 		{0, 0, 1, -f/gamma_xx, 0},						-- A_x - f D_xxx / gamma_xx
-		{0, 0, 1/sqrt_g, 0, sqrt_f/gamma_xx},	-- sqrt(f) K_xx / gamma_xx + A_x / sqrt(gamma_xx)
+		{0, 0, 1/sqrt_g, 0, sqrt_f/gamma_xx},	-- math.sqrt(f) K_xx / gamma_xx + A_x / math.sqrt(gamma_xx)
 	}
 	sim.eigenvectors[i] = {
 		{0, 1, 0, 0, 0},

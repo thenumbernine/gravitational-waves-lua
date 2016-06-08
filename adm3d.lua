@@ -392,8 +392,8 @@ function ADM3D:calcEigenvaluesFromCons(
 		...)
 	local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33sym.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
 	local f = self.calc.f(alpha)
-	local lambdaLight = alpha * sqrt(gammaUxx)
-	local lambdaGauge = lambdaLight * sqrt(f)
+	local lambdaLight = alpha * math.sqrt(gammaUxx)
+	local lambdaGauge = lambdaLight * math.sqrt(f)
 
 	return
 		-- gauge field

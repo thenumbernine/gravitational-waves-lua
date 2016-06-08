@@ -97,7 +97,7 @@ do
 	-- [=[ compare different equations/formalisms 
 	-- these two match:
 	sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
-	sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
+	--sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
 	
 	-- these two match, but differ from the first two:
 	--sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
@@ -304,7 +304,7 @@ do
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
-	sims:insert(Roe(args))
+	--sims:insert(Roe(args))
 	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
 	--sims:insert(Roe(table(args, {usePPM=true})))
 	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .01})))
@@ -312,7 +312,7 @@ do
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
 	--sims:insert(Roe(table(args, {equation = MHD()})))
-	--sims:insert(Roe(table(args, {equation = require 'mhd_v2'()})))
+	sims:insert(Roe(table(args, {equation = require 'mhd_v2'()})))
 
 	-- srhd Marti & Muller 2003 problem #1
 	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.4249], gridsize=400, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
@@ -528,9 +528,10 @@ function TestApp:update(...)
 
 	if self.doIteration then
 		-- [[ iterate the furthest back
-		sims:inf(function(a,b)
+		local oldestSim = sims:inf(function(a,b)
 			return a.t < b.t
-		end):iterate()
+		end)
+		if oldestSim then oldestSim:iterate() end
 		--]]
 		--[[ iterate all
 		for _,sim in ipairs(sims) do
