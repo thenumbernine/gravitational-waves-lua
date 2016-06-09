@@ -5,6 +5,7 @@ local HLL = class(SolverFV)
 
 function HLL:init(args)
 	self.equation = assert(self.equation or args.equation)
+	self.name = self.equation.name .. ' HLL'
 	HLL.super.init(self, args)
 end
 

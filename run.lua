@@ -38,6 +38,7 @@ local RoeImplicitLinearized = require 'roe_implicit_linearized'
 -- equations:
 local Maxwell = require 'maxwell'
 local Euler1D = require 'euler1d'
+local Euler1DQuasiLinear = require 'euler1d_quasilinear'
 local MHD = require 'mhd'
 local ADM1D3Var = require'adm1d3var'
 local ADM1D3to5Var = require'adm1d3to5var'
@@ -304,7 +305,8 @@ do
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
-	--sims:insert(Roe(args))
+	sims:insert(Roe(table(args, {equation = Euler1D()})))
+	--sims:insert(Roe(table(args, {equation = Euler1DQuasiLinear()})))
 	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
 	--sims:insert(Roe(table(args, {usePPM=true})))
 	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .01})))
@@ -312,7 +314,7 @@ do
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
 	--sims:insert(Roe(table(args, {equation = MHD()})))
-	sims:insert(Roe(table(args, {equation = require 'mhd_v2'()})))
+	--sims:insert(Roe(table(args, {equation = require 'mhd_v2'()})))
 
 	-- srhd Marti & Muller 2003 problem #1
 	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.4249], gridsize=400, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
@@ -458,22 +460,192 @@ TestApp.keyDownCallbacks = {
 }
 
 local graphNamesEnabled = table()
-for _,sim in ipairs(sims) do
-	for _,graphInfo in ipairs(sim.equation.graphInfos) do
-		if not graphNamesEnabled:find(graphInfo.name) then
-			graphNamesEnabled:insert{
-				name = graphInfo.name,
-				ptr = ffi.new('bool[1]', true),
-			}
-		end
+
+local solverGens 
+do
+	local numRel1DArgs	-- used for NR simulations
+	do
+		local x = symmath.var'x'
+		local alpha = symmath.var'alpha'
+		local xc = 150
+		local H = 5
+		local sigma = 10
+		local h = H * symmath.exp(-(x - xc)^2 / sigma^2)
+		local gamma_xx = 1 - h:diff(x)^2
+		local K_xx = -h:diff(x,x) / gamma_xx^.5
+		local kappa = 1
+		local args = {
+			gridsize = 200,
+			domain = {xmin=0, xmax=300},
+			boundaryMethod = boundaryMethods.freeFlow,
+			fluxLimiter = fluxLimiters.donorCell,
+			linearSolver = require 'linearsolvers'.gmres,
+			linearSolverEpsilon = 1e-10,
+			linearSolverMaxIter = 100,
+		}
+		numRel1DArgs = {
+			-- the symbolic math driving it:
+			x = x,	-- variable
+			alpha = 1,
+			--[=[
+			alpha = 1/2 * (
+				(1 + symmath.sqrt(1 + kappa))
+				* symmath.sqrt((1-h:diff(x))/(1+h:diff(x)))
+				- 
+				kappa / (1 + symmath.sqrt(1 + kappa))
+				* symmath.sqrt((1+h:diff(x))/(1-h:diff(x)))
+			),
+			--]=]
+			gamma_xx = gamma_xx,	-- gamma_xx
+			-- A_x = d/dx alpha
+			-- D_xxx = 1/2 d/dx gamma_xx
+			K_xx = K_xx,	-- K_xx
+			-- Bona-Masso slicing conditions:
+			f_param = alpha,
+			--f = 1,
+			--f = 1.69,
+			--f = .49,
+			f = 1 + kappa/alpha^2,
+		}
 	end
+
+	local numRel2DSphericalArgs
+	do
+		-- r - eta(rs) = M ln(((rs + eta(r)) / (rs - eta(rs)))
+		-- eta(rs) = sqrt(rs^2 - 2 M rs)
+		local rc = 300
+		local r = symmath.var'r'
+		local alpha = symmath.var'alpha'
+		local h = 5 * symmath.exp(-((r - rc) / 10)^2)	
+		numRel2DSphericalArgs = {
+			-- the symbolic math driving it:
+			r = r,
+			h = h,
+			gamma_rr = 1 - h:diff(r)^2,
+			gamma_hh = r^2,
+			alpha = 1,
+			-- Bona-Masso slicing conditions:
+			f_param = alpha,
+			f = 1,
+			--f = 1.69,
+			--f = .49,
+			--f = 1 + 1/alpha^2,
+		}
+	end
+
+	local numRel3DArgs
+	do
+		local x = symmath.var'x'
+		local y = symmath.var'y'
+		local z = symmath.var'z'
+		local xc = 150
+		local yc = 0
+		local zc = 0
+		local alpha = symmath.var'alpha'
+		local sigma = 10
+		local h = 5 * symmath.exp(-((x - xc)^2 + (y - yc)^2 + (z - zc)^2) / sigma^2)
+		-- simplifying the math:
+		-- dh = h',i'	<- convert expression to rank-1 covariant tensor
+		--  this means overriding __newindex for handling tensor derivatives for *all* Expressions
+		--  it also means specifying a default coordinate basis
+		local hx = h:diff(x)
+		local hy = h:diff(y)
+		local hz = h:diff(z)
+		-- sqrt_det_g = symmath.sqrt(1 - dh'^k' * dh'_k')
+		local sqrt_det_g = symmath.sqrt(1 - hx*hx - hy*hy - hz*hz)
+		-- d2h = dh',i'	<- convert rank-1 covariant to rank-1 covariant
+		local hxx = hx:diff(x)
+		local hxy = hx:diff(y)
+		local hxz = hx:diff(z)
+		local hyy = hy:diff(y)
+		local hyz = hy:diff(z)
+		local hzz = hz:diff(z)
+		numRel3DArgs = {
+			-- the symbolic math driving it:
+			x = x,
+			y = y,
+			z = z,
+			alpha = 1,
+			-- g = delta'_ij' - h',i' * h',j',
+			gamma_xx = 1 - hx * hx,
+			gamma_xy = -hx * hy,
+			gamma_xz = -hx * hz,
+			gamma_yy = 1 - hy * hy,
+			gamma_yz = -hy * hz,
+			gamma_zz = 1 - hz * hz,
+			-- K = -h',ij' / sqrt_det_g,
+			K_xx = -hxx / sqrt_det_g,
+			K_xy = -hxy / sqrt_det_g,
+			K_xz = -hxz / sqrt_det_g,
+			K_yy = -hyy / sqrt_det_g,
+			K_yz = -hyz / sqrt_det_g,
+			K_zz = -hzz / sqrt_det_g,
+			-- Bona-Masso slicing conditions:
+			f_param = alpha,	
+			--f = 1,
+			--f = 1.69,
+			--f = .49,
+			--f = 1/3,
+			f = 1 + 1/alpha^2,
+		}
+	end
+
+	solverGens = table{
+		-- accepts varying equations
+			-- TODO PLMBehavior applied to any of those
+			-- Euler1D:
+		{name='Euler1D HLL', gen=function(args) return HLL(table(args, {equation=Euler1D()})) end},
+		{name='Euler1D Roe', gen=function(args) return Roe(table(args, {equation=Euler1D()})) end},
+		{name='Euler1D Roe Implicit Linearized', gen=function(args) return RoeImplicitLinearized(table(args, {equation=Euler1D()})) end},
+			-- MHD v.1
+		{name='MHD HLL', gen=function(args) return HLL(table(args, {equation=MHD()})) end},
+		{name='MHD Roe', gen=function(args) return Roe(table(args, {equation=MHD()})) end},
+		{name='MHD Roe Implicit Linearized', gen=function(args) return RoeImplicitLinearized(table(args, {equation=MHD()})) end},
+			-- MHD v.2
+		{name='MHDv.2 HLL', gen=function(args) return HLL(table(args, {equation=require 'mhd_v2'()})) end},
+		{name='MHDv.2 Roe', gen=function(args) return Roe(table(args, {equation=require 'mhd_v2'()})) end},
+		{name='MHDv.2 Roe Implicit Linearized', gen=function(args) return RoeImplicitLinearized(table(args, {equation=require 'mhd_v2'()})) end},
+			-- Maxwell
+		{name='Maxwell HLL', gen=function(args) return HLL(table(args, {equation=Maxwell()})) end},
+		{name='Maxwell Roe', gen=function(args) return Roe(table(args, {equation=Maxwell()})) end},
+		{name='Maxwell Roe Implicit Linearized', gen=function(args) return RoeImplicitLinearized(table(args, {equation=Maxwell()})) end},
+		-- equations that only work with Roe:
+		{name='SRHD Roe', gen=function(args) return require 'srhd1d_roe'(table(args, {equation=require'srhd1d'()})) end},
+		{name='ADM 1D 3-var Roe', gen=function(args) return Roe(table(args, {equation=ADM1D3Var(numRel1DArgs)})) end},
+		{name='ADM 1D 3-to-5-var Roe', gen=function(args) return Roe(table(args, {equation=ADM1D3to5Var(numRel1DArgs)})) end},
+		{name='ADM 1D 5-var Roe', gen=function(args) return Roe(table(args, {equation=ADM1D5Var(numRel1DArgs)})) end},
+		{name='BSSNOK 1D Roe', gen=function(args) return Roe(table(args, {equation=BSSNOK1D(numRel1DArgs)})) end},
+		{name='ADM 2D Spherical Roe', gen=function(args) return Roe(table(args, {equation=ADM2DSpherical(numRel2DSphericalArgs)})) end},
+		{name='ADM 3D Roe', gen=function(args) return Roe(table(args, {equation=ADM3D(numRel3DArgs)})) end},
+			-- ... and their implicit linearized versions ...
+		{name='ADM 1D 3-var RoeImplicitLinearized', gen=function(args) return RoeImplicitLinearized(table(args, {equation=ADM1D3Var(numRel1DArgs)})) end},
+		{name='ADM 1D 3-to-5-var RoeImplicitLinearized', gen=function(args) return RoeImplicitLinearized(table(args, {equation=ADM1D3to5Var(numRel1DArgs)})) end},
+		{name='ADM 1D 5-var RoeImplicitLinearized', gen=function(args) return RoeImplicitLinearized(table(args, {equation=ADM1D5Var(numRel1DArgs)})) end},
+		{name='BSSNOK 1D RoeImplicitLinearized', gen=function(args) return RoeImplicitLinearized(table(args, {equation=BSSNOK1D(numRel1DArgs)})) end},
+		{name='ADM 2D Spherical RoeImplicitLinearized', gen=function(args) return RoeImplicitLinearized(table(args, {equation=ADM2DSpherical(numRel2DSphericalArgs)})) end},
+		{name='ADM 3D RoeImplicitLinearized', gen=function(args) return RoeImplicitLinearized(table(args, {equation=ADM3D(numRel3DArgs)})) end},
+		-- stuff I've never finished:
+		{name='BSSNOK 1D Backward Euler Linear', gen=function(args) return require 'bssnok1d_backwardeuler_linear'(table(args, numRel1DArgs)) end},
+		{name='BSSNOK 1D Original Backward Euler Linear', gen=function(args) return require 'bssnok1d_original_backwardeuler_linear'(table(args, numRel1DArgs)) end},
+		{name='BSSNOK 1D Backward Euler Newton', gen=function(args) return require 'bssnok1d_backwardeuler_newton'(table(args, numRel1DArgs)) end},
+		-- only implemented for Euler1D
+		{name='Euler1D Burgers', gen=require 'euler1d_burgers'},
+		{name='Euler1D Self-Similar', gen=require 'euler1d_selfsimilar'},
+		{name='Euler1D Godunov Exact', gen=function(args) return require 'euler1d_godunov'(table(args, {godunovMethod='exact'})) end},
+		{name='Euler1D Godunov Exact Alt Sampling', gen=function(args) return require 'euler1d_godunov'(table(args, {godunovMethod='exact', sampleMethod='alt'})) end},
+		{name='Euler1D Godunov PVRS', gen=function(args) return require 'euler1d_godunov'(table(args, {godunovMethod='pvrs'})) end},
+		{name='Euler1D Godunov Two-Shock', gen=function(args) return require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})) end},
+		{name='Euler1D Godunov Adaptive', gen=function(args) return require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})) end},
+		{name='Euler1D Backwards Euler Newton', gen=require 'euler1d_backwardeuler_newton'},
+		{name='Euler1D Backwards Euler Linear', gen=require 'euler1d_backwardeuler_linear'},
+		{name='Euler1D DFT', gen=require 'euler1d_dft'},
+		-- broken I think:
+		{name='Euler1D Burgers MUSCL', gen=function(args) return require 'euler1d_muscl'(table(args, {baseScheme=require 'euler1d_burgers'(), slopeLimiter=fluxLimiters.Fromm})) end},
+		{name='Euler1D HLL MUSCL', gen=function(args) return require 'euler1d_muscl'(table(args, {baseScheme=HLL(), slopeLimiter=fluxLimiters.Fromm})) end},
+		{name='Euler1D Roe MUSCL', gen=function(args) return require 'euler1d_muscl'(table(args, {baseScheme=Roe(), slopeLimiter=fluxLimiters.Fromm})) end},
+	}
 end
---[[
-graphNamesEnabled = graphNamesEnabled:keys():sort(function(a,b)
-	if #a.name ~= #b then return #a < #b end
-	return a.name < b.name
-end)
---]]
+local solverGenIndex = ffi.new('int[1]', 0)
 
 function TestApp:updateGUI()
 	ig.igText('simulations:')
@@ -494,18 +666,66 @@ function TestApp:updateGUI()
 		end
 	end
 
-	newSimType = newSimType or ffi.new('int[1]', 0)
-	local simNames = sims:map(function(sim) return sim.name end)
-	ig.igCombo('new sim type', newSimType, simNames)
+	ig.igCombo('new sim type', solverGenIndex, solverGens:map(function(solverGen) return solverGen.name end))
 	if ig.igButton('Add New...') then
-		print('adding new sim '..newSimType[0]..' named '..sims[newSimType[0]+1].name)
+		print('adding new sim '..solverGenIndex[0]..' named '..solverGens[solverGenIndex[0]+1].name)
+		local sim = solverGens[solverGenIndex[0]+1].gen{
+			gridsize = 100,
+			domain = {xmin=-1, xmax=1},
+			boundaryMethod = boundaryMethods.freeFlow,
+			--linearSolver = require 'linearsolvers'.gmres,
+			linearSolver = require 'linearsolvers'.conjres,
+			fluxLimiter = fluxLimiters.superbee,
+			integrator = integrators.ForwardEuler,
+		}
+		local r, g, b = math.random(), math.random(), math.random()
+		--local l = math.sqrt(r^2 + g^2 + b^2)
+		local l = math.max(r,g,b)
+		sim.color = {r / l, g / l, b / l}
+		sim:reset()
+		sims:insert(sim)
 	end
+
+	for _,sim in ipairs(sims) do
+		for _,graphInfo in ipairs(sim.equation.graphInfos) do
+			if not graphNamesEnabled:find(nil, function(graphName) return graphName.name == graphInfo.name end) then
+				graphNamesEnabled:insert{
+					name = graphInfo.name,
+					ptr = ffi.new('bool[1]', true),
+				}
+			end
+		end
+	end
+	--[[
+	graphNamesEnabled = graphNamesEnabled:keys():sort(function(a,b)
+		if #a.name ~= #b then return #a < #b end
+		return a.name < b.name
+	end)
+	--]]
 
 	ig.igText('variables:')
 	for i,graphNameEnabled in ipairs(graphNamesEnabled) do
 		ig.igPushIdStr(tostring(i))
 		ig.igCheckbox(graphNameEnabled.name, graphNameEnabled.ptr)
 		ig.igPopId()
+	end
+
+	if self.doIteration then
+		if ig.igButton('pause') then
+			self.doIteration = nil
+		end
+	else
+		if ig.igButton('start') then
+			self.doIteration = true
+		end
+	end
+	if ig.igButton('step') then
+		self.doIteration = 'once'
+	end
+	if ig.igButton('reset') then
+		for _,sim in ipairs(sims) do
+			sim:reset()
+		end
 	end
 end
 
@@ -559,245 +779,247 @@ function TestApp:update(...)
 
 	-- just use the first sim's infos
 	--for name,info in pairs(sims[1].equation.graphInfoForNames) do
-	for _,graphNameEnabled in ipairs(graphNamesEnabled) do
-		if graphNameEnabled.ptr[0] then		
-			local name = graphNameEnabled.name
-			local info = sims[1].equation.graphInfoForNames[name]
+	if #sims > 0 then
+		for _,graphNameEnabled in ipairs(graphNamesEnabled) do
+			if graphNameEnabled.ptr[0] then		
+				local name = graphNameEnabled.name
+				local info = sims[1].equation.graphInfoForNames[name]
 
-			local xmin, xmax, ymin, ymax
-			for _,sim in ipairs(sims) do
-				sim.ys = {}
-				local simymin, simymax
-				for i=3,sim.gridsize-2 do
-					local siminfo = sim.equation.graphInfoForNames[name]
-					if siminfo then
-						
-						local y = siminfo.getter(sim,i)
-						if not y then 
-							--error("failed to get for getter "..info.name)
-						else
-							sim.ys[i] = y
-							if y == y and math.abs(y) < math.huge then
-								if not simymin or y < simymin then simymin = y end
-								if not simymax or y > simymax then simymax = y end
+				local xmin, xmax, ymin, ymax
+				for _,sim in ipairs(sims) do
+					sim.ys = {}
+					local simymin, simymax
+					for i=3,sim.gridsize-2 do
+						local siminfo = sim.equation.graphInfoForNames[name]
+						if siminfo then
+							
+							local y = siminfo.getter(sim,i)
+							if not y then 
+								--error("failed to get for getter "..info.name)
+							else
+								sim.ys[i] = y
+								if y == y and math.abs(y) < math.huge then
+									if not simymin or y < simymin then simymin = y end
+									if not simymax or y > simymax then simymax = y end
+								end
 							end
 						end
 					end
-				end
-				if self.reportError then
-					print(info.name, 'min', simymin, 'max', simymax)
-				end
+					if self.reportError then
+						print(info.name, 'min', simymin, 'max', simymax)
+					end
 
-				if not simymin or not simymax or simymin ~= simymin or simymax ~= simymax then
-					--simymin = -1
-					--simymax = 1
-				--elseif math.abs(simymin) == math.huge or math.abs(simymax) == math.huge then
-				else
-					local base = 10	-- round to nearest base-10
-					local scale = 10 -- ...with increments of 10
-					simymin, simymax = 1.1 * simymin - .1 * simymax, 1.1 * simymax - .1 * simymin	
-					local newymin = (simymin<0 and -1 or 1)*(math.abs(simymin)==math.huge and 1e+100 or base^math.log(math.abs(simymin),base))
-					local newymax = (simymax<0 and -1 or 1)*(math.abs(simymax)==math.huge and 1e+100 or base^math.log(math.abs(simymax),base))
-					simymin, simymax = newymin, newymax
-					do
-						local minDeltaY = 1e-5
-						local deltaY = simymax - simymin
-						if deltaY < minDeltaY then
-							simymax = simymax + .5 * minDeltaY
-							simymin = simymin - .5 * minDeltaY
+					if not simymin or not simymax or simymin ~= simymin or simymax ~= simymax then
+						--simymin = -1
+						--simymax = 1
+					--elseif math.abs(simymin) == math.huge or math.abs(simymax) == math.huge then
+					else
+						local base = 10	-- round to nearest base-10
+						local scale = 10 -- ...with increments of 10
+						simymin, simymax = 1.1 * simymin - .1 * simymax, 1.1 * simymax - .1 * simymin	
+						local newymin = (simymin<0 and -1 or 1)*(math.abs(simymin)==math.huge and 1e+100 or base^math.log(math.abs(simymin),base))
+						local newymax = (simymax<0 and -1 or 1)*(math.abs(simymax)==math.huge and 1e+100 or base^math.log(math.abs(simymax),base))
+						simymin, simymax = newymin, newymax
+						do
+							local minDeltaY = 1e-5
+							local deltaY = simymax - simymin
+							if deltaY < minDeltaY then
+								simymax = simymax + .5 * minDeltaY
+								simymin = simymin - .5 * minDeltaY
+							end
 						end
 					end
+
+					local simxmin, simxmax = sim.domain.xmin, sim.domain.xmax
+					simxmin, simxmax = 1.1 * simxmin - .1 * simxmax, 1.1 * simxmax - .1 * simxmin
+
+					xmin = xmin or simxmin
+					xmax = xmax or simxmax
+					ymin = ymin or simymin
+					ymax = ymax or simymax
+						
+					if xmin and simxmin then xmin = math.min(xmin, simxmin) end
+					if xmax and simxmax then xmax = math.max(xmax, simxmax) end
+					if ymin and simymin then ymin = math.min(ymin, simymin) end
+					if ymax and simymax then ymax = math.max(ymax, simymax) end
+				end
+				
+				if not ymin or not ymax or ymin ~= ymin or ymax ~= ymax then
+					ymin = -1
+					ymax = 1
 				end
 
-				local simxmin, simxmax = sim.domain.xmin, sim.domain.xmax
-				simxmin, simxmax = 1.1 * simxmin - .1 * simxmax, 1.1 * simxmax - .1 * simxmin
+				-- display
+				-- TODO viewports per variable and maybe ticks too
+				gl.glViewport(
+					graphCol / graphsWide * w,
+					(1 - (graphRow + 1) / graphsHigh) * h,
+					w / graphsWide,
+					h / graphsHigh)
+				gl.glMatrixMode(gl.GL_PROJECTION)
+				gl.glLoadIdentity()
+				gl.glOrtho(xmin, xmax, ymin, ymax, -1, 1)
+				gl.glMatrixMode(gl.GL_MODELVIEW)
+				gl.glLoadIdentity()
 
-				xmin = xmin or simxmin
-				xmax = xmax or simxmax
-				ymin = ymin or simymin
-				ymax = ymax or simymax
+				gl.glColor3f(.1, .1, .1)
+				local xrange = xmax - xmin
+				local xstep = 10^math.floor(math.log(xrange, 10) - .5)
+				local xticmin = math.floor(xmin/xstep)
+				local xticmax = math.ceil(xmax/xstep)
+				gl.glBegin(gl.GL_LINES)
+				for x=xticmin,xticmax do
+					gl.glVertex2f(x*xstep,ymin)
+					gl.glVertex2f(x*xstep,ymax)
+				end
+				gl.glEnd()
+				local yrange = ymax - ymin
+				local ystep = 10^math.floor(math.log(yrange, 10) - .5)
+				local yticmin = math.floor(ymin/ystep)
+				local yticmax = math.ceil(ymax/ystep)
+				gl.glBegin(gl.GL_LINES)
+				for y=yticmin,yticmax do
+					gl.glVertex2f(xmin,y*ystep)
+					gl.glVertex2f(xmax,y*ystep)
+				end
+				gl.glEnd()
 					
-				if xmin and simxmin then xmin = math.min(xmin, simxmin) end
-				if xmax and simxmax then xmax = math.max(xmax, simxmax) end
-				if ymin and simymin then ymin = math.min(ymin, simymin) end
-				if ymax and simymax then ymax = math.max(ymax, simymax) end
-			end
+				gl.glColor3f(.5, .5, .5)
+				gl.glBegin(gl.GL_LINES)
+				gl.glVertex2f(xmin, 0)
+				gl.glVertex2f(xmax, 0)
+				gl.glVertex2f(0, ymin)
+				gl.glVertex2f(0, ymax)
+				gl.glEnd()
 			
-			if not ymin or not ymax or ymin ~= ymin or ymax ~= ymax then
-				ymin = -1
-				ymax = 1
-			end
-
-			-- display
-			-- TODO viewports per variable and maybe ticks too
-			gl.glViewport(
-				graphCol / graphsWide * w,
-				(1 - (graphRow + 1) / graphsHigh) * h,
-				w / graphsWide,
-				h / graphsHigh)
-			gl.glMatrixMode(gl.GL_PROJECTION)
-			gl.glLoadIdentity()
-			gl.glOrtho(xmin, xmax, ymin, ymax, -1, 1)
-			gl.glMatrixMode(gl.GL_MODELVIEW)
-			gl.glLoadIdentity()
-
-			gl.glColor3f(.1, .1, .1)
-			local xrange = xmax - xmin
-			local xstep = 10^math.floor(math.log(xrange, 10) - .5)
-			local xticmin = math.floor(xmin/xstep)
-			local xticmax = math.ceil(xmax/xstep)
-			gl.glBegin(gl.GL_LINES)
-			for x=xticmin,xticmax do
-				gl.glVertex2f(x*xstep,ymin)
-				gl.glVertex2f(x*xstep,ymax)
-			end
-			gl.glEnd()
-			local yrange = ymax - ymin
-			local ystep = 10^math.floor(math.log(yrange, 10) - .5)
-			local yticmin = math.floor(ymin/ystep)
-			local yticmax = math.ceil(ymax/ystep)
-			gl.glBegin(gl.GL_LINES)
-			for y=yticmin,yticmax do
-				gl.glVertex2f(xmin,y*ystep)
-				gl.glVertex2f(xmax,y*ystep)
-			end
-			gl.glEnd()
-				
-			gl.glColor3f(.5, .5, .5)
-			gl.glBegin(gl.GL_LINES)
-			gl.glVertex2f(xmin, 0)
-			gl.glVertex2f(xmax, 0)
-			gl.glVertex2f(0, ymin)
-			gl.glVertex2f(0, ymax)
-			gl.glEnd()
-		
-			-- should I show ghost cells? for some derived values it causes errors...
-			for _,sim in ipairs(sims) do
-				gl.glColor3f(unpack(sim.color))
-				gl.glPointSize(2)
-				if #sim.ys > 0 then
-					for _,mode in ipairs{
-						gl.GL_LINE_STRIP,
-						DEBUG_PPM and gl.GL_POINTS
-					} do
-						gl.glBegin(mode)
+				-- should I show ghost cells? for some derived values it causes errors...
+				for _,sim in ipairs(sims) do
+					gl.glColor3f(unpack(sim.color))
+					gl.glPointSize(2)
+					if #sim.ys > 0 then
+						for _,mode in ipairs{
+							gl.GL_LINE_STRIP,
+							DEBUG_PPM and gl.GL_POINTS
+						} do
+							gl.glBegin(mode)
+							for i=3,sim.gridsize-2 do
+								gl.glVertex2f(sim.xs[i], sim.ys[i])
+							end
+							gl.glEnd()
+						end
+					end
+		-- [[ special PPM hack
+		if DEBUG_PPM then
+					local channel = 2
+					local ppmCount = 0
+					local ppmYs = table()
+					gl.glColor3f(1,1,0)
+					gl.glBegin(gl.GL_LINE_STRIP)
+					for n=0,#sim.xs*10 do
+						local x = (xmax - xmin) / (#sim.xs*10) * n + xmin
+						-- getter ... abstracts the index of the state variable ...
+						local y = sim:getPPM(x,channel)
+						if y then
+							ppmYs:insert(y)
+							ppmCount = ppmCount + 1
+							gl.glVertex2f(x,y)
+						end
+					end
+					gl.glEnd()
+					--print(unpack(ppmYs,1,10))
+					--print(ppmCount) 
+					if sim.ppm_iqs then
+						gl.glColor3f(0,1,0)
+						gl.glBegin(gl.GL_LINES)
 						for i=3,sim.gridsize-2 do
-							gl.glVertex2f(sim.xs[i], sim.ys[i])
+							gl.glVertex2f(sim.ixs[i], sim.ppm_qLs[i][channel])
+							gl.glVertex2f(sim.ixs[i+1], sim.ppm_qRs[i][channel])
+						end
+						gl.glEnd()
+						gl.glColor3f(1,0,1)
+						gl.glBegin(gl.GL_POINTS)
+						for i=3,sim.gridsize-1 do
+							gl.glVertex2f(sim.ixs[i],sim.ppm_iqs[i][channel])
 						end
 						gl.glEnd()
 					end
-				end
-	-- [[ special PPM hack
-	if DEBUG_PPM then
-				local channel = 2
-				local ppmCount = 0
-				local ppmYs = table()
-				gl.glColor3f(1,1,0)
-				gl.glBegin(gl.GL_LINE_STRIP)
-				for n=0,#sim.xs*10 do
-					local x = (xmax - xmin) / (#sim.xs*10) * n + xmin
-					-- getter ... abstracts the index of the state variable ...
-					local y = sim:getPPM(x,channel)
-					if y then
-						ppmYs:insert(y)
-						ppmCount = ppmCount + 1
-						gl.glVertex2f(x,y)
-					end
-				end
-				gl.glEnd()
-				--print(unpack(ppmYs,1,10))
-				--print(ppmCount) 
-				if sim.ppm_iqs then
-					gl.glColor3f(0,1,0)
-					gl.glBegin(gl.GL_LINES)
-					for i=3,sim.gridsize-2 do
-						gl.glVertex2f(sim.ixs[i], sim.ppm_qLs[i][channel])
-						gl.glVertex2f(sim.ixs[i+1], sim.ppm_qRs[i][channel])
-					end
-					gl.glEnd()
-					gl.glColor3f(1,0,1)
-					gl.glBegin(gl.GL_POINTS)
-					for i=3,sim.gridsize-1 do
-						gl.glVertex2f(sim.ixs[i],sim.ppm_iqs[i][channel])
-					end
-					gl.glEnd()
-				end
-	end
-	--]]
-				gl.glPointSize(1)
-				
-				if self.font then
-					local fontSizeX = (xmax - xmin) * .05
-					local fontSizeY = (ymax - ymin) * .05
-					local ystep = ystep * 2
-					for y=math.floor(ymin/ystep)*ystep,math.ceil(ymax/ystep)*ystep,ystep do
+		end
+		--]]
+					gl.glPointSize(1)
+					
+					if self.font then
+						local fontSizeX = (xmax - xmin) * .05
+						local fontSizeY = (ymax - ymin) * .05
+						local ystep = ystep * 2
+						for y=math.floor(ymin/ystep)*ystep,math.ceil(ymax/ystep)*ystep,ystep do
+							self.font:draw{
+								pos={xmin * .9 + xmax * .1, y + fontSizeY * .5},
+								text=tostring(y),
+								color = {1,1,1,1},
+								fontSize={fontSizeX, -fontSizeY},
+								multiLine=false,
+							}
+						end
 						self.font:draw{
-							pos={xmin * .9 + xmax * .1, y + fontSizeY * .5},
-							text=tostring(y),
+							pos={xmin, ymax},
+							text=info.name,
 							color = {1,1,1,1},
 							fontSize={fontSizeX, -fontSizeY},
 							multiLine=false,
 						}
 					end
-					self.font:draw{
-						pos={xmin, ymax},
-						text=info.name,
-						color = {1,1,1,1},
-						fontSize={fontSizeX, -fontSizeY},
-						multiLine=false,
-					}
+				
+				end
+
+				gl.glViewport(0,0,w,h)
+				gl.glMatrixMode(gl.GL_PROJECTION)
+				gl.glLoadIdentity()
+				gl.glOrtho(0, w/h, 0, 1, -1, 1)
+				gl.glMatrixMode(gl.GL_MODELVIEW)
+				gl.glLoadIdentity()
+
+				if self.font then
+					local strings = sims:map(function(sim)
+						return {
+							text = ('(%.3f) '):format(sim.t)..sim.name,
+							color = sim.color,
+						}
+					end)
+					local fontSizeX = .02
+					local fontSizeY = .02
+					local maxlen = strings:map(function(string)
+						return self.font:draw{
+							text = string.text,
+							fontSize = {fontSizeX, -fontSizeY},
+							dontRender = true,
+							multiLine = false,
+						}
+					end):inf()
+					for i,string in ipairs(strings) do
+						self.font:draw{
+							pos = {w/h-maxlen,fontSizeY*(i+1)},
+							text = string.text,
+							color = {string.color[1],string.color[2],string.color[3],1},
+							fontSize = {fontSizeX, -fontSizeY},
+							multiLine = false,
+						}
+					end
 				end
 			
-			end
-
-			gl.glViewport(0,0,w,h)
-			gl.glMatrixMode(gl.GL_PROJECTION)
-			gl.glLoadIdentity()
-			gl.glOrtho(0, w/h, 0, 1, -1, 1)
-			gl.glMatrixMode(gl.GL_MODELVIEW)
-			gl.glLoadIdentity()
-
-			if self.font then
-				local strings = sims:map(function(sim)
-					return {
-						text = ('(%.3f) '):format(sim.t)..sim.name,
-						color = sim.color,
-					}
-				end)
-				local fontSizeX = .02
-				local fontSizeY = .02
-				local maxlen = strings:map(function(string)
-					return self.font:draw{
-						text = string.text,
-						fontSize = {fontSizeX, -fontSizeY},
-						dontRender = true,
-						multiLine = false,
-					}
-				end):inf()
-				for i,string in ipairs(strings) do
-					self.font:draw{
-						pos = {w/h-maxlen,fontSizeY*(i+1)},
-						text = string.text,
-						color = {string.color[1],string.color[2],string.color[3],1},
-						fontSize = {fontSizeX, -fontSizeY},
-						multiLine = false,
-					}
+				graphCol = graphCol + 1
+				if graphCol == graphsWide then
+					graphCol = 0
+					graphRow = graphRow + 1
 				end
 			end
-		
-			graphCol = graphCol + 1
-			if graphCol == graphsWide then
-				graphCol = 0
-				graphRow = graphRow + 1
-			end
 		end
-	end
-	if self.reportError then
-		self.reportError = false
-	end
-	gl.glViewport(0,0,w,h)
+		if self.reportError then
+			self.reportError = false
+		end
+		gl.glViewport(0,0,w,h)
+	end	
 	
-	TestApp.super.update(self, ...)
+	return TestApp.super.update(self, ...)
 end
 
 TestApp():run()

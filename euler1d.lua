@@ -61,13 +61,6 @@ do
 		{['log reconstruction error'] = function(self,i)
 			return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i])
 		end},
-		
-		--[[ matching SRHD
-		{eInt = EInt / rho},
-		{h = H / rho},
-		{Sx = mx},
-		{tau = ETotal},
-		--]]
 	}
 end
 
@@ -178,7 +171,7 @@ function Euler1D:calcRoeValues(qL, qR)
 	return rho, vx, hTotal, Cs
 end
 
-function Euler1D:calcEigenvalues(vx, hTotal, Cs)
+function Euler1D:calcEigenvalues(vx, Cs)
 	return vx - Cs, vx, vx + Cs
 end
 
@@ -194,7 +187,11 @@ function Euler1D:calcEigenvaluesFromCons(rho, mx, ETotal)
 	local rho, vx, P = self:calcPrimFromCons(rho, mx, ETotal)
 	local hTotal = self:calc_hTotal(rho, P, ETotal)
 	local Cs = self:calcSpeedOfSound(vx, hTotal)
-	return self:calcEigenvalues(vx, hTotal, Cs)
+	return self:calcEigenvalues(vx, Cs)
+end
+
+function Euler1D:calcConsFromState(...)
+	return ...
 end
 
 -- used by HLL
@@ -210,7 +207,7 @@ function Euler1D:calcEigenBasisWrtPrims(rho, vx, hTotal, Cs, F, lambda, evL, evR
 	Cs = Cs or self:calcSpeedOfSound(vx, hTotal)
 	local gamma = self.gamma
 
-	fill(lambda, self:calcEigenvalues(vx, hTotal, Cs))
+	fill(lambda, self:calcEigenvalues(vx, Cs))
 
 	local CsSq = Cs * Cs
 
@@ -254,46 +251,28 @@ function Euler1D:calcEigenBasis(rho, vx, hTotal, Cs, F, lambda, evL, evR)
 	local CsSq = Cs * Cs
 	local vxSq = vx * vx
 
-	if F then
-		F[1][1] = 0
-		F[1][2] = 1
-		F[1][3] = 0
-		F[2][1] = .5 * (gamma - 3) * vxSq
-		F[2][2] = (3 - gamma) * vx
-		F[2][3] = gamma - 1
-		F[3][1] = vx * (.5 * (gamma - 1) * vxSq - hTotal)
-		F[3][2] = hTotal - (gamma - 1) * vxSq
-		F[3][3] = gamma * vx
-	end
-
-	fill(lambda, self:calcEigenvalues(vx, hTotal, Cs))
+	fill(F[1], 0, 1, 0)
+	fill(F[2], .5*(gamma-3)*vxSq, (3-gamma)*vx, gamma-1)
+	fill(F[3], vx*(.5*(gamma-1)*vxSq - hTotal), hTotal-(gamma-1)*vxSq, gamma*vx)
 	
-	-- left
-	evR[1][1] = 1
-	evR[2][1] = vx - Cs
-	evR[3][1] = hTotal - Cs * vx
-	-- vel
-	evR[1][2] = 1
-	evR[2][2] = vx
-	evR[3][2] = .5 * vxSq
-	-- right
-	evR[1][3] = 1
-	evR[2][3] = vx + Cs
-	evR[3][3] = hTotal + Cs * vx
+	fill(lambda, self:calcEigenvalues(vx, Cs))
 
-	-- left
-	evL[1][1] = (.5 * (gamma - 1) * vxSq + Cs * vx) / (2 * CsSq)
-	evL[1][2] = -(Cs + (gamma - 1) * vx) / (2 * CsSq)
-	evL[1][3] = (gamma - 1) / (2 * CsSq)
-	-- vel
-	evL[2][1] = 1 - (gamma - 1) * vxSq / (2 * CsSq)
-	evL[2][2] = (gamma - 1) * vx / CsSq
-	evL[2][3] = -(gamma - 1) / CsSq
-	-- right
-	evL[3][1] = (.5 * (gamma - 1) * vxSq - Cs * vx) / (2 * CsSq)
-	evL[3][2] = (Cs - (gamma - 1) * vx) / (2 * CsSq)
-	evL[3][3] = (gamma - 1) / (2 * CsSq)
+	fill(evR[1], 1, 1, 1)
+	fill(evR[2], vx - Cs, vx, vx + Cs)
+	fill(evR[3], hTotal - Cs * vx, .5 * vxSq, hTotal + Cs * vx)
 
+	fill(evL[1],
+		(.5 * (gamma - 1) * vxSq + Cs * vx) / (2 * CsSq),
+		 -(Cs + (gamma - 1) * vx) / (2 * CsSq),
+		 (gamma - 1) / (2 * CsSq))
+	fill(evL[2], 
+		1 - (gamma - 1) * vxSq / (2 * CsSq),
+		(gamma - 1) * vx / CsSq,
+		-(gamma - 1) / CsSq)
+	fill(evL[3],
+		(.5 * (gamma - 1) * vxSq - Cs * vx) / (2 * CsSq),
+		(Cs - (gamma - 1) * vx) / (2 * CsSq),
+		(gamma - 1) / (2 * CsSq))
 end
 
 -- functions that use sim:
@@ -302,11 +281,7 @@ end
 -- TODO how often do we create new tables of this?
 function Euler1D:calcInterfaceEigenvalues(sim, i, qL, qR)
 	local rho, vx, hTotal, Cs = self:calcRoeValues(qL, qR)
-	
-	local lambda = {self:calcEigenvalues(vx, hTotal, Cs)}
-	for j=1,self.numStates do
-		sim.eigenvalues[i][j] = lambda[j]
-	end
+	fill(sim.eigenvalues[i], self:calcEigenvalues(vx, Cs))
 end
 
 -- used by Roe
@@ -318,20 +293,5 @@ function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local evR = sim.eigenvectors[i]
 	self:calcEigenBasis(rho, vx, hTotal, Cs, F, lambda, evL, evR) 
 end
-
-
---[[ do something to prove source terms are working ...
-function Euler1D:sourceTerm(sim, qs)
-	local source = sim:newState()
-	for i=1,sim.gridsize do
-		local x = sim.xs[i]
-		local rho = qs[i][1]
-		local v = math.abs(x) < .1 and -.01 or 0
-		qs[i][2] = qs[i][2] + rho * v
-		qs[i][3] = qs[i][3] + .5 * rho * v * v
-	end
-	return source
-end
---]]
 
 return Euler1D

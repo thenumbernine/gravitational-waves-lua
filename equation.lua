@@ -44,16 +44,23 @@ Equation.fluxTransform = Equation.buildField'fluxMatrix'
 Equation.applyLeftEigenvectors = Equation.buildField'eigenvectorsInverse'
 Equation.applyRightEigenvectors = Equation.buildField'eigenvectors'
 
-function Equation:calcMinMaxEigenvaluesFromCons(...)
-	return firstAndLast(self:calcEigenvaluesFromCons(...))
+function Equation:calcEigenvaluesFromState(...)
+	return self:calcEigenvaluesFromCons(self:calcConsFromState(...))
+end
+
+function Equation:calcMinMaxEigenvaluesFromState(...)
+	if self.calcMinMaxEigenvaluesFromCons then
+		return self:calcMinMaxEigenvaluesFromCons(self:calcConsFromState(...))
+	else
+		return firstAndLast(self:calcEigenvaluesFromState(...))
+	end
 end
 
 -- functions that use sim:
 
 -- used by SolverFV
 function Equation:calcCellMinMaxEigenvalues(sim, i)
-	return self:calcMinMaxEigenvaluesFromCons(table.unpack(sim.qs[i]))
+	return self:calcMinMaxEigenvaluesFromState(table.unpack(sim.qs[i]))
 end
-
 
 return Equation
