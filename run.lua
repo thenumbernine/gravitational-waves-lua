@@ -783,7 +783,6 @@ function TestApp:update(...)
 		for _,graphNameEnabled in ipairs(graphNamesEnabled) do
 			if graphNameEnabled.ptr[0] then		
 				local name = graphNameEnabled.name
-				local info = sims[1].equation.graphInfoForNames[name]
 
 				local xmin, xmax, ymin, ymax
 				for _,sim in ipairs(sims) do
@@ -795,7 +794,7 @@ function TestApp:update(...)
 							
 							local y = siminfo.getter(sim,i)
 							if not y then 
-								--error("failed to get for getter "..info.name)
+								--error("failed to get for getter "..name)
 							else
 								sim.ys[i] = y
 								if y == y and math.abs(y) < math.huge then
@@ -806,7 +805,7 @@ function TestApp:update(...)
 						end
 					end
 					if self.reportError then
-						print(info.name, 'min', simymin, 'max', simymax)
+						print(name, 'min', simymin, 'max', simymax)
 					end
 
 					if not simymin or not simymax or simymin ~= simymin or simymax ~= simymax then
@@ -962,7 +961,7 @@ function TestApp:update(...)
 						end
 						self.font:draw{
 							pos={xmin, ymax},
-							text=info.name,
+							text=name,
 							color = {1,1,1,1},
 							fontSize={fontSizeX, -fontSizeY},
 							multiLine=false,

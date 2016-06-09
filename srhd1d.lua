@@ -46,10 +46,10 @@ function SRHD1D:init(...)
 	self.gamma = 5/3
 	
 	local q = function(self,i) return self.qs[i] end
-	local prim = function(self,i) return self.ws[i] end
-	local rho = prim:_(1)
-	local vx = prim:_(2)
-	local eInt = prim:_(3)
+	local w = function(self,i) return self.ws[i] end
+	local rho = w:_(1)
+	local vx = w:_(2)
+	local eInt = w:_(3)
 	
 	-- a function to return a function computed via arithmetic operations on functions ...
 	-- the problem is that calcP will multiply self.gamma once, which will create a lambda closure with the number value
