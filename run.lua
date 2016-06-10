@@ -306,7 +306,7 @@ do
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
 	sims:insert(Roe(table(args, {equation = Euler1D()})))
-	--sims:insert(Roe(table(args, {equation = Euler1DQuasiLinear()})))
+	sims:insert(Roe(table(args, {equation = Euler1DQuasiLinear()})))
 	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
 	--sims:insert(Roe(table(args, {usePPM=true})))
 	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .01})))
