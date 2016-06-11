@@ -404,11 +404,14 @@ assertfinite(Cax)
 	eigenvalues[2] = vx - Cax
 	eigenvalues[3] = vx - Cs
 	eigenvalues[4] = vx
-	eigenvalues[5] = 0
-	--eigenvalues[5] = vx
+	--eigenvalues[5] = 0
+	eigenvalues[5] = vx
 	eigenvalues[6] = vx + Cax
 	eigenvalues[7] = vx + Cs
 	eigenvalues[8] = vx + Cf
+	--[[
+	if the ETotal eigenvalue is vx then the 7x7 system should also include some extra term to advect the vx, right?
+	--]]
 
 for j=1,8 do
 	assertfinite(eigenvalues[j])

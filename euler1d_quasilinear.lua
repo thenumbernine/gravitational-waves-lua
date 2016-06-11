@@ -1,3 +1,38 @@
+--[[
+
+dU/dt + F(U) = 0 <= conservative form
+dU/dt + A(U) dU/dx = 0
+for A(U) = dF/dU
+dF/dU = A(U) = RU Lambda LU	<- eigenvector decomposition
+
+dU/dW dW/dt + dF/dU dU/dW dW/dx = 0
+dW/dt + dW/dU dF/dU dU/dW dW/dx = 0
+dW/dt + A(W) dW/dx = 0	<= quasilinear form
+so A(W) = dW/dU dF/dU dU/dW
+A(W) = dW/dU A(U) dU/dW
+A(U) = dU/dW A(W) dW/dU
+A(W) = RW Lambda LW
+
+so RU = dU/dW RW <=> RW = dW/dU RU
+and LU = LW dW/dU <=> LW = LU dU/dW
+
+dU/dt - dF/dx = 0
+dU/dt = (Fl - Fr)/dx <= integrate-by-parts
+for F = A(U) (UR + UL)/2 - RU Lambda (sgn(Lambda) + phi(rTilde) (Lambda * dt/dx - sgn(Lambda)) LU (UR - UL)/2
+F = dU/dW [A(W) dW/dU (dU/dW WR + dU/dW WL)/2 - dW/dU RW Lambda (sgn(Lambda) + phi(rTilde) (Lambda * dt/dx - sgn(Lambda)) LW dW/dU (dU/dW WR - dU/dW WL)/2]
+F = dU/dW [A(W) (WR + WL)/2 - RW Lambda (sgn(Lambda) + phi(rTilde) (Lambda * dt/dx - sgn(Lambda)) LW (WR - WL)/2]
+F = dU/dW FW
+for FW = A(W) (WR + WL)/2 - RW Lambda (sgn(Lambda) + phi(rTilde) (Lambda * dt/dx - sgn(Lambda)) LW (WR - WL)/2
+
+dU/dW dW/dt = (Fl - Fr)/dx
+dU/dW dW/dt = (dU/dW FWl - dU/dW FWr)/dx
+dW/dt = (FWl - FWr)/dx
+
+... except the dU/dW's have to be evaluated at the correct left and right locations ...
+the flux dU/dW is at the interface, the left-and-right are at the cell center ...
+F_i+1/2 = dU/dW_i+1/2 [A(U_i+1/2) dW/dU_i+1/2 (dU/dW_i+1 W_i+1 + dU/dW_i W_i)/2 - dW/dU_i+1/2 RW_i+1/2 Lambda (sgn(Lambda) + phi(rTilde) (Lambda * dt/dx - sgn(Lambda)) LW_i+1/2 dW/dU_i+1/2 (dU/dW_i+1 W_i+1 - dU/dW_i W_i)/2]
+
+--]]
 local table = require 'ext.table'
 local class = require 'ext.class'
 local Equation = require 'equation'

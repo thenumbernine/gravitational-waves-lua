@@ -63,4 +63,7 @@ function Equation:calcCellMinMaxEigenvalues(sim, i)
 	return self:calcMinMaxEigenvaluesFromState(table.unpack(sim.qs[i]))
 end
 
+-- by default, assume the state is conservative variables
+function Equation:calcConsFromState(...) return ... end
+
 return Equation
