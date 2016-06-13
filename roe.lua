@@ -5,7 +5,26 @@ local Roe = class(SolverFV)
 
 function Roe:init(args)
 	self.equation = assert(args.equation or self.equation)
+
+	-- add graphs of eigenbasis orthogonality and flux derivative reconstruction errors 
+	local graphInfo = {
+		name = 'log eigenbasis error',
+		getter = function(self,i)
+			return math.log(self.eigenbasisErrors[i], 10)
+		end,
+	}
+	self.equation.graphInfos:insert(graphInfo)
+	self.equation.graphInfoForNames[graphInfo.name] = graphInfo
 	
+	local graphInfo = {
+		name = 'log reconstruction error',
+		getter = function(self,i)
+			return math.log(self.fluxMatrixErrors[i], 10)
+		end,
+	}
+	self.equation.graphInfos:insert(graphInfo)
+	self.equation.graphInfoForNames[graphInfo.name] = graphInfo
+
 	self.name = self.equation.name .. ' Roe'
 	
 	Roe.super.init(self, args)

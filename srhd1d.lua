@@ -75,8 +75,6 @@ function SRHD1D:init(...)
 		{Sx = Sx},
 		{tau = tau},
 		{W = W},
-		{['log eigenbasis error'] = function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end},
-		{['log reconstruction error'] = function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end},
 		{['primitive reconstruction error'] = function(self,i) return self.primitiveReconstructionErrors and self.primitiveReconstructionErrors[i] and math.log(self.primitiveReconstructionErrors[i]) end},
 	}
 end

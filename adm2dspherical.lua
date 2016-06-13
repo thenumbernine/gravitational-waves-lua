@@ -159,8 +159,6 @@ function ADM2DSpherical:init(args, ...)
 		{K_hh = K_hh},
 		{['V_r*r'] = V_r * r},
 		{volume = volume},
-		{['log eigenbasis error'] = function(self,i) return math.log(self.eigenbasisErrors[i]) end},
-		{['log reconstruction error'] = function(self,i) return math.log(self.fluxMatrixErrors[i]) end},
 	}
 end
 

@@ -276,7 +276,7 @@ do
 	local args = {
 		equation = Euler1D(),
 		--stopAtTimes = {.1},
-		gridsize = 1000,
+		gridsize = 100,
 		domain = {xmin=-1, xmax=1},
 		boundaryMethod = boundaryMethods.freeFlow,
 		--boundaryMethod = boundaryMethods.freeFlow,

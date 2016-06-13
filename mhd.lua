@@ -30,7 +30,6 @@ do
 	local PMag = EMag	-- magnetic pressure
 	local PTotal = P + PMag	-- total pressure
 	local S = P / rho^gamma	-- mhd entropy the same as non-mhd?
-	-- [[ full mhd
 	MHD:buildGraphInfos{
 		{rho=rho},
 		{vx=vx}, {vy=vy}, {vz=vz},
@@ -41,22 +40,8 @@ do
 		{S=S},
 		
 		{ETotal=ETotal}, {EKin=EKin}, {EInt=EInt}, {EHydro=EHydro}, {EMag=EMag},
-		{['eigenbasis error'] = function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end},
-		{['reconstruction error'] = function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end},
 	}
-	--]]
-	--[[ matching Euler
-	MHD:buildGraphInfos{
-		{rho=rho},
-		{vx=vx},
-		{P=P},
-		{S=S},
-		{mom=mx},
-		{ETotal=ETotal},
-		{['eigenbasis error'] = function(self,i) return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i]) end},
-		{['reconstruction error'] = function(self,i) return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i]) end},
-	}
-	--]]
+
 end
 MHD.graphInfoForNames = MHD.graphInfos:map(function(info,i)
 	return info, info.name

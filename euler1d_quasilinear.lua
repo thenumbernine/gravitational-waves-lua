@@ -71,13 +71,6 @@ do
 		-- conservative
 		{mx = mx},
 		{ETotal = ETotal},
-		-- roe scheme
-		{['log eigenbasis error'] = function(self,i)
-			return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i])
-		end},
-		{['log reconstruction error'] = function(self,i)
-			return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i])
-		end},
 	}
 end
 

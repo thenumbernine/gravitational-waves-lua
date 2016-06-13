@@ -217,8 +217,6 @@ do
 		{K = K},
 		{ATilde_xx = ATilde_xx},
 		{volume = volume},
-		{['log eigenbasis error'] = function(self,i) return math.log(self.eigenbasisErrors[i]) end},
-		{['log reconstuction error'] = function(self,i) return math.log(self.fluxMatrixErrors[i]) end},
 	}
 end
 

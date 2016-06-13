@@ -146,10 +146,6 @@ function ADM3D:init(args, ...)
 		local gamma_zz = q:_(7)
 		getters:insert{volume = alpha * math.sqrt:o(mat33sym.det(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz))}
 	end
-	getters:append{
-		{['log eigenbasis error'] = function(self,i) return math.log(self.eigenbasisErrors[i]) end},
-		{['log reconstruction error'] = function(self,i) return math.log(self.fluxMatrixErrors[i]) end},
-	}
 	local suffix3 = {'x', 'y', 'z'}
 	local suffix3x3sym = {'xx', 'xy', 'xz', 'yy', 'yz', 'zz'}
 	add{name='A_', index=8, suffix=suffix3}
@@ -168,8 +164,6 @@ function ADM3D:init(args, ...)
 		{D_xxx = function(self,i) return self.qs[i][11] end},
 		{K_xx = function(self,i) return self.qs[i][29] end},
 		{volume = function(self,i) return self.qs[i][1] * math.sqrt(self.qs[i][2]) end},
-		{['log eigenbasis error'] = function(self,i) return math.log(self.eigenbasisErrors[i]) end},
-		{['log reconstuction error'] = function(self,i) return math.log(self.fluxMatrixErrors[i]) end},
 	}
 --]]
 
