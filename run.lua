@@ -681,19 +681,33 @@ function TestApp:updateGUI()
 		sims:insert(sim)
 	end
 
+	for _, graphNameEnabled in ipairs(graphNamesEnabled) do
+		graphNameEnabled.found = false
+	end
 	for _,sim in ipairs(sims) do
 		for _,graphInfo in ipairs(sim.equation.graphInfos) do
-			if not graphNamesEnabled:find(nil, function(graphName) return graphName.name == graphInfo.name end) then
+			local _, graphNameEnabled = graphNamesEnabled:find(nil, function(graphName)
+				return graphName.name == graphInfo.name
+			end)
+			if graphNameEnabled then
+				graphNameEnabled.found = true
+			else
 				graphNamesEnabled:insert{
 					name = graphInfo.name,
 					ptr = ffi.new('bool[1]', true),
+					found = true,
 				}
 			end
 		end
 	end
+	for i=#graphNamesEnabled,1,-1 do
+		if not graphNamesEnabled[i].found then
+			graphNamesEnabled:remove(i)
+		end
+	end
 	--[[
-	graphNamesEnabled = graphNamesEnabled:keys():sort(function(a,b)
-		if #a.name ~= #b then return #a < #b end
+	graphNamesEnabled = graphNamesEnabled:sort(function(a,b)
+		if #a.name ~= #b.name then return #a.name < #b.name end
 		return a.name < b.name
 	end)
 	--]]

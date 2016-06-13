@@ -193,7 +193,9 @@ function Roe:calcFluxAtInterface(dt, i)
 	local qR = self:get_qR(i)
 	local lambdas = self.eigenvalues[i]
 
-	-- shortcut if the equation has a 'calcFlux' function
+	--[[ shortcut if the equation has a 'calcFlux' function
+	-- but this bypasses any influence from the flux limiter ... 
+	-- so I don't think I'll use it
 	if canCalcFlux then
 		if lambdas[1] >= 0 then	-- smallest eigenvalue >= 0
 			fill(self.fluxes[i], self.equation:calcFluxForState(qL))
@@ -204,6 +206,7 @@ function Roe:calcFluxAtInterface(dt, i)
 			return
 		end
 	end
+	--]]
 
 	local qAvg = {}
 	for j=1,self.numStates do
