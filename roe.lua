@@ -12,7 +12,6 @@ function Roe:init(args)
 
 	self.deltaQTildes = {}
 	self.rTildes = {}
-	self.Phis = {}
 	self.fluxMatrix = {}
 	self.eigenvectors = {}
 	self.eigenvectorsInverse = {}
@@ -38,27 +37,32 @@ function Roe:reset()
 		end
 	end
 
-	for i=1,self.gridsize do
-		self.Phis[i] = {}
-		for j=1,self.numStates do
-			self.Phis[i][j] = 1
-		end
-	end
-
 	for i=1,self.gridsize+1 do
+		-- #states x #states
 		self.fluxMatrix[i] = {}
-		self.eigenvectors[i] = {}
-		self.eigenvectorsInverse[i] = {}
 		for j=1,self.numStates do
 			self.fluxMatrix[i][j] = {}
-			self.eigenvectors[i][j] = {}
-			self.eigenvectorsInverse[i][j] = {}
 			for k=1,self.numStates do
 				self.fluxMatrix[i][j][k] = 0
-				self.eigenvectors[i][j][k] = 0
+			end
+		end
+		-- #waves x #states
+		self.eigenvectorsInverse[i] = {}
+		for j=1,self.numWaves do
+			self.eigenvectorsInverse[i][j] = {}
+			for k=1,self.numStates do
 				self.eigenvectorsInverse[i][j][k] = 0
 			end
 		end
+		-- #states x #waves
+		self.eigenvectors[i] = {}
+		for j=1,self.numStates do
+			self.eigenvectors[i][j] = {}
+			for k=1,self.numWaves do
+				self.eigenvectors[i][j][k] = 0
+			end
+		end
+		
 		self.eigenbasisErrors[i] = 0
 		self.fluxMatrixErrors[i] = 0
 	end
@@ -72,8 +76,8 @@ function Roe:calcInterfaceEigenBasis()
 	-- Roe solver:
 	-- 1) calculate eigenbasis at interface with Roe-weighted average of states
 	for i=2,self.gridsize do
-		local qL = self.qs[i-1]
-		local qR = self.qs[i]
+		local qL = self:get_qL(i)
+		local qR = self:get_qR(i)
 		
 		self.equation:calcInterfaceEigenBasis(self,i,qL,qR)
 
@@ -103,13 +107,13 @@ function Roe:calcInterfaceEigenBasis()
 
 			-- eigenCoords_k = invQ_kl basis_l
 			local eigenCoords = self.equation:applyLeftEigenvectors(self, i, basis)
-			for k=1,self.numStates do
+			for k=1,self.numWaves do
 				assert(type(eigenCoords[k])=='number', "failed for coord "..k.." got type "..type(eigenCoords[k]))
 			end
 
 			-- eigenScaled_k = lambda_k * eigenCoords_k
 			local eigenScaled = {}
-			for k=1,self.numStates do
+			for k=1,self.numWaves do
 				eigenScaled[k] = self.eigenvalues[i][k] * eigenCoords[k]
 			end
 			
@@ -127,6 +131,13 @@ function Roe:calcInterfaceEigenBasis()
 				fluxMatrixError = fluxMatrixError + math.abs(transformed[k] - newtransformed[k])
 			end
 		end
+		
+		-- the eigenbasis should only reconstruct to the identity with dimension equal to numWaves
+		-- however numStates basis vectors have to be tested to find this
+		-- so subtract off the difference
+		-- or, if you know specifically what conservative values are zeroed, exclude those from the basis test  ... but that only works if it is a specific conservative variable, and not a linear combination of some
+		eigenbasisError = eigenbasisError - (self.numStates - self.numWaves)
+		
 		self.eigenbasisErrors[i] = eigenbasisError
 		self.fluxMatrixErrors[i] = fluxMatrixError
 	end
@@ -158,7 +169,7 @@ end
 -- depends on calcDeltaQTildes
 function Roe:calcRTildes()
 	for i=2,self.gridsize do
-		for j=1,self.numStates do
+		for j=1,self.numWaves do
 			if self.deltaQTildes[i][j] == 0 then
 				self.rTildes[i][j] = 0
 			else
@@ -172,127 +183,74 @@ function Roe:calcRTildes()
 	end
 end
 
---[[
-compute Phi vector along interfaces
-Phi = diag(sign(v_i) + 1/2 phi * (dt/dx v_i - sign(v_i)))
-based on self.rTildes and self.eigenvalues
---]]
-function Roe:calcPhis(dt)
-	for i=2,self.gridsize do
-		local dx = self.xs[i] - self.xs[i-1]
-		for j=1,self.numStates do
-			local phi = self.fluxLimiter(self.rTildes[i][j])
-			local theta = self.eigenvalues[i][j] >= 0 and 1 or -1
-			local epsilon = self.eigenvalues[i][j] * dt / dx
-			self.Phis[i][j] = theta + phi * (epsilon - theta)
-		end
-	end
-end
-
---[[
-calc interface flux vector influence from left/right states
-not used by Roe (for efficiency's sake), but used by subclasses
-
-flux = ALeft * qs[i-1] + ARight * qs[i]
-for matrixes ALeft & ARight
-
-i = interface index
-q = left/right q vector
-dir = direction sign (1 = from left, -1 = from right)
---]]
-function Roe:calcCellFluxForSide(i, q, dir)
-	if i == 1 or i == self.gridsize+1 then
-		local zero = {}
-		for j=1,self.numStates do
-			zero[j] = 0
-		end
-		return zero
-	end
-	local qTilde = self.equation:applyLeftEigenvectors(self, i, q)
-	local fluxTilde = {}
-	for j=1,self.numStates do
-		fluxTilde[j] = .5 * self.eigenvalues[i][j] * qTilde[j] * (1 + dir * self.Phis[i][j])
-	end
-	return self.equation:applyRightEigenvectors(self, i, fluxTilde)
-end
-
-function Roe:calcCellFlux(i)
-	local qL = self.qs[i-1]
-	local qR = self.qs[i]
-	local fluxFromL = self:calcCellFluxForSide(i, qL, 1)
-	local fluxFromR = self:calcCellFluxForSide(i, qR, -1)
-	local result = {}
-	for i=1,self.numStates do
-		result[i] = fluxFromL[i] + fluxFromR[i]
-	end
-	return result
-end
-
---[[
-calc derivative of state
-not used by Roe (for efficiency's sake), but used by subclasses
---]]
-function Roe:calcDeriv()
-	local dq_dt = self:newState()
-	for i=1,self.gridsize do
-		local dx = self.ixs[i+1] - self.ixs[i]
-		local fluxL = self:calcCellFlux(i)
-		local fluxR = self:calcCellFlux(i+1)
-		for j=1,self.numStates do
-			dq_dt[i][j] = (fluxL[j] - fluxR[j]) / dx
-		end		
-	end
-	return dq_dt
-end
-
 -- calcluate self.fluxes
 -- depends on self:calcDeltaQTildes and self:calcRTiles
--- TODO this should be 'calcFluxes'
--- and 'calcFlux' should be 'calcDerivByFlux' or something?
-Roe.useFluxMatrix = false
-function Roe:calcFluxesAtInterface(dt)
+function Roe:calcFluxAtInterface(dt, i)
+	-- if we can calculate the flux directly then use that
+	local canCalcFlux = self.equation.calcFluxForState
 	
-	-- transform back
-	for i=2,self.gridsize do
-		local qL = self:get_qL(i)
-		local qR = self:get_qR(i)
+	local qL = self:get_qL(i)
+	local qR = self:get_qR(i)
+	local lambdas = self.eigenvalues[i]
 
-		local qAvg = {}
+	-- shortcut if the equation has a 'calcFlux' function
+	if canCalcFlux then
+		if lambdas[1] >= 0 then	-- smallest eigenvalue >= 0
+			fill(self.fluxes[i], self.equation:calcFluxForState(qL))
+			return	
+		end
+		if lambdas[self.numWaves] <= 0 then	-- largest eigenvalues <= 0
+			fill(self.fluxes[i], self.equation:calcFluxForState(qR))
+			return
+		end
+	end
+
+	local qAvg = {}
+	for j=1,self.numStates do
+		qAvg[j] = .5 * (qR[j] + qL[j])
+	end
+
+	local fluxTilde = {}
+	for j=1,self.numWaves do
+		local lambda = lambdas[j]
+		local phi = self.fluxLimiter(self.rTildes[i][j])
+		local sgnLambda = lambda >= 0 and 1 or -1
+		local dx = self.xs[i] - self.xs[i-1]
+		local epsilon = lambda * dt / dx
+		local deltaQTilde = self.deltaQTildes[i][j]
+		fluxTilde[j] = -.5 * lambda * deltaQTilde * (sgnLambda + phi * (epsilon - sgnLambda))
+	end
+	
+	if not canCalcFlux then
+		local qAvgTildes = self.equation:applyLeftEigenvectors(self, i, qAvg)
+		for j=1,self.numWaves do
+			fluxTilde[j] = fluxTilde[j] + lambdas[j] * qAvgTildes[j]
+		end
+	end
+	
+	local flux = self.equation:applyRightEigenvectors(self, i, fluxTilde)
+	
+	-- using the flux itself allows for complete reconstruction even in the presence of zero-self.eigenvalues
+	if canCalcFlux then
+		local FL = {self.equation:calcFluxForState(qL)}
+		local FR = {self.equation:calcFluxForState(qR)}
 		for j=1,self.numStates do
-			qAvg[j] = .5 * (qR[j] + qL[j])
+			flux[j] = flux[j] + .5 * (FL[j] + FR[j])
 		end
-			
-		local fluxTilde = {}
-		for j=1,self.numStates do
-			local phi = self.fluxLimiter(self.rTildes[i][j])
-			local theta = self.eigenvalues[i][j] >= 0 and 1 or -1
-			local dx = self.xs[i] - self.xs[i-1]
-			local epsilon = self.eigenvalues[i][j] * dt / dx
-			local deltaFluxTilde = self.eigenvalues[i][j] * self.deltaQTildes[i][j]
-			fluxTilde[j] = -.5 * deltaFluxTilde * (theta + phi * (epsilon - theta))
-		end
-		
-		if not self.useFluxMatrix then
-			local qAvgTildes = self.equation:applyLeftEigenvectors(self, i, qAvg)
-			for j=1,self.numStates do
-				fluxTilde[j] = fluxTilde[j] + self.eigenvalues[i][j] * qAvgTildes[j]
-			end
-		end
-		
-		self.fluxes[i] = self.equation:applyRightEigenvectors(self, i, fluxTilde)
-		
-		-- using the flux matrix itself allows for complete reconstruction even in the presence of zero-self.eigenvalues
-		if self.useFluxMatrix then
-			local fluxQs = self.equation:fluxTransform(self, i, qAvg)
-			for j=1,self.numStates do
-				self.fluxes[i][j] = self.fluxes[i][j] + fluxQs[j]
-			end
-		end
+	end
+
+	self.fluxes[i] = flux
+end
+
+function Roe:calcFluxesAtInterface(dt)
+	for i=2,self.gridsize do
+		self:calcFluxAtInterface(dt, i)
 	end
 end
 
+-- TODO calcFlux returns the derivative vector
+-- so how about renaming this to calcDerivFromFlux ?
 function Roe:calcFlux(dt)
-
 	-- used by all following methods in calcFlux
 	self:calcInterfaceEigenBasis()
 
@@ -302,7 +260,6 @@ function Roe:calcFlux(dt)
 	-- slope limit on interface difference
 	self:calcRTildes()
 
--- [=[ uses fluxes (and optionally the flux matrix)
 	self:calcFluxesAtInterface(dt)
 
 	local dq_dts = self:newState()
@@ -313,14 +270,6 @@ function Roe:calcFlux(dt)
 		end
 	end
 	return dq_dts
---]=]
---[=[ doesn't use the flux vector (extra calculations) but uses the same routine that the implicit solver uses
-	-- NOTICE this method is required for certain subclasses, but I'm going to phase that out
-	-- phis based on eigenvalues and flux limiter of rTildes
-	self:calcPhis(dt)
-	
-	return self:calcDeriv()
---]=]
 end
 
 return Roe

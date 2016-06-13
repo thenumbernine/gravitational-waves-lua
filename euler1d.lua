@@ -49,10 +49,11 @@ do
 		{P = P},
 		-- other vars
 		{EInt = EInt},
+		{EKin = EKin},
 		{H = H},
 		{S = S},
 		-- conservative
-		{mx = mx},
+		--{mx = mx},
 		{ETotal = ETotal},
 		-- roe scheme
 		{['log eigenbasis error'] = function(self,i)
@@ -89,7 +90,7 @@ function Euler1D:initCell(sim,i)
 	local vx = x<0 and .5-delta or .5+delta
 	local P = 1
 	--]]
-	--[[ Sod
+	-- [[ Sod
 	local rho = x < 0 and 1 or .125
 	local vx = 0
 	local P = x < 0 and 1 or .1
@@ -108,7 +109,7 @@ function Euler1D:initCell(sim,i)
 
 	-- matching the SRHD results
 	
-	-- [[ Sod
+	--[[ Sod
 	self.gamma = 7/5
 	local rho = x < 0 and 1 or .125
 	local vx = 0

@@ -30,7 +30,7 @@ function SolverFV:reset()
 	
 	for i=1,self.gridsize+1 do
 		self.eigenvalues[i] = {}
-		for j=1,self.numStates do
+		for j=1,self.numWaves do
 			self.eigenvalues[i][j] = 0
 		end
 	end
@@ -45,8 +45,8 @@ function SolverFV:calcDT()
 			--[[ using interface 
 			local eigenvaluesL = self.eigenvalues[i]
 			local eigenvaluesR = self.eigenvalues[i+1]
-			local lambdaMax = math.max(0, unpack(eigenvaluesL))
-			local lambdaMin = math.min(0, unpack(eigenvaluesR))
+			local lambdaMax = eigenvaluesL[#eigenvaluesL] -- math.max(0, unpack(eigenvaluesL))
+			local lambdaMin = eigenvaluesR[1] -- math.min(0, unpack(eigenvaluesR))
 			--]]
 			-- [[ using cell
 			local lambdaMin, lambdaMax = self.equation:calcCellMinMaxEigenvalues(self, i)

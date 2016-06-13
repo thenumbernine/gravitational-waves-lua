@@ -8,7 +8,8 @@ function Solver:init(args)
 	self.equation = assert(args.equation or self.equation)
 	
 	self.numStates = self.equation.numStates
-	
+	self.numWaves = self.equation.numWaves or self.numStates
+
 	self.gridsize = assert(args.gridsize)
 	self.domain = assert(args.domain)
 	self.boundaryMethod = assert(args.boundaryMethod)

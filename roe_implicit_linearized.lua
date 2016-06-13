@@ -17,25 +17,21 @@ end
 -- step contains integrating flux and source terms
 -- but not post iterate
 function RoeImplicitLinearized:step(dt)
-	--calcDT extra params: getLeft, getRight, getLeft2, getRight2
 	-- the previous call in Solver:iterate is to self:calcDT
 	-- which calls self.equation:calcInterfaceEigenBasis, which fills the self.eigenvalues table
-	
-	self:calcInterfaceEigenBasis()
-	self:calcDeltaQTildes()
-	self:calcRTildes()
-	self:calcPhis(dt)
 
 	-- function that returns deriv when provided a state vector
-	-- TODO make this consider getLeft/getRight ... which themselves are not modular wrt state vector
 	local function calc_dq_dt(qs)
-		local getLeft = function(sim,i) return qs[i-1] end
-		local getRight = function(sim,i) return qs[i] end
+		local oldQs = rawget(self, 'qs')
+		self.qs = qs
+
 		-- this is only the flux deriv... right?  or does it include the source term as well?
-		local dq_dt = self:calcDeriv(getLeft, getRight)
+		local dq_dt = self:calcFlux()
 		if self.equation.sourceTerm then
 			dq_dt = dq_dt + self.equation:sourceTerm(self, qs)
 		end
+		
+		rawset(self, 'qs', oldQs)
 		return dq_dt
 	end
 

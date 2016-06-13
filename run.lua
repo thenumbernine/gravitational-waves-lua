@@ -39,7 +39,6 @@ local RoeImplicitLinearized = require 'roe_implicit_linearized'
 local Maxwell = require 'maxwell'
 local Euler1D = require 'euler1d'
 local Euler1DQuasiLinear = require 'euler1d_quasilinear'
-local MHD = require 'mhd'
 local ADM1D3Var = require'adm1d3var'
 local ADM1D3to5Var = require'adm1d3to5var'
 local ADM1D5Var = require'adm1d5var'
@@ -277,7 +276,7 @@ do
 	local args = {
 		equation = Euler1D(),
 		--stopAtTimes = {.1},
-		gridsize = 100,
+		gridsize = 1000,
 		domain = {xmin=-1, xmax=1},
 		boundaryMethod = boundaryMethods.freeFlow,
 		--boundaryMethod = boundaryMethods.freeFlow,
@@ -305,7 +304,7 @@ do
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
-	--sims:insert(Roe(table(args, {equation = Euler1D()})))
+	--sims:insert(Roe(args))
 	--sims:insert(Roe(table(args, {equation = Euler1DQuasiLinear()})))
 	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
 	--sims:insert(Roe(table(args, {usePPM=true})))
@@ -313,7 +312,8 @@ do
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
-	sims:insert(Roe(table(args, {equation = MHD()})))
+	--sims:insert(Roe(table(args, {equation = require 'mhd'()})))
+	sims:insert(Roe(table(args, {equation=require'mhd_athena'})))
 
 	-- srhd Marti & Muller 2003 problem #1
 	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.4249], gridsize=400, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
@@ -597,9 +597,9 @@ do
 		{name='Euler1D Roe', gen=function(args) return Roe(table(args, {equation=Euler1D()})) end},
 		{name='Euler1D Roe Implicit Linearized', gen=function(args) return RoeImplicitLinearized(table(args, {equation=Euler1D()})) end},
 			-- MHD
-		{name='MHD HLL', gen=function(args) return HLL(table(args, {equation=MHD()})) end},
-		{name='MHD Roe', gen=function(args) return Roe(table(args, {equation=MHD()})) end},
-		{name='MHD Roe Implicit Linearized', gen=function(args) return RoeImplicitLinearized(table(args, {equation=MHD()})) end},
+		{name='MHD HLL', gen=function(args) return HLL(table(args, {equation=require 'mhd'()})) end},
+		{name='MHD Roe', gen=function(args) return Roe(table(args, {equation=require 'mhd'()})) end},
+		{name='MHD Roe Implicit Linearized', gen=function(args) return RoeImplicitLinearized(table(args, {equation=require 'mhd'()})) end},
 			-- Maxwell
 		{name='Maxwell HLL', gen=function(args) return HLL(table(args, {equation=Maxwell()})) end},
 		{name='Maxwell Roe', gen=function(args) return Roe(table(args, {equation=Maxwell()})) end},
