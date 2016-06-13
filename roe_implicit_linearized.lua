@@ -26,7 +26,7 @@ function RoeImplicitLinearized:step(dt)
 		self.qs = qs
 
 		-- this is only the flux deriv... right?  or does it include the source term as well?
-		local dq_dt = self:calcFlux()
+		local dq_dt = self:calcFlux(dt)
 		if self.equation.sourceTerm then
 			dq_dt = dq_dt + self.equation:sourceTerm(self, qs)
 		end

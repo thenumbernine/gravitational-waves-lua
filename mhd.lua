@@ -1,15 +1,13 @@
 -- https://arxiv.org/pdf/0804.0402v1.pdf
 -- based on Athena's version of eigenvectors of derivative of adiabatic MHD flux wrt primitives
--- then dF/dW transformed to dF/dU
--- and with conservatives rearranged so ETotal is last
--- and converted to 8x8 instead of 7x7
 local class = require 'ext.class'
 local Equation = require 'equation'
 
 local MHD = class(Equation)
 MHD.name = 'MHD'
 
-MHD.numStates = 8
+MHD.numStates = 8	-- including bx 
+MHD.numWaves = 7	-- excluding bx
 MHD.gamma = 5/3	
 MHD.mu = 1
 
@@ -27,40 +25,39 @@ do
 	local EKin = .5 * rho * (vx^2 + vy^2 + vz^2)
 	local EInt = EHydro - EKin
 	local P = (gamma - 1) * EInt	-- hydro pressure
+	local H = EInt + P
 	local PMag = EMag	-- magnetic pressure
 	local PTotal = P + PMag	-- total pressure
 	local S = P / rho^gamma	-- mhd entropy the same as non-mhd?
 	MHD:buildGraphInfos{
 		{rho=rho},
 		{vx=vx}, {vy=vy}, {vz=vz},
+		--{mx=mx}, {my=my}, {mz=mz},
 		{bx=bx}, {by=by}, {bz=bz},
 		
 		{P=P}, 
 		--{PTotal=PTotal},
 		{S=S},
+		{H=H},
 		
 		{ETotal=ETotal}, {EKin=EKin}, {EInt=EInt}, {EHydro=EHydro}, {EMag=EMag},
 	}
-
 end
 MHD.graphInfoForNames = MHD.graphInfos:map(function(info,i)
 	return info, info.name
 end)
 
 function MHD:initCell(sim,i)
-	local gamma = self.gamma
 	local x = sim.xs[i]
 	local rho = x < 0 and 1 or .125
 	local vx, vy, vz = 0, 0, 0
-	--[[ Brio & Wu
-	--local b = 1
-	--local b = 1/math.sqrt(4*math.pi)
-	local b = 1
-	local bx = b
-	local by = x < 0 and b or -b
+	-- [[ Brio & Wu
+	self.gamma = 2
+	local bx = .75
+	local by = x < 0 and 1 or -1
 	local bz = 0
 	--]]
-	-- [[ some other tests
+	--[[ some other tests
 	local bx = 1 -- 1 - math.sin(math.pi/2*x)
 	local by = 0-- math.cos(math.pi/2*x)
 	local bz = 0-- math.sin(math.pi/2*x)
@@ -98,8 +95,6 @@ function MHD:calcPrimFromCons(rho, mx, my, mz, bx, by, bz, ETotal)
 	P = math.max(P, 1e-7)
 	return rho, vx, vy, vz, bx, by, bz, P
 end
-
-local _1_sqrt2 = 1/math.sqrt(2)
  
 function MHD:calcMinMaxEigenvaluesFromCons(rho, mx, my, mz, bx, by, bz, ETotal)
 	local gamma = self.gamma	
@@ -110,432 +105,246 @@ function MHD:calcMinMaxEigenvaluesFromCons(rho, mx, my, mz, bx, by, bz, ETotal)
 
 	local aSq = gamma * P * _1_rho
 	local CaxSq = bx * bx * _1_rho
-assertfinite(CaxSq)
 	local CaSq = bSq * _1_rho
-assertfinite(CaSq)
 	
 	local CStarSq = .5 * (CaSq + aSq)
-assertfinite(CStarSq)
 	local sqrtCfsDiscr = math.sqrt(math.max(0, CStarSq * CStarSq - aSq * CaxSq))
-assertfinite(sqrtCfsDiscr)
 	
 	local CfSq = CStarSq + sqrtCfsDiscr
-assertfinite(CfSq)
 	local CsSq = CStarSq - sqrtCfsDiscr
-assertfinite(CsSq)
 
 	local Cf = math.sqrt(CfSq)
 	local Cs = math.sqrt(math.max(CsSq,0))
-
 	return vx - Cf, vx + Cf	
 end
 
-function MHD:calc_hTotal(rho, PTotal, ETotal)
-	return (ETotal + PTotal) / rho
-end
-		
-function MHD:calcSpeedOfSoundSq(rho, vSq, bSq, hTotal)
-	return (self.gamma - 1) * (hTotal - .5 * vSq - bSq / rho)
+function MHD:calcFluxForState(q)
+	local rho, mx, my, mz, bx, by, bz, ETotal = table.unpack(q)
+	local rho, vx, vy, vz, bx, by, bz, P = self:calcPrimFromCons(table.unpack(q))
+	local bSq = bx*bx + by*by + bz*bz
+	local bDotV = bx*vx + by*vy + bz*vz
+	local PMag = .5 * bSq
+	local PTotal = P + PMag
+	local HTotal = ETotal + PTotal
+	return 
+		mx,
+		mx * vx + PTotal - bx * bx,
+		mx * vy - bx * by,
+		mx * vz - bx * bz,
+		0,
+		by * vx - bx * vy,
+		bz * vx - bx * vz,
+		HTotal * vx - bx * bDotV
 end
 
---[[
-with arithmetic averaging, rho, v, b, and P are averaged.  hTotal and aSq are derived.
-with Roe averaging, rho v b and hTotal are averaged.  aSq is derived
-hTotal itself is only ever used by dF/dU, which is only used for verifying the eigenbasis reconstruction
- (which I haven't got to ever work, symbolically or numerically, using anyone's eigenvectors of MHD flux)
---]]
-MHD.useArithmeticAvergingForRoeValues = true 
 function MHD:calcRoeValues(qL, qR)
-	local gamma = self.gamma
+	-- should I use bx, or bxL/R, for calculating the PMag at the L and R states?
 	local rhoL, vxL, vyL, vzL, bxL, byL, bzL, PL = self:calcPrimFromCons(unpack(qL))
-	local rhoR, vxR, vyR, vzR, bxR, byR, bzR, PR = self:calcPrimFromCons(unpack(qR))
-
-	local rho, vx, vy, vz, bx, by, bz
-	local vSq, bSq, hTotal, aSq
+	local ETotalL = qL[8]
+	local sqrtRhoL = math.sqrt(rhoL)
+	local PMagL = .5 * (bxL * bxL + byL * byL + bzL * bzL)
+	local hTotalL = (ETotalL + PL + PMagL)/rhoL
 	
-	if self.useArithmeticAvergingForRoeValues then
-		rho = .5 * (rhoL + rhoR)
-		vx = .5 * (vxL + vxR)
-		vy = .5 * (vyL + vyR)
-		vz = .5 * (vzL + vzR)
-		bx = .5 * (bxL + bxR)
-		by = .5 * (byL + byR)
-		bz = .5 * (bzL + bzR)
-		local P = .5 * (PL + PR) 
-
-		vSq = vx*vx + vy*vy + vz*vz
-		bSq = bx*bx + by*by + bz*bz
-		local ETotal = P / (gamma - 1) + .5 * rho * vSq + .5 * bSq
-		local PTotal = P + .5 * bSq
-		hTotal = self:calc_hTotal(rho, PTotal, ETotal)
-		aSq = self:calcSpeedOfSoundSq(rho, vSq, bSq, hTotal)
-	else
-		local PMagL = .5 * (bxL*bxL + byL*byL + bzL*bzL)
-		local PTotalL = PL + PMagL
-		local ETotalL = qL[8]
-		local hTotalL = self:calc_hTotal(rhoL, PTotalL, ETotalL)
-		local sqrtRhoL = math.sqrt(rhoL)
-		
-		local PMagR = .5 * (bxR*bxR + byR*byR + bzR*bzR)
-		local PTotalR = PR + PMagR
-		local ETotalR = qR[8]
-		local hTotalR = self:calc_hTotal(rhoR, PTotalR, ETotalR)
-		local sqrtRhoR = math.sqrt(rhoR)
-		
-		local invDenom = 1 / (sqrtRhoL + sqrtRhoR)
-		rho = sqrtRhoL * sqrtRhoR
-		vx = (sqrtRhoL*vxL + sqrtRhoR*vxR)*invDenom
-		vy = (sqrtRhoL*vyL + sqrtRhoR*vyR)*invDenom
-		vz = (sqrtRhoL*vzL + sqrtRhoR*vzR)*invDenom
-		bx = (sqrtRhoL*bxL + sqrtRhoR*bxR)*invDenom
-		by = (sqrtRhoL*byL + sqrtRhoR*byR)*invDenom
-		bz = (sqrtRhoL*bzL + sqrtRhoR*bzR)*invDenom
-		hTotal = (sqrtRhoL*hTotalL + sqrtRhoR*hTotalR)*invDenom
-		vSq = vx*vx + vy*vy + vz*vz
-		bSq = bx*bx + by*by + bz*bz
-		aSq = self:calcSpeedOfSoundSq(rho, vSq, bSq, hTotal)
-	end
-assertfinite(rho)
-assertfinite(vx)
-assertfinite(vy)
-assertfinite(vz)
-assertfinite(bx)
-assertfinite(by)
-assertfinite(bz)
-assertfinite(hTotal)
-assertfinite(aSq)
-assertfinite(vSq)
-assertfinite(bSq)
-
-	return rho, vx, vy, vz, bx, by, bz, hTotal, aSq, vSq, bSq
+	local rhoR, vxR, vyR, vzR, bxR, byR, bzR, PR = self:calcPrimFromCons(unpack(qR))
+	local ETotalR = qR[8]
+	local sqrtRhoR = math.sqrt(rhoR)
+	local PMagR = .5 * (bxR * bxR + byR * byR + bzR * bzR)
+	local hTotalR = (ETotalR + PR + PMagR)/rhoR
+	
+	local invDenom = 1 / (sqrtRhoL + sqrtRhoR)
+	local rho  = sqrtRhoL * sqrtRhoR
+	local vx = (sqrtRhoL * vxL + sqrtRhoR * vxR) * invDenom
+	local vy = (sqrtRhoL * vyL + sqrtRhoR * vyR) * invDenom
+	local vz = (sqrtRhoL * vzL + sqrtRhoR * vzR) * invDenom
+	local bx = (sqrtRhoL * bxL + sqrtRhoR * bxR) * invDenom
+	local by = (sqrtRhoR * byL + sqrtRhoL * byR) * invDenom
+	local bz = (sqrtRhoR * bzL + sqrtRhoL * bzR) * invDenom
+	local hTotal = (sqrtRhoL * hTotalL + sqrtRhoR * hTotalR) * invDenom
+	local X = .5*((byL - byR)^2 + (bzL - bzR)^2)/((sqrtRhoL + sqrtRhoR)^2)
+	local Y = .5*(rhoL + rhoR)/rho
+	
+	return rho, vx, vy, vz, bx, by, bz, hTotal, X, Y
 end
 
 function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
-	local gamma = self.gamma	
+	return self:calcEigenBasis(
+		sim.eigenvalues[i],
+		sim.eigenvectors[i],
+		sim.eigenvectorsInverse[i],
+		sim.fluxMatrix[i],
+		self:calcRoeValues(qL, qR))
+end
 
-	local rho, vx, vy, vz, bx, by, bz, hTotal, aSq, vSq, bSq = self:calcRoeValues(qL,qR)
-
-	local sqrtRho = math.sqrt(rho)
-	local _1_sqrtRho = 1 / sqrtRho
-	local _1_rho = _1_sqrtRho * _1_sqrtRho
-assertfinite(_1_rho)
-	
-	local b_v = bx*vx + by*vy + bz*vz
-
-	local CaxSq = bx*bx*_1_rho
-assertfinite(CaxSq)
-	local CaSq = bSq*_1_rho
-assertfinite(CaSq)
-	
-	local CStarSq = .5 * (CaSq + aSq)
-assertfinite(CStarSq)
-	local sqrtCfsDiscr = math.sqrt(math.max(0, CStarSq * CStarSq - aSq * CaxSq))
-assertfinite(sqrtCfsDiscr)
-	
-	local CfSq = CStarSq + sqrtCfsDiscr
-assertfinite(CfSq)
-	local CsSq = CStarSq - sqrtCfsDiscr
-assertfinite(CsSq)
-	-- should negative slow speeds be allowed to exist?
-	-- even influence alpha calculations?
-	-- why clamp Cs to zero a few lines below but not do so here?
-
-	local invDenom = 1 / (CfSq - CsSq)
-assertfinite(invDenom)
-	local alphaS = math.sqrt(math.max(0, CfSq - aSq) * invDenom)
-	local alphaF = math.sqrt(math.max(0, aSq - CsSq) * invDenom)
-	if alphaS < 1e-7 then alphaS = 0 end
-	if alphaF < 1e-7 then alphaF = 0 end
-assertfinite(alphaS)
-assertfinite(alphaF)
-	
-	local sbx = bx >= 0 and 1 or -1
-	
-	local betaPerpLen = math.sqrt(by*by + bz*bz)
-assertfinite(betaPerpLen)
-	local betaY, betaZ
-	if betaPerpLen < 1e-12 then
-		betaY = _1_sqrt2
-		betaZ = _1_sqrt2
-	else
-		local _1_betaPerpLen = 1/betaPerpLen
-		betaY = by * _1_betaPerpLen
-		betaZ = bz * _1_betaPerpLen
-	end
-assertfinite(betaY)
-assertfinite(betaZ)
-	
-	local Cf = math.sqrt(CfSq)
-assertfinite(Cf)
-	local Cs = math.sqrt(math.max(CsSq, 0))
-assertfinite(Cs)
-	local Cax = math.sqrt(CaxSq)
-assertfinite(Cax)
-	local a = math.sqrt(aSq)
-	
-	local _1_a = 1 / a
-	local _1_aSq = _1_a * _1_a 
-
+function MHD:calcEigenBasis(lambda, evR, evL, dF_dU, rho, vx, vy, vz, bx, by, bz, hTotal, X, Y)
+	local gamma = self.gamma
 	local gamma_1 = gamma - 1
 	local gamma_2 = gamma - 2
 	local gamma_3 = gamma - 3
-	
-	-- for conservatives ordered: rho, mx, my, mz, bx, by, bz, ETotal 
-	-- and primitives ordered: rho, vx, vy, vz, bx, by, bz, P
-	
-	local du_dw = {
-		{1,0,0,0,0,0,0,0},
-		{vx,rho,0,0,0,0,0,0},
-		{vy,0,rho,0,0,0,0,0},
-		{vz,0,0,rho,0,0,0,0},
-		{0,0,0,0,1,0,0,0},
-		{0,0,0,0,0,1,0,0},
-		{0,0,0,0,0,0,1,0},
-		{.5*vSq,rho*vx,rho*vy,rho*vz,bx,by,bz,1/(gamma-1)},
-	}
 
-	local dw_du = {
-		{1,0,0,0,0,0,0,0},
-		{-vx/rho,1/rho,0,0,0,0,0,0},
-		{-vy/rho,0,1/rho,0,0,0,0,0},
-		{-vz/rho,0,0,1/rho,0,0,0,0},
-		{0,0,0,0,1,0,0,0},
-		{0,0,0,0,0,1,0,0},
-		{0,0,0,0,0,0,1,0},
-		{.5*gamma_1*vSq,-gamma_1*vx,-gamma_1*vy,-gamma_1*vz,-gamma_1*bx,-gamma_1*by,-gamma_1*bz,gamma_1},
-	}
-	
-	
-	-- [=[ defining dF/dU directly
-	local dF_dU = sim.fluxMatrix[i]
-	--[[ identity for bx dimension 
-	local Au25 = 0
-	local Au35 = 0
-	local Au45 = 0
-	local Au55 = 1
-	local Au65 = 0
-	local Au75 = 0
-	local Au85 = 0
-	--]]
-	--[[ analytical calculations for dF/bx column which coincide with the 8-variable flux, which itself coincides with the dF/by and dF/bz flux derivative columns used in the Athena paper 
-	-- Athena's 8-var flux, rearranged to put ETotal last ... then differentiated: F -> dW/dU.dF/dW -> dF/dW.dW/dU ... gives the same thing
-	local Au25 = -gamma * bx
-	local Au35 = -by
-	local Au45 = -bz
-	local Au55 = 0
-	local Au65 = -vy
-	local Au75 = -vz
-	local Au85 = -gamma_1 * vx * bx - b_v
-	--]]
-	-- [[ Athena's provided 7x7 dF/dW, extended to 8x8 (with some fuzziness of what goes in A[8,8]), rearranged to put P last
-	-- working fine so long as there is no bx term
-	local Au25 = -gamma_1*bx
-	local Au35 = 0
-	local Au45 = 0
-	-- The flux reconstruction is working fine so long as there is no bx field.
-	-- Ravi's eigenvectors reconstruct a vx as the sole element of the 5th row and column of the flux derivative wrt primitives
-	-- should the eigenvalue be zero? does that mean the value of the flux here is irrelevant?  should this value be 0? 1? vx? 
-	-- all these choices produce errors in the flux reconstruction with bx fields.
-	--local Au55 = vx
-	local Au55 = 0
-	--local Au55 = 1
-	local Au65 = 0
-	local Au75 = 0
-	local Au85 = -gamma*bx*vx
-	--]]
-	fill(dF_dU[1], 0, 											1,										0,							0,							0,		0,						0,						0		)
-	fill(dF_dU[2], -vx*vx + .5*gamma_1*vSq,						-gamma_3*vx,							-gamma_1*vy,				-gamma_1*vz,				Au25,	-gamma_2*by,			-gamma_2*bz,			gamma_1	)
-	fill(dF_dU[3], -vx*vy,										vy,										vx,							0, 							Au35,	-bx,					0,						0		)
-	fill(dF_dU[4], -vx*vz,										vz,										0,							vx, 						Au45,	0,						-bx,					0		)
-	fill(dF_dU[5], 0,											0,										0,							0, 							Au55,	0,						0,						0		)
-	fill(dF_dU[6], (bx*vy - by*vx)/rho,							by/rho,									-bx/rho,					0, 							Au65,	vx,						0,						0		)
-	fill(dF_dU[7], (bx*vz - bz*vx)/rho,							bz/rho,									0,							-bx/rho, 					Au75,	0,						vx,						0		)
-	fill(dF_dU[8], vx*(.5*gamma_1*vSq - hTotal) + bx*b_v/rho,	-gamma_1*vx*vx + hTotal - bx*bx/rho,	-gamma_1*vx*vy - bx*by/rho,	-gamma_1*vx*vz - bx*bz/rho,	Au85,	-gamma_2*by*vx - bx*vy,	-gamma_2*bz*vx - bx*vz,	gamma*vx)
-	--]=]
-	--[=[ defining dF/dW quasilinear (i.e. A_W=dW/dU*dF/dW) and multiplying that by A_U=dU/dW*A*dW/dU
-	local dF_dW_quasi = {
-		{vx, rho, 0, 0, 0, 0, 0, 0},
-		{0, vx, 0, 0, -bx/rho, by/rho, bz/rho, 1/rho},
-		{0, 0, vx, 0, -by/rho, -bx/rho, 0, 0},
-		{0, 0, 0, vx, -bz/rho, 0, -bx/rho, 0},
-		{0, 0, 0, 0, 0, 0, 0, 0},
-		{0, by, -bx, 0, -vy, vx, 0, 0},
-		{0, bz, 0, -bx, -vz, 0, vx, 0},
-		{0, rho*aSq, 0, 0, gamma_1*b_v, 0, 0, vx},
-	}
-	local dF_dW = {}
-	for j=1,8 do
-		dF_dW[j] = {}
-		for k=1,8 do
-			local sum = 0
-			for l=1,8 do
-				sum = sum + du_dw[j][l] * dF_dW_quasi[l][k]
-			end
-			dF_dW[j][k] = sum
-		end
-	end
-	for j=1,8 do
-		for k=1,8 do
-			local sum = 0
-			for l=1,8 do
-				sum = sum + dF_dW[j][l] * dw_du[l][k]
-			end
-			sim.fluxMatrix[i][j][k] = sum
-		end
-	end
-	--]=]
-	local eigenvalues = sim.eigenvalues[i]
-	eigenvalues[1] = vx - Cf
-	eigenvalues[2] = vx - Cax
-	eigenvalues[3] = vx - Cs
-	eigenvalues[4] = vx
-	--eigenvalues[5] = 0
-	eigenvalues[5] = vx
-	eigenvalues[6] = vx + Cax
-	eigenvalues[7] = vx + Cs
-	eigenvalues[8] = vx + Cf
-	--[[
-	if the ETotal eigenvalue is vx then the 7x7 system should also include some extra term to advect the vx, right?
-	--]]
+	local _1_rho = 1 / rho
+	local vSq = vx*vx + vy*vy + vz*vz
+	local bDotV = bx*vx + by*vy + bz*vz
+	local bPerpSq = by*by + bz*bz
+	local bStarPerpSq = (gamma_1 - gamma_2 * Y) * bPerpSq
+	local CAxSq = bx*bx*_1_rho
+	local CASq = CAxSq + bPerpSq * _1_rho
+	local hHydro = hTotal - CASq
+	-- hTotal = (EHydro + EMag + P)/rho
+	-- hHydro = hTotal - CASq, CASq = EMag/rho 
+	-- hHydro = eHydro + P/rho = eKin + eInt + P/rho
+	-- hHydro - eKin = eInt + P/rho = (1/(gamma-1) + 1) P/rho = gamma/(gamma-1) P/rho
+	-- a^2 = (gamma-1)(hHydro - eKin) = gamma P / rho
+	local aTildeSq = math.max((gamma_1 * (hHydro - .5 * vSq) - gamma_2 * X), 1e-20)
 
-for j=1,8 do
-	assertfinite(eigenvalues[j])
+	local bStarPerpSq_rho = bStarPerpSq * _1_rho
+	local CATildeSq = CAxSq + bStarPerpSq_rho
+	local CStarSq = .5 * (CATildeSq + aTildeSq)
+	local CA_a_TildeSqDiff = .5 * (CATildeSq - aTildeSq)
+	local sqrtDiscr = math.sqrt(CA_a_TildeSqDiff * CA_a_TildeSqDiff + aTildeSq * bStarPerpSq_rho)
+	
+	local CfSq = CStarSq + sqrtDiscr
+	local Cf = math.sqrt(CfSq)
+
+	local CsSq = aTildeSq * CAxSq / CfSq
+	local Cs = math.sqrt(CsSq)
+
+	local bPerpLen = math.sqrt(bPerpSq)
+	local bStarPerpLen = math.sqrt(bStarPerpSq)
+	local betaY, betaZ
+	if bPerpLen == 0 then
+		betaY = 1
+		betaZ = 0
+	else
+		betaY = by / bPerpLen
+		betaZ = bz / bPerpLen
+	end
+	local betaStarY = betaY / math.sqrt(gamma_1 - gamma_2*Y)
+	local betaStarZ = betaZ / math.sqrt(gamma_1 - gamma_2*Y)
+	local betaStarSq = betaStarY*betaStarY + betaStarZ*betaStarZ
+	local vDotBeta = vy*betaStarY + vz*betaStarZ
+
+	local alphaF, alphaS
+	if CfSq - CsSq == 0 then
+		alphaF = 1
+		alphaS = 0
+	elseif aTildeSq - CsSq <= 0 then
+		alphaF = 0
+		alphaS = 1
+	elseif CfSq - aTildeSq <= 0 then
+		alphaF = 1
+		alphaS = 0
+	else
+		alphaF = math.sqrt((aTildeSq - CsSq) / (CfSq - CsSq))
+		alphaS = math.sqrt((CfSq - aTildeSq) / (CfSq - CsSq))
+	end
+
+	local sqrtRho = math.sqrt(rho)
+	local _1_sqrtRho = 1/sqrtRho
+	local sbx = bx >= 0 and 1 or -1
+	local aTilde = math.sqrt(aTildeSq)
+	local Qf = Cf*alphaF*sbx
+	local Qs = Cs*alphaS*sbx
+	local Af = aTilde*alphaF*_1_sqrtRho
+	local As = aTilde*alphaS*_1_sqrtRho
+	local Afpbb = Af*bStarPerpLen*betaStarSq
+	local Aspbb = As*bStarPerpLen*betaStarSq
+
+	local CAx = math.sqrt(CAxSq)
+	fill(lambda, vx-Cf, vx-CAx, vx-Cs, vx, vx+Cs, vx+CAx, vx+Cf)
+
+	-- defining dF/dU directly
+	fill(dF_dU[1], 0, 											1,										0,							0,							0,			0,							0							)
+	fill(dF_dU[2], -vx*vx + .5*gamma_1*vSq - gamma_2*X,			-gamma_3*vx,							-gamma_1*vy,				-gamma_1*vz,				gamma_1,	-gamma_2*Y*by,				-gamma_2*Y*bz				)
+	fill(dF_dU[3], -vx*vy,										vy,										vx,							0, 							0,			-bx,						0							)
+	fill(dF_dU[4], -vx*vz,										vz,										0,							vx, 						0,			0,							-bx							)
+	fill(dF_dU[5], vx*(.5*gamma_1*vSq - hTotal) + bx*bDotV/rho,	-gamma_1*vx*vx + hTotal - bx*bx/rho,	-gamma_1*vx*vy - bx*by/rho,	-gamma_1*vx*vz - bx*bz/rho,	gamma*vx,	-gamma_2*Y*by*vx - bx*vy,	-gamma_2*Y*bz*vx - bx*vz	)
+	fill(dF_dU[6], (bx*vy - by*vx)/rho,							by/rho,									-bx/rho,					0, 							0,			vx,							0							)
+	fill(dF_dU[7], (bx*vz - bz*vx)/rho,							bz/rho,									0,							-bx/rho, 					0,			0,							vx							)
+
+	-- right eigenvectors
+	local qa3 = alphaF*vy
+	local qb3 = alphaS*vy
+	local qc3 = Qs*betaStarY
+	local qd3 = Qf*betaStarY
+	local qa4 = alphaF*vz
+	local qb4 = alphaS*vz
+	local qc4 = Qs*betaStarZ
+	local qd4 = Qf*betaStarZ
+	local r52 = -(vy*betaZ - vz*betaY)
+	local r61 = As*betaStarY
+	local r62 = -betaZ*sbx*_1_sqrtRho
+	local r63 = -Af*betaStarY
+	local r71 = As*betaStarZ
+	local r72 = betaY*sbx*_1_sqrtRho
+	local r73 = -Af*betaStarZ
+	fill(evR[1], alphaF, 0, alphaS, 1, alphaS, 0, alphaF)
+	fill(evR[2], alphaF*lambda[1], 0, alphaS*lambda[3], vx, alphaS*lambda[5], 0, alphaF*lambda[7])
+	fill(evR[3], qa3 + qc3, -betaZ, qb3 - qd3, vy, qb3 + qd3, betaZ, qa3 - qc3)
+	fill(evR[4], qa4 + qc4, betaY, qb4 - qd4, vz, qb4 + qd4, -betaY, qa4 - qc4)
+	fill(evR[5], alphaF*(hHydro - vx*Cf) + Qs*vDotBeta + Aspbb, r52, alphaS*(hHydro - vx*Cs) - Qf*vDotBeta - Afpbb, .5*vSq + gamma_2*X/gamma_1, alphaS*(hHydro + vx*Cs) + Qf*vDotBeta - Afpbb, -r52, alphaF*(hHydro + vx*Cf) - Qs*vDotBeta + Aspbb)
+	fill(evR[6], r61, r62, r63, 0, r63, r62, r61)
+	fill(evR[7], r71, r72, r73, 0, r73, r72, r71)
+
+	-- left eigenvectors
+	local norm = .5/aTildeSq
+	local Cff = norm*alphaF*Cf
+	local Css = norm*alphaS*Cs
+	Qf = Qf * norm
+	Qs = Qs * norm
+	local AHatF = norm*Af*rho
+	local AHatS = norm*As*rho
+	local afpb = norm*Af*bStarPerpLen
+	local aspb = norm*As*bStarPerpLen
+
+	norm = norm * gamma_1
+	alphaF = alphaF * norm
+	alphaS = alphaS * norm
+	local QStarY = betaStarY/betaStarSq
+	local QStarZ = betaStarZ/betaStarSq
+	vqstr = (vy*QStarY + vz*QStarZ)
+	norm = norm * 2
+
+	fill(evL[1], alphaF*(vSq-hHydro) + Cff*(Cf+vx) - Qs*vqstr - aspb, -alphaF*vx - Cff, -alphaF*vy + Qs*QStarY, -alphaF*vz + Qs*QStarZ, alphaF, AHatS*QStarY - alphaF*by, AHatS*QStarZ - alphaF*bz)
+	fill(evL[2], .5*(vy*betaZ - vz*betaY), 0, -.5*betaZ, .5*betaY, 0, -.5*sqrtRho*betaZ*sbx, .5*sqrtRho*betaY*sbx)
+	fill(evL[3], alphaS*(vSq-hHydro) + Css*(Cs+vx) + Qf*vqstr + afpb, -alphaS*vx - Css, -alphaS*vy - Qf*QStarY, -alphaS*vz - Qf*QStarZ, alphaS, -AHatF*QStarY - alphaS*by, -AHatF*QStarZ - alphaS*bz)
+	fill(evL[4], 1 - norm*(.5*vSq - gamma_2*X/gamma_1) , norm*vx, norm*vy, norm*vz, -norm, norm*by, norm*bz)
+	fill(evL[5], alphaS*(vSq-hHydro) + Css*(Cs-vx) - Qf*vqstr + afpb, -alphaS*vx + Css, -alphaS*vy + Qf*QStarY, -alphaS*vz + Qf*QStarZ, alphaS, evL[3][6], evL[3][7])
+	fill(evL[6], -evL[2][1], 0, -evL[2][3], -evL[2][4], 0, evL[2][6], evL[2][7])
+	fill(evL[7], alphaF*(vSq-hHydro) + Cff*(Cf-vx) + Qs*vqstr - aspb, -alphaF*vx + Cff, -alphaF*vy - Qs*QStarY, -alphaF*vz - Qs*QStarZ, alphaF, evL[1][6], evL[1][7])
 end
 
-	--[[
-	these are eigenvectors of the flux wrt the primitive variables
-	to convert them to eigenvectors of flux wrt conservatives, use this:
-		conservative:	
-	du/dt + df/dx = 0
-	du/dt + df/du du/dx = 0
-	du/dt + Au du/dx = 0
-	...for Au = df/du
-		primitive:
-	du/dw dw/dt + df/du du/dw dw/dx = 0
-	dw/dt + dw/du df/du du/dw dw/dx = 0
-	dw/dt + Aw dw/dx = 0
-	...for Aw = dw/du df/du du/dw = dw/du Au du/dw
-	so Au = du/dw Aw dw/du 
-	and if Aw = Rw Lambda Lw by eigendecomposition
-	then Au = (du/dw Rw) Lambda (Lw dw/du)
-	and if Au = Ru Lambda Lu
-	then Ru = du/dw Rw
-	and Lu = Lw dw/du
-	--]]
+local function permute8to7(v1,v2,v3,v4,v5,v6,v7,v8)
+	return v1,v2,v3,v4,v8,v6,v7
+end
+local function permute7to8(v1,v2,v3,v4,v5,v6,v7)
+	return v1,v2,v3,v4,0,v6,v7,v5
+end
 
-	local evrw = {
-		{rho*alphaF,				0,					rho*alphaS,					1,	0,	rho*alphaS,					0,					rho*alphaF				},
-		{-alphaF*Cf,				0,					-alphaS*Cs,					0,	0,	alphaS*Cs,					0,					alphaF*Cf				},
-		{alphaS*Cs*sbx*betaY,		-betaZ,				-alphaF*Cf*sbx*betaY,		0,	0,	alphaF*Cf*sbx*betaY,		betaZ,				-alphaS*Cs*sbx*betaY	},
-		{alphaS*Cs*sbx*betaZ,		betaY,				-alphaF*Cf*sbx*betaZ,		0,	0,	alphaF*Cf*sbx*betaZ,		-betaY,				-alphaS*Cs*sbx*betaZ	},
-		{0,							0,					0,							0,	1,	0,							0,					0						},
-		{sqrtRho*alphaS*a*betaY,	-sqrtRho*sbx*betaZ,	-sqrtRho*alphaF*a*betaY,	0,	0,	-sqrtRho*alphaF*a*betaY,	-sqrtRho*sbx*betaZ,	sqrtRho*alphaS*a*betaY	},
-		{sqrtRho*alphaS*a*betaZ,	sqrtRho*sbx*betaY,	-sqrtRho*alphaF*a*betaZ,	0,	0,	-sqrtRho*alphaF*a*betaZ,	sqrtRho*sbx*betaY,	sqrtRho*alphaS*a*betaZ	},
-		{rho*alphaF*aSq,			0,					rho*alphaS*aSq,				0,	0,	rho*alphaS*aSq,				0,					rho*alphaF*aSq			},
-	}
-
-for j=1,8 do
-	for k=1,8 do
-		if not math.isfinite(evrw[j][k]) then
-			error(tolua({
-				['j,k'] = j..','..k,
-				gamma=gamma,
-				rho=rho,
-				sqrtRho=sqrtRho,
-				aSq=aSq,
-				bSq=bSq,
-				vSq=vSq,
-				hTotal=hTotal,
-				a=a,
-				alphaF=alphaF,
-				alphaS=alphaS,
-				betaY=betaZ,
-				betaZ=betaZ,
-				evrw=table.map(evrw, function(row) return tolua(row) end),	-- convert rows with no indent
-			},{indent=true}))
+local function mulField7x7(name, convertFrom, convertTo)
+	return function(self, solver, i, x)
+		-- x is energy-last order, so convert to energy-5th order
+		if convertFrom then
+			x = {permute8to7(table.unpack(x))}
 		end
+		local m = solver[name][i]
+		local y = {}
+		for j=1,self.numWaves do
+			local sum = 0
+			for k=1,self.numWaves do
+				sum = sum + m[j][k] * x[k]
+			end
+			y[j] = sum
+		end
+		-- convert back to energy-last order
+		if convertTo then
+			y = {permute7to8(table.unpack(y))}
+		end
+		return y
 	end
 end
 
-	local evlw = {
-		{0,	-.5*alphaF*Cf*_1_aSq,	.5*alphaS*Cs*sbx*betaY*_1_aSq,	.5*alphaS*Cs*sbx*betaZ*_1_aSq,	0,	.5*alphaS*betaY*_1_sqrtRho*_1_a,	.5*alphaS*betaZ*_1_sqrtRho*_1_a,	.5*alphaF*_1_rho*_1_aSq	},
-		{0,	0,						-.5*betaZ,						.5*betaY,						0,	-.5*sbx*betaZ*_1_sqrtRho,			.5*sbx*betaY*_1_sqrtRho,			0						},
-		{0,	-.5*alphaS*Cs*_1_aSq,	-.5*alphaF*Cf*sbx*betaY*_1_aSq,	-.5*alphaF*Cf*sbx*betaZ*_1_aSq,	0,	-.5*alphaF*betaY*_1_sqrtRho*_1_a,	-.5*alphaF*betaZ*_1_sqrtRho*_1_a,	.5*alphaS*_1_rho*_1_aSq	},
-		{1,	0,						0,								0,								0,	0,									0,									-_1_aSq					},
-		{0,	0,						0,								0,								1,	0,									0,									0						},
-		{0,	.5*alphaS*Cs*_1_aSq,	.5*alphaF*Cf*sbx*betaY*_1_aSq,	.5*alphaF*Cf*sbx*betaZ*_1_aSq,	0,	-.5*alphaF*betaY*_1_sqrtRho*_1_a,	-.5*alphaF*betaZ*_1_sqrtRho*_1_a,	.5*alphaS*_1_rho*_1_aSq	},
-		{0,	0,						.5*betaZ,						-.5*betaY,						0,	-.5*sbx*betaZ*_1_sqrtRho,			.5*sbx*betaY*_1_sqrtRho,			0,						},
-		{0,	.5*alphaF*Cf*_1_aSq,	-.5*alphaS*Cs*sbx*betaY*_1_aSq,	-.5*alphaS*Cs*sbx*betaZ*_1_aSq,	0,	.5*alphaS*betaY*_1_sqrtRho*_1_a,	.5*alphaS*betaZ*_1_sqrtRho*_1_a,	.5*alphaF*_1_rho*_1_aSq	},
-	}
-
-for j=1,8 do
-	for k=1,8 do
-		assertfinite(evlw[j][k])
-	end
-end
-
-	-- Ru = du/dw Rw
-	local evru = sim.eigenvectors[i]
-	for j=1,8 do
-		for k=1,8 do
-			local sum = 0
-			for l=1,8 do
-				sum = sum + du_dw[j][l] * evrw[l][k]
-			end
-			evru[j][k] = sum
-		end
-	end
-	
-	-- Lu = Lw dw/du
-	local evlu = sim.eigenvectorsInverse[i]
-	for j=1,8 do
-		for k=1,8 do
-			local sum = 0
-			for l=1,8 do
-				sum = sum + evlw[j][l] * dw_du[l][k]
-			end
-			evlu[j][k] = sum
-		end
-	end
-
---[[
-	print()
-	print('error of eigenbasis '..i)
-	local errtotal = 0
-	local everr = {}
-	for j=1,#evrw do
-		everr[j] = table()
-		for k=1,#evrw do
-			local sum = 0
-			for l=1,#evrw do
-				sum = sum + evlw[j][l] * evrw[l][k]
-			end
-			everr[j][k] = sum
-			errtotal = errtotal + math.abs(sum - (j == k and 1 or 0))
-		end
-		print(everr[j]:concat', ')
-	end
-	print('error total',errtotal)
---]]
-end
-
--- [[ should I prevent unphysical densities and pressures here or in calcPrimFromCons?
--- turns out certain proportionality differences between P and ETotal makes it so even constraining things here
--- then recomputing them into conservative still creates conservative that give rise to nonphysical primitives
--- so I'll put the correction code in calcPrimFromCons
-function MHD:postIterate(sim)
-	if MHD.super.postIterate then MHD.super.postIterate(self, sim) end
-	for i=1,sim.gridsize do
-		local rho, vx, vy, vz, bx, by, bz, P = self:calcPrimFromCons(table.unpack(sim.qs[i]))
-		rho = math.max(rho, 1e-7)
-		P = math.max(P, 1e-7)
-		fill(sim.qs[i], self:calcConsFromPrim(rho, vx, vy, vz, bx, by, bz, P))
-		-- hmm, what to do when the conservative variables don't want to stay conservative ...
-		--local rho, vx, vy, vz, bx, by, bz, P = self:calcPrimFromCons(table.unpack(sim.qs[i]))
-		--assert(P >= 1e-7)
-		-- ... we put the constraint in the conversion function!
-	end
-end
---]]
+MHD.fluxTransform = mulField7x7('fluxMatrix', true, true)	-- 8 -> 7 -> 7 -> 8
+MHD.applyLeftEigenvectors = mulField7x7('eigenvectorsInverse', true, false)	-- 8 -> 7
+MHD.applyRightEigenvectors = mulField7x7('eigenvectors', false, true)	-- 7 -> 8
 
 return MHD
