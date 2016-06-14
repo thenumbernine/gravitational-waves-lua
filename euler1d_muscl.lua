@@ -1,8 +1,8 @@
 local class = require 'ext.class'
 local fluxLimiters = require 'limiter' 
-local Solver = require 'solver'
+local SolverFV = require 'solverfv'
 
-local Euler1DMUSCL = class(Solver)
+local Euler1DMUSCL = class(SolverFV)
 
 Euler1DMUSCL.equation = require 'euler1d'()
 
@@ -124,8 +124,8 @@ function Euler1DMUSCL:calcDT(sim, getLeft, getRight, getLeft2, getRight2)
 	return dt
 end
 
-function Euler1DMUSCL:calcFlux(sim, dt)
-	return self.baseScheme:calcFlux(sim, dt, self.getLeft, self.getRight, self.getLeft2, self.getRight2)
+function Euler1DMUSCL:calcFluxes(sim, dt)
+	return self.baseScheme:calcFluxes(sim, dt)
 end
 
 function Euler1DMUSCL:postIterate(...)

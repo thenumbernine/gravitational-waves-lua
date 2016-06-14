@@ -197,7 +197,7 @@ function Euler1D:calcFluxForState(q)
 		gamma * q[2] * q[3] / q[1] + (1 - gamma) / 2 * q[2] * q[2] * q[2] / (q[1] * q[1])
 end
 
-function Euler1D:calcEigenBasisWrtPrims(rho, vx, hTotal, Cs, F, lambda, evL, evR)
+function Euler1D:calcEigenBasisWrtPrims(rho, vx, hTotal, Cs, dF_dU, lambda, evL, evR)
 	Cs = Cs or self:calcSpeedOfSound(vx, hTotal)
 	local gamma = self.gamma
 
@@ -205,37 +205,19 @@ function Euler1D:calcEigenBasisWrtPrims(rho, vx, hTotal, Cs, F, lambda, evL, evR
 
 	local CsSq = Cs * Cs
 
-	if F then
-		F[1][1] = vx
-		F[1][2] = rho
-		F[1][3] = 0
-		F[2][1] = 0
-		F[2][2] = vx
-		F[2][3] = 1/rho
-		F[3][1] = 0
-		F[3][2] = rho * CsSq
-		F[3][3] = vx
+	if dF_dU then
+		fill(dF_dU[1], vx, rho, 0)
+		fill(dF_dU[2], 0, vx, 1/rho)
+		fill(dF_dU[3], 0, rho*CsSq, vx)
 	end
 
-	evL[1][1] = 1
-	evL[1][2] = rho / (2 * Cs)
-	evL[1][3] = -rho / (2 * Cs)
-	evL[2][1] = 0
-	evL[2][2] = 1/2
-	evL[2][3] = 1/2
-	evL[3][1] = 0
-	evL[3][2] = rho * Cs / 2
-	evL[3][3] = -rho * Cs / 2
+	fill(evL[1], 1, .5*rho/Cs, -.5*rho/Cs)
+	fill(evL[2], 0, .5, .5)
+	fill(evL[3], 0, .5*rho/Cs, -.5*rho/Cs)
 
-	evR[1][1] = 1
-	evR[2][1] = 0
-	evR[3][1] = 0
-	evR[1][2] = 0
-	evR[2][2] = 1
-	evR[3][2] = 1
-	evR[1][3] = -1/CsSq
-	evR[2][3] = 1 / (rho * Cs)
-	evR[3][3] = -1 / (rho * Cs)
+	fill(evR[1], 1, 0, -1/CsSq)
+	fill(evR[2], 0, 1, 1/(rho*Cs))
+	fill(evR[3], 0, 1, -1/(rho*Cs))
 end
 
 function Euler1D:calcEigenBasis(rho, vx, hTotal, Cs, F, lambda, evL, evR)

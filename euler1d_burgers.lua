@@ -12,9 +12,9 @@ the 1st and 3rd terms are integrated via the pressure integration
 
 local class = require 'ext.class'
 local Euler1D = require 'euler1d'
-local Solver = require 'solver'
+local SolverFV = require 'solverfv'
 
-local Euler1DBurgers = class(Solver)
+local Euler1DBurgers = class(SolverFV)
 
 Euler1DBurgers.equation = Euler1D()
 Euler1DBurgers.name = 'Euler 1D Burgers'
@@ -58,11 +58,8 @@ function Euler1DBurgers:reset()
 	end
 end
 
-function Euler1DBurgers:calcFlux(dt)
-	local dq_dts = self:newState()
-	
+function Euler1DBurgers:calcFluxes(dt)
 	local gamma = self.equation.gamma
-
 	for i=3,self.gridsize-1 do
 		local qL2 = self.qs[i-2]
 		local qL = self.qs[i-1]
@@ -86,15 +83,6 @@ function Euler1DBurgers:calcFlux(dt)
 				+ .5 * dq * phi * math.abs(iu) * (1 - math.abs(iu * dt/dx))
 		end
 	end
-
-	for i=1,self.gridsize do
-		local dx = self.ixs[i+1] - self.ixs[i]
-		for j=1,self.numStates do
-			dq_dts[i][j] = dq_dts[i][j] - (self.fluxes[i+1][j] - self.fluxes[i][j]) / dx
-		end
-	end
-
-	return dq_dts
 end
 	
 function Euler1DBurgers:postIterate(dt)

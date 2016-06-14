@@ -126,7 +126,7 @@ function Euler1DSS:iterate()
 		local dt = self:calcDT()	-- calc eigenbasis for flux to use
 		local dt = 0				-- dt used for slope limiter
 		-- calculate dq_dt = -df/dx based on self.qs
-		local dF_dx = -pushState(self:calcFlux(dt))
+		local dF_dx = -pushState(self:calcDerivFromFluxes(dt))
 		return U + dF_dx
 	end
 	

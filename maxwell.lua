@@ -44,44 +44,55 @@ function Maxwell:initCell(sim, i)
 	return {Ex * e0, Ey * e0, Ez * e0, Bx, By, Bz}
 end
 
+function Maxwell:calcFluxForState(q)
+	local seu = math.sqrt(e0/u0)/u0
+	return
+		0,
+		seu * q[6],
+		-seu * q[5],
+		0,
+		-q[3]/seu,
+		q[2]/seu
+end
+
+function Maxwell:calcInterfaceEigenvalues(sim,i,qL,qR)
+	fill(sim.eigenvalues[i], self:calcEigenvalues())
+end
+
 function Maxwell:calcInterfaceEigenBasis(sim,i,qL,qR)
 	fill(sim.eigenvalues[i], self:calcEigenvalues())
+end
 
-	local se = sqrt(e0/2)
-	local su = sqrt(u0/2)
-	local seu = sqrt(e0/u0)/u0
+function Maxwell:fluxTransform(sim, i, v)
+	return {self:calcFluxForState(v)}
+end
+
+function Maxwell:applyLeftEigenvectors(sim, i, v)
+	local se = math.sqrt(e0/2)
 	local ise = 1/se
+	local su = math.sqrt(u0/2)
 	local isu = 1/su
-	self.fluxTransform = function(self, sim, i, v)
-		return {
-			0,
-			seu * v[6],
-			-seu * v[5],
-			0,
-			-v[3]/seu,
-			v[2]/seu
-		}
-	end
-	self.applyLeftEigenvectors = function(self, sim, i, v)
-		return {
-			ise * v[3] + isu * v[5],
-			-ise * v[2] + isu * v[6],
-			-ise * v[1] + isu * v[4],
-			ise * v[1] + isu * v[4],
-			ise * v[2] + isu * v[6],
-			-ise * v[3] + isu * v[5]
-		}
-	end
-	self.applyRightEigenvectors = function(self, sim, i, v)
-		return {
-			-se * v[3] + se * v[4],
-			-se * v[2] + se * v[5],
-			se * v[1] - se * v[6],
-			su * v[3] + su * v[4],
-			su * v[1] + su * v[6],
-			su * v[2] + su * v[5]
-		}
-	end
+	return {
+		ise * v[3] + isu * v[5],
+		-ise * v[2] + isu * v[6],
+		-ise * v[1] + isu * v[4],
+		ise * v[1] + isu * v[4],
+		ise * v[2] + isu * v[6],
+		-ise * v[3] + isu * v[5]
+	}
+end
+
+function Maxwell:applyRightEigenvectors(sim, i, v)
+	local se = math.sqrt(e0/2)
+	local su = math.sqrt(u0/2)
+	return {
+		-se * v[3] + se * v[4],
+		-se * v[2] + se * v[5],
+		se * v[1] - se * v[6],
+		su * v[3] + su * v[4],
+		su * v[1] + su * v[6],
+		su * v[2] + su * v[5]
+	}
 end
 
 function Maxwell:calcMaxEigenvalue()

@@ -3,9 +3,9 @@ from Toro, "Riemann Solvers and Numerical Methods for Fluid Dynamics" p.163
 --]]
 
 local class = require 'ext.class'
-local Solver = require 'solver'
+local SolverFV = require 'solverfv'
 
-local Euler1DGodunov = class(Solver)
+local Euler1DGodunov = class(SolverFV)
 Euler1DGodunov.name = 'Euler 1D Godunov'
 Euler1DGodunov.equation = require 'euler1d'()
 
@@ -69,7 +69,7 @@ function Euler1DGodunov:reset()
 	end
 end
 
-function Euler1DGodunov:calcFlux(dt)
+function Euler1DGodunov:calcFluxes(dt)
 	local gamma = self.equation.gamma
 	local x_t = 0
 
@@ -97,15 +97,6 @@ function Euler1DGodunov:calcFlux(dt)
 		self.fluxes[i][2] = rho * u * u + P
 		self.fluxes[i][3] = (gamma / (gamma - 1) * P + .5 * rho * u * u) * u
 	end
-	
-	local dq_dts = self:newState()
-	for i=1,self.gridsize do
-		local dx = self.ixs[i+1] - self.ixs[i]
-		for j=1,self.numStates do
-			dq_dts[i][j] = (self.fluxes[i][j] - self.fluxes[i+1][j]) / dx
-		end
-	end
-	return dq_dts
 end
 
 function Euler1DGodunov:calcPressureAndVelocityPVRS(rhoL, uL, PL, cL, rhoR, uR, PR, cR)

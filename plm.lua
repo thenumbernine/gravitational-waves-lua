@@ -76,7 +76,7 @@ local function PLMBehavior(parentClass)
 	PLM.applyLeftEigenvectorsWrtPrimsAtCenter = solverLinearFunc'evLCWrtPrims'
 	PLM.applyRightEigenvectorsWrtPrimsAtCenter = solverLinearFunc'evRCWrtPrims'
 
-	function PLM:calcFlux(dt)
+	function PLM:calcFluxes(dt)
 
 		-- calc w's
 		for i=1,self.gridsize do
@@ -175,7 +175,7 @@ local function PLMBehavior(parentClass)
 		end
 
 		-- now qLs and qRs can be used
-		PLM.super.calcFlux(self, dt)
+		PLM.super.calcFluxes(self, dt)
 	end
 
 	function PLM:get_qL(i)

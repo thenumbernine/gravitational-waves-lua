@@ -88,8 +88,8 @@ function Roe:reset()
 end
 
 -- calculates timestep and eigenbasis
--- these are used by calcFlux as well
--- so this method counts on the fact that calcDT is called first, before calcFlux
+-- these are used by calcFluxAtInterface as well
+-- so this method counts on the fact that calcDT is called first, before calcFluxAtInterface
 -- however, for RK4 integration, shouldn't eigenbasis be recomputed at each intermediate state? 
 function Roe:calcInterfaceEigenBasis()
 	-- Roe solver:
@@ -212,7 +212,7 @@ function Roe:calcFluxAtInterface(dt, i)
 	local qR = self:get_qR(i)
 	local lambdas = self.eigenvalues[i]
 
-	--[[ shortcut if the equation has a 'calcFlux' function
+	--[[ shortcut if the equation has a 'calcFluxForState' function
 	-- but this bypasses any influence from the flux limiter ... 
 	-- so I don't think I'll use it
 	if canCalcFlux then
@@ -264,16 +264,8 @@ function Roe:calcFluxAtInterface(dt, i)
 	self.fluxes[i] = flux
 end
 
-function Roe:calcFluxesAtInterface(dt)
-	for i=2,self.gridsize do
-		self:calcFluxAtInterface(dt, i)
-	end
-end
-
--- TODO calcFlux returns the derivative vector
--- so how about renaming this to calcDerivFromFlux ?
-function Roe:calcFlux(dt)
-	-- used by all following methods in calcFlux
+function Roe:calcFluxes(dt)
+	-- used by all following methods in calcFluxes
 	self:calcInterfaceEigenBasis()
 
 	-- calculate interface state difference in eigenbasis coordinates
@@ -282,16 +274,9 @@ function Roe:calcFlux(dt)
 	-- slope limit on interface difference
 	self:calcRTildes()
 
-	self:calcFluxesAtInterface(dt)
-
-	local dq_dts = self:newState()
-	for i=1,self.gridsize do
-		local dx = self.ixs[i+1] - self.ixs[i]
-		for j=1,self.numStates do
-			dq_dts[i][j] = dq_dts[i][j] - (self.fluxes[i+1][j] - self.fluxes[i][j]) / dx
-		end
+	for i=2,self.gridsize do
+		self:calcFluxAtInterface(dt, i)
 	end
-	return dq_dts
 end
 
 return Roe

@@ -671,8 +671,8 @@ function TestApp:updateGUI()
 			gridsize = 100,
 			domain = {xmin=-1, xmax=1},
 			boundaryMethod = boundaryMethods.freeFlow,
-			--linearSolver = require 'linearsolvers'.gmres,
-			linearSolver = require 'linearsolvers'.conjres,
+			linearSolver = require 'linearsolvers'.gmres,
+			--linearSolver = require 'linearsolvers'.conjres,
 			fluxLimiter = fluxLimiters.superbee,
 			integrator = integrators.ForwardEuler,
 		}

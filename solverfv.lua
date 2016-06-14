@@ -61,4 +61,17 @@ function SolverFV:calcDT()
 	end
 end
 
+function SolverFV:calcDerivFromFluxes(dt)
+	self:calcFluxes(dt)
+	
+	local dq_dts = self:newState()
+	for i=1,self.gridsize do
+		local dx = self.ixs[i+1] - self.ixs[i]
+		for j=1,self.numStates do
+			dq_dts[i][j] = dq_dts[i][j] - (self.fluxes[i+1][j] - self.fluxes[i][j]) / dx
+		end
+	end
+	return dq_dts
+end
+
 return SolverFV
