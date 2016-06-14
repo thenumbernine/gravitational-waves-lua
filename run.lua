@@ -281,8 +281,9 @@ do
 		boundaryMethod = boundaryMethods.freeFlow,
 		--boundaryMethod = boundaryMethods.freeFlow,
 		--linearSolver = require 'linearsolvers'.jacobi,
-		linearSolver = require 'linearsolvers'.conjgrad,
+		--linearSolver = require 'linearsolvers'.conjgrad,
 		--linearSolver = require 'linearsolvers'.conjres,
+		linearSolver = require 'linearsolvers'.gmres,
 		--linearSolver = require 'linearsolvers'.bicgstab,	-- working on this ...
 		--fluxLimiter = fluxLimiters.donorCell,
 		fluxLimiter = fluxLimiters.superbee,
@@ -308,12 +309,12 @@ do
 	--sims:insert(Roe(table(args, {equation = require 'euler1d_quasilinear'()})))
 	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
 	--sims:insert(Roe(table(args, {usePPM=true})))
-	sims:insert(RoeImplicitLinearized(args))
-	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .01})))
+	--sims:insert(RoeImplicitLinearized(args))
+	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .005})))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
-	--sims:insert(Roe(table(args, {equation=MHD()})))
+	sims:insert(Roe(table(args, {equation=MHD()})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation=MHD()})))
 
 	-- srhd Marti & Muller 2003 problem #1

@@ -301,7 +301,7 @@ function MHD:calcEigenBasis(lambda, evR, evL, dF_dU, rho, vx, vy, vz, bx, by, bz
 	alphaS = alphaS * norm
 	local QStarY = betaStarY/betaStarSq
 	local QStarZ = betaStarZ/betaStarSq
-	vqstr = (vy*QStarY + vz*QStarZ)
+	local vqstr = (vy*QStarY + vz*QStarZ)
 	norm = norm * 2
 
 	fill(evL[1], alphaF*(vSq-hHydro) + Cff*(Cf+vx) - Qs*vqstr - aspb, -alphaF*vx - Cff, -alphaF*vy + Qs*QStarY, -alphaF*vz + Qs*QStarZ, alphaF, AHatS*QStarY - alphaF*by, AHatS*QStarZ - alphaF*bz)

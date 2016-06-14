@@ -8,7 +8,8 @@ function RoeImplicitLinearized:init(args)
 	
 	self.linearSolver = args.linearSolver or require 'linearsolvers'.gmres
 	self.linearSolverEpsilon = args.linearSolverEpsilon or 1e-10
-	self.linearSolverMaxIter = args.linearSolverMaxIter or 100
+	self.linearSolverMaxIter = args.linearSolverMaxIter or 10 * self.gridsize * self.numStates 
+	self.linearSolverRestart = args.linearSolverRestart or self.gridsize * self.numStates 
 	self.errorLogging = args.errorLogging
 
 	self.name = self.equation.name .. ' Roe Implicit Linearized'
@@ -43,6 +44,7 @@ function RoeImplicitLinearized:step(dt)
 		x0 = qs:clone(),
 		epsilon = self.linearSolverEpsilon, 
 		maxiter = self.linearSolverMaxIter,
+		restart = self.linearSolverRestart,
 		--[=[ mostly true ... mostly ...
 		-- not true for any 2nd derivative terms
 		-- this method is only used for Jacobi method, so I don't really care
@@ -61,7 +63,11 @@ function RoeImplicitLinearized:step(dt)
 			print(self.t, convergenceIteration, err)
 		end,
 	}
-	
+
+	--[=[ identity.  do nothing.
+	linearSolverArgs.b = qs:clone()
+	linearSolverArgs.A = function(qs) return qs end
+	--]=]
 	-- [=[ backward Euler
 	linearSolverArgs.b = qs:clone()
 	linearSolverArgs.A = function(qs)
@@ -69,9 +75,9 @@ function RoeImplicitLinearized:step(dt)
 		-- then the matrix should be computed before invoking the iterative solver
 		-- which means the matrix coeffiicents shouldn't be changing per-iteration
 		-- which means calc_dq_dt() should be based on the initial state and not the iterative state
-		--qs = qs - dt * calc_dq_dt(self.qs)
+		qs = qs - dt * calc_dq_dt(self.qs)
 		-- ... but 
-		qs = qs - dt * calc_dq_dt(qs)
+		--qs = qs - dt * calc_dq_dt(qs)
 		--self.boundaryMethod(qs)
 		return qs
 	end

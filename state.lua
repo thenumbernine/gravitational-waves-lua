@@ -22,8 +22,7 @@ function State.__add(a,b)
 end
 
 function State.__mul(a,b)
-	local function is(x) return type(x) == 'table' and x.isa and x:isa(State) end
-	local src = is(a) and a or b
+	local src = State.is(a) and a or b
 	local c = State(#src, #src[1])
 	for i=1,#src do
 		for j=1,#src[1] do
@@ -33,6 +32,11 @@ function State.__mul(a,b)
 		end
 	end
 	return c
+end
+
+function State.__div(a,b)
+	assert(type(b) == 'number')
+	return a * (1/b)
 end
 
 function State.__unm(a)
@@ -86,4 +90,3 @@ function State.perElementDivide(a,b)
 end
 
 return State
-

@@ -11,10 +11,11 @@ local function prepArgs(args)
 	assert(args.b)
 	-- args.x0 is optional, defaults to b
 	-- args.ADiag is only used by jacobi
-	if not args.maxiter then args.maxiter = 100 end
+	if not args.maxiter then args.maxiter = 10 * #args.b end
+	if not args.restart then args.restart = #args.b end	-- used by gmres
 	if not args.epsilon then args.epsilon = 1e-10 end
-	if not args.dot then args.dot = args.b.dot end
-	if not args.clone then args.clone = args.b.clone end
+	if not args.dot then args.dot = assert(args.b.dot) end
+	if not args.clone then args.clone = assert(args.b.clone) end
 	if not args.scale then args.scale = args.b.perElementMultiply end
 	if not args.invScale then args.invScale = args.b.perElementDivide end
 	return args
@@ -37,4 +38,3 @@ return {
 		return GeneralizedMinimalResidual(prepArgs(args))
 	end,
 }
-
