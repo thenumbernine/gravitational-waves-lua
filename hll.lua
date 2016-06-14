@@ -31,13 +31,13 @@ function HLL:calcFlux(dt)
 		local qR = self.qs[i]
 		
 		local sL = self.eigenvalues[i][1]
-		local sR = self.eigenvalues[i][self.numStates]
+		local sR = self.eigenvalues[i][self.numWaves]
 
 		local fluxL = {self.equation:calcFluxForState(qL)}
 		local fluxR = {self.equation:calcFluxForState(qR)}
 
 		local flux = self.fluxes[i]
-		for i=1,self.numStates do
+		for i=1,self.numWaves do
 			if 0 <= sL then
 				flux[i] = fluxL[i]
 			elseif sL <= 0 and 0 <= sR then

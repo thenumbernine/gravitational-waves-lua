@@ -315,6 +315,7 @@ do
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
 	sims:insert(Roe(table(args, {equation=MHD()})))
+	--sims:insert(HLL(table(args, {equation=MHD()})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation=MHD()})))
 
 	-- srhd Marti & Muller 2003 problem #1

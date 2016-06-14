@@ -10,7 +10,7 @@ function Roe:init(args)
 	local graphInfo = {
 		name = 'log eigenbasis error',
 		getter = function(self,i)
-			return math.log(self.eigenbasisErrors[i], 10)
+			return self.eigenbasisErrors and math.log(self.eigenbasisErrors[i], 10)
 		end,
 	}
 	self.equation.graphInfos:insert(graphInfo)
@@ -19,7 +19,7 @@ function Roe:init(args)
 	local graphInfo = {
 		name = 'log reconstruction error',
 		getter = function(self,i)
-			return math.log(self.fluxMatrixErrors[i], 10)
+			return self.fluxMatrixErrors and math.log(self.fluxMatrixErrors[i], 10)
 		end,
 	}
 	self.equation.graphInfos:insert(graphInfo)

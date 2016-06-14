@@ -166,15 +166,6 @@ function MHD:calcRoeValues(qL, qR)
 	return rho, vx, vy, vz, bx, by, bz, hTotal, X, Y
 end
 
-function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
-	return self:calcEigenBasis(
-		sim.eigenvalues[i],
-		sim.eigenvectors[i],
-		sim.eigenvectorsInverse[i],
-		sim.fluxMatrix[i],
-		self:calcRoeValues(qL, qR))
-end
-
 function MHD:calcEigenBasis(lambda, evR, evL, dF_dU, rho, vx, vy, vz, bx, by, bz, hTotal, X, Y)
 	local gamma = self.gamma
 	local gamma_1 = gamma - 1
@@ -252,14 +243,16 @@ function MHD:calcEigenBasis(lambda, evR, evL, dF_dU, rho, vx, vy, vz, bx, by, bz
 	local CAx = math.sqrt(CAxSq)
 	fill(lambda, vx-Cf, vx-CAx, vx-Cs, vx, vx+Cs, vx+CAx, vx+Cf)
 
-	-- defining dF/dU directly
-	fill(dF_dU[1], 0, 											1,										0,							0,							0,			0,							0							)
-	fill(dF_dU[2], -vx*vx + .5*gamma_1*vSq - gamma_2*X,			-gamma_3*vx,							-gamma_1*vy,				-gamma_1*vz,				gamma_1,	-gamma_2*Y*by,				-gamma_2*Y*bz				)
-	fill(dF_dU[3], -vx*vy,										vy,										vx,							0, 							0,			-bx,						0							)
-	fill(dF_dU[4], -vx*vz,										vz,										0,							vx, 						0,			0,							-bx							)
-	fill(dF_dU[5], vx*(.5*gamma_1*vSq - hTotal) + bx*bDotV/rho,	-gamma_1*vx*vx + hTotal - bx*bx/rho,	-gamma_1*vx*vy - bx*by/rho,	-gamma_1*vx*vz - bx*bz/rho,	gamma*vx,	-gamma_2*Y*by*vx - bx*vy,	-gamma_2*Y*bz*vx - bx*vz	)
-	fill(dF_dU[6], (bx*vy - by*vx)/rho,							by/rho,									-bx/rho,					0, 							0,			vx,							0							)
-	fill(dF_dU[7], (bx*vz - bz*vx)/rho,							bz/rho,									0,							-bx/rho, 					0,			0,							vx							)
+	-- dF/dU 
+	if dF_dU then
+		fill(dF_dU[1], 0, 											1,										0,							0,							0,			0,							0							)
+		fill(dF_dU[2], -vx*vx + .5*gamma_1*vSq - gamma_2*X,			-gamma_3*vx,							-gamma_1*vy,				-gamma_1*vz,				gamma_1,	-gamma_2*Y*by,				-gamma_2*Y*bz				)
+		fill(dF_dU[3], -vx*vy,										vy,										vx,							0, 							0,			-bx,						0							)
+		fill(dF_dU[4], -vx*vz,										vz,										0,							vx, 						0,			0,							-bx							)
+		fill(dF_dU[5], vx*(.5*gamma_1*vSq - hTotal) + bx*bDotV/rho,	-gamma_1*vx*vx + hTotal - bx*bx/rho,	-gamma_1*vx*vy - bx*by/rho,	-gamma_1*vx*vz - bx*bz/rho,	gamma*vx,	-gamma_2*Y*by*vx - bx*vy,	-gamma_2*Y*bz*vx - bx*vz	)
+		fill(dF_dU[6], (bx*vy - by*vx)/rho,							by/rho,									-bx/rho,					0, 							0,			vx,							0							)
+		fill(dF_dU[7], (bx*vz - bz*vx)/rho,							bz/rho,									0,							-bx/rho, 					0,			0,							vx							)
+	end
 
 	-- right eigenvectors
 	local qa3 = alphaF*vy
@@ -277,13 +270,15 @@ function MHD:calcEigenBasis(lambda, evR, evL, dF_dU, rho, vx, vy, vz, bx, by, bz
 	local r71 = As*betaStarZ
 	local r72 = betaY*sbx*_1_sqrtRho
 	local r73 = -Af*betaStarZ
-	fill(evR[1], alphaF, 0, alphaS, 1, alphaS, 0, alphaF)
-	fill(evR[2], alphaF*lambda[1], 0, alphaS*lambda[3], vx, alphaS*lambda[5], 0, alphaF*lambda[7])
-	fill(evR[3], qa3 + qc3, -betaZ, qb3 - qd3, vy, qb3 + qd3, betaZ, qa3 - qc3)
-	fill(evR[4], qa4 + qc4, betaY, qb4 - qd4, vz, qb4 + qd4, -betaY, qa4 - qc4)
-	fill(evR[5], alphaF*(hHydro - vx*Cf) + Qs*vDotBeta + Aspbb, r52, alphaS*(hHydro - vx*Cs) - Qf*vDotBeta - Afpbb, .5*vSq + gamma_2*X/gamma_1, alphaS*(hHydro + vx*Cs) + Qf*vDotBeta - Afpbb, -r52, alphaF*(hHydro + vx*Cf) - Qs*vDotBeta + Aspbb)
-	fill(evR[6], r61, r62, r63, 0, r63, r62, r61)
-	fill(evR[7], r71, r72, r73, 0, r73, r72, r71)
+	if evR then
+		fill(evR[1], alphaF, 0, alphaS, 1, alphaS, 0, alphaF)
+		fill(evR[2], alphaF*lambda[1], 0, alphaS*lambda[3], vx, alphaS*lambda[5], 0, alphaF*lambda[7])
+		fill(evR[3], qa3 + qc3, -betaZ, qb3 - qd3, vy, qb3 + qd3, betaZ, qa3 - qc3)
+		fill(evR[4], qa4 + qc4, betaY, qb4 - qd4, vz, qb4 + qd4, -betaY, qa4 - qc4)
+		fill(evR[5], alphaF*(hHydro - vx*Cf) + Qs*vDotBeta + Aspbb, r52, alphaS*(hHydro - vx*Cs) - Qf*vDotBeta - Afpbb, .5*vSq + gamma_2*X/gamma_1, alphaS*(hHydro + vx*Cs) + Qf*vDotBeta - Afpbb, -r52, alphaF*(hHydro + vx*Cf) - Qs*vDotBeta + Aspbb)
+		fill(evR[6], r61, r62, r63, 0, r63, r62, r61)
+		fill(evR[7], r71, r72, r73, 0, r73, r72, r71)
+	end
 
 	-- left eigenvectors
 	local norm = .5/aTildeSq
@@ -303,14 +298,33 @@ function MHD:calcEigenBasis(lambda, evR, evL, dF_dU, rho, vx, vy, vz, bx, by, bz
 	local QStarZ = betaStarZ/betaStarSq
 	local vqstr = (vy*QStarY + vz*QStarZ)
 	norm = norm * 2
+	if evL then
+		fill(evL[1], alphaF*(vSq-hHydro) + Cff*(Cf+vx) - Qs*vqstr - aspb, -alphaF*vx - Cff, -alphaF*vy + Qs*QStarY, -alphaF*vz + Qs*QStarZ, alphaF, AHatS*QStarY - alphaF*by, AHatS*QStarZ - alphaF*bz)
+		fill(evL[2], .5*(vy*betaZ - vz*betaY), 0, -.5*betaZ, .5*betaY, 0, -.5*sqrtRho*betaZ*sbx, .5*sqrtRho*betaY*sbx)
+		fill(evL[3], alphaS*(vSq-hHydro) + Css*(Cs+vx) + Qf*vqstr + afpb, -alphaS*vx - Css, -alphaS*vy - Qf*QStarY, -alphaS*vz - Qf*QStarZ, alphaS, -AHatF*QStarY - alphaS*by, -AHatF*QStarZ - alphaS*bz)
+		fill(evL[4], 1 - norm*(.5*vSq - gamma_2*X/gamma_1) , norm*vx, norm*vy, norm*vz, -norm, norm*by, norm*bz)
+		fill(evL[5], alphaS*(vSq-hHydro) + Css*(Cs-vx) - Qf*vqstr + afpb, -alphaS*vx + Css, -alphaS*vy + Qf*QStarY, -alphaS*vz + Qf*QStarZ, alphaS, evL[3][6], evL[3][7])
+		fill(evL[6], -evL[2][1], 0, -evL[2][3], -evL[2][4], 0, evL[2][6], evL[2][7])
+		fill(evL[7], alphaF*(vSq-hHydro) + Cff*(Cf-vx) + Qs*vqstr - aspb, -alphaF*vx + Cff, -alphaF*vy - Qs*QStarY, -alphaF*vz - Qs*QStarZ, alphaF, evL[1][6], evL[1][7])
+	end
+end
 
-	fill(evL[1], alphaF*(vSq-hHydro) + Cff*(Cf+vx) - Qs*vqstr - aspb, -alphaF*vx - Cff, -alphaF*vy + Qs*QStarY, -alphaF*vz + Qs*QStarZ, alphaF, AHatS*QStarY - alphaF*by, AHatS*QStarZ - alphaF*bz)
-	fill(evL[2], .5*(vy*betaZ - vz*betaY), 0, -.5*betaZ, .5*betaY, 0, -.5*sqrtRho*betaZ*sbx, .5*sqrtRho*betaY*sbx)
-	fill(evL[3], alphaS*(vSq-hHydro) + Css*(Cs+vx) + Qf*vqstr + afpb, -alphaS*vx - Css, -alphaS*vy - Qf*QStarY, -alphaS*vz - Qf*QStarZ, alphaS, -AHatF*QStarY - alphaS*by, -AHatF*QStarZ - alphaS*bz)
-	fill(evL[4], 1 - norm*(.5*vSq - gamma_2*X/gamma_1) , norm*vx, norm*vy, norm*vz, -norm, norm*by, norm*bz)
-	fill(evL[5], alphaS*(vSq-hHydro) + Css*(Cs-vx) - Qf*vqstr + afpb, -alphaS*vx + Css, -alphaS*vy + Qf*QStarY, -alphaS*vz + Qf*QStarZ, alphaS, evL[3][6], evL[3][7])
-	fill(evL[6], -evL[2][1], 0, -evL[2][3], -evL[2][4], 0, evL[2][6], evL[2][7])
-	fill(evL[7], alphaF*(vSq-hHydro) + Cff*(Cf-vx) + Qs*vqstr - aspb, -alphaF*vx + Cff, -alphaF*vy - Qs*QStarY, -alphaF*vz - Qs*QStarZ, alphaF, evL[1][6], evL[1][7])
+function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
+	return self:calcEigenBasis(
+		sim.eigenvalues[i],
+		sim.eigenvectors[i],
+		sim.eigenvectorsInverse[i],
+		sim.fluxMatrix[i],
+		self:calcRoeValues(qL, qR))
+end
+
+function MHD:calcInterfaceEigenvalues(sim,i,qL,qR)
+	return self:calcEigenBasis(
+		sim.eigenvalues[i],
+		nil,
+		nil,
+		nil,
+		self:calcRoeValues(qL, qR))
 end
 
 local function permute8to7(v1,v2,v3,v4,v5,v6,v7,v8)
