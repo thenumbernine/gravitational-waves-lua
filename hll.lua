@@ -9,17 +9,6 @@ function HLL:init(args)
 	HLL.super.init(self, args)
 end
 
-function HLL:calcDT()
-	-- matches Roe, except without eigenvectors
-	for i=2,self.gridsize do
-		local qL = self.qs[i-1]
-		local qR = self.qs[i]
-		self.equation:calcInterfaceEigenvalues(self, i, qL, qR)
-	end
-
-	return HLL.super.calcDT(self)
-end
-	
 function HLL:calcFluxes(dt)
 	local gamma = self.gamma
 	

@@ -227,11 +227,6 @@ function Roe:calcFluxAtInterface(dt, i)
 	end
 	--]]
 
-	local qAvg = {}
-	for j=1,self.numStates do
-		qAvg[j] = .5 * (qR[j] + qL[j])
-	end
-
 	local fluxTilde = {}
 	for j=1,self.numWaves do
 		local lambda = lambdas[j]
@@ -244,6 +239,10 @@ function Roe:calcFluxAtInterface(dt, i)
 	end
 	
 	if not canCalcFlux then
+		local qAvg = {}
+		for j=1,self.numStates do
+			qAvg[j] = .5 * (qR[j] + qL[j])
+		end	
 		local qAvgTildes = self.equation:applyLeftEigenvectors(self, i, qAvg)
 		for j=1,self.numWaves do
 			fluxTilde[j] = fluxTilde[j] + lambdas[j] * qAvgTildes[j]

@@ -95,10 +95,11 @@ function MHD:calcPrimFromCons(rho, mx, my, mz, bx, by, bz, ETotal)
 	P = math.max(P, 1e-7)
 	return rho, vx, vy, vz, bx, by, bz, P
 end
- 
-function MHD:calcMinMaxEigenvaluesFromCons(rho, mx, my, mz, bx, by, bz, ETotal)
+
+--[[
+function MHD:calcMinMaxEigenvaluesFromCons(...)
 	local gamma = self.gamma	
-	local rho, vx, vy, vz, bx, by, bz, P = self:calcPrimFromCons(rho, mx, my, mz, bx, by, bz, ETotal)
+	local rho, vx, vy, vz, bx, by, bz, P = self:calcPrimFromCons(...)
 	
 	local bSq = bx*bx + by*by + bz*bz
 	local _1_rho = 1/rho
@@ -117,6 +118,17 @@ function MHD:calcMinMaxEigenvaluesFromCons(rho, mx, my, mz, bx, by, bz, ETotal)
 	local Cs = math.sqrt(math.max(CsSq,0))
 	return vx - Cf, vx + Cf	
 end
+--]]
+-- [[
+function MHD:calcEigenvaluesFromState(...)
+	local gamma = self.gamma
+	local rho, vx, vy, vz, bx, by, bz, P = self:calcPrimFromCons(...)
+	local hTotal = .5 * (vx * vx + vy * vy + vz * vz) + (gamma / (gamma - 1) * P + bx * bx + by * by + bz * bz) / rho
+	local lambdas = {}
+	self:calcEigenBasis(lambdas, nil, nil, nil, rho, vx, vy, vz, bx, by, bz, hTotal, 0, 1)
+	return table.unpack(lambdas)
+end
+--]]
 
 function MHD:calcFluxForState(q)
 	local rho, mx, my, mz, bx, by, bz, ETotal = table.unpack(q)
