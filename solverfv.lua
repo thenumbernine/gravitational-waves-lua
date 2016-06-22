@@ -37,7 +37,16 @@ function SolverFV:reset()
 end
 
 function SolverFV:calcDT()
-	-- [[ using interface
+	--[[
+	here's a dilemma
+	the dt calculation looks at interface eigenvalues
+	which uses getL/getR,
+	which (for PLM) depends on the extrapolated cell values
+	which depends on dt
+	
+	a fix is to go back to cell-centered eigenvalues
+	--]]
+	--[[ using interface
 	for i=2,self.gridsize do
 		local qL = self:get_qL(i)
 		local qR = self:get_qR(i)
@@ -50,13 +59,13 @@ function SolverFV:calcDT()
 	else
 		local result = math.huge
 		for i=1,self.gridsize do
-			-- [[ using interface 
+			--[[ using interface 
 			local eigenvaluesL = self.eigenvalues[i]
 			local eigenvaluesR = self.eigenvalues[i+1]
 			local lambdaMax = eigenvaluesL[#eigenvaluesL] -- math.max(0, unpack(eigenvaluesL))
 			local lambdaMin = eigenvaluesR[1] -- math.min(0, unpack(eigenvaluesR))
 			--]]
-			--[[ using cell
+			-- [[ using cell
 			local lambdaMin, lambdaMax = self.equation:calcCellMinMaxEigenvalues(self, i)
 			lambdaMin = math.min(0, lambdaMin)
 			lambdaMax = math.max(0, lambdaMax)

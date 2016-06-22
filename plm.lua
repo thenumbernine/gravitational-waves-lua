@@ -8,26 +8,26 @@ local function PLMBehavior(parentClass)
 
 	function PLM:init(args)
 		self.equation = assert(args.equation or self.equation) 
-		self.name = self.equation.name .. ' PLM'
 		PLM.super.init(self, args)
+		self.name = self.name .. ' PLM'
 
 		-- cells 
-		self.lambdaCs = {}
-		self.evLCWrtPrims = {}
-		self.evRCWrtPrims = {}
+		self.cellEigenvalues = {}
+		self.cellLeftEigenvectors = {}
+		self.cellRightEigenvectors = {}
 		self.ws = {}
-		self.delta_wLs = {}
-		self.delta_wRs = {}
-		self.delta_wCs = {}
-		self.delta_aLs = {}
-		self.delta_aRs = {}
-		self.delta_aCs = {}
-		self.delta_ams = {}
-		self.delta_wms = {}
+		self.deltaQLs = {}
+		self.deltaQRs = {}
+		self.deltaQCs = {}
+		self.deltaQTildeLs = {}
+		self.deltaQTildeRs = {}
+		self.deltaQTildeCs = {}
+		self.deltaQTildeMs = {}
+		self.deltaQMs = {}
 	
 		-- interface
-		self.wHatLs = {}
-		self.wHatRs = {}
+		self.qHatLs = {}
+		self.qHatRs = {}
 		self.wLs = {}
 		self.wRs = {}
 		self.qLs = {}
@@ -39,32 +39,42 @@ local function PLMBehavior(parentClass)
 
 		-- centered
 		for i=1,self.gridsize do
-			self.lambdaCs[i] = {}
-			self.evLCWrtPrims[i] = {}
-			self.evRCWrtPrims[i] = {}
+			self.cellEigenvalues[i] = {}
+			self.cellLeftEigenvectors[i] = {}
+			self.cellRightEigenvectors[i] = {}
 			for j=1,self.numStates do
-				self.evLCWrtPrims[i][j] = {}
-				self.evRCWrtPrims[i][j] = {}
+				self.cellLeftEigenvectors[i][j] = {}
+				self.cellRightEigenvectors[i][j] = {}
 			end
 				
 			self.ws[i] = {}	
-			self.delta_wLs[i] = {}
-			self.delta_wRs[i] = {}
-			self.delta_wCs[i] = {}
-			self.delta_aLs[i] = {}
-			self.delta_aRs[i] = {}
-			self.delta_aCs[i] = {}
-			self.delta_ams[i] = {}
-			self.delta_wms[i] = {}
-		end
-	
-		for i=1,self.gridsize+1 do
+			self.deltaQLs[i] = {}
+			self.deltaQRs[i] = {}
+			self.deltaQCs[i] = {}
+			self.deltaQTildeLs[i] = {}
+			self.deltaQTildeRs[i] = {}
+			self.deltaQTildeCs[i] = {}
+			self.deltaQTildeMs[i] = {}
+			self.deltaQMs[i] = {}
+
 			self.qLs[i] = {}
 			self.qRs[i] = {}
-			self.wHatLs[i] = {}
-			self.wHatRs[i] = {}
 			self.wLs[i] = {}
 			self.wRs[i] = {}
+			for j=1,self.numStates do
+				self.qLs[i][j] = 0
+				self.qRs[i][j] = 0
+				self.wLs[i][j] = 0
+				self.wRs[i][j] = 0
+			end
+		end
+		for i=1,self.gridsize+1 do
+			self.qHatLs[i] = {}
+			self.qHatRs[i] = {}
+			for j=1,self.numStates do
+				self.qHatLs[i][j] = 0
+				self.qHatRs[i][j] = 0
+			end
 		end
 	end
 
@@ -73,67 +83,62 @@ local function PLMBehavior(parentClass)
 	end
 
 	local solverLinearFunc = require 'solverlinearfunc'
-	PLM.applyLeftEigenvectorsWrtPrimsAtCenter = solverLinearFunc'evLCWrtPrims'
-	PLM.applyRightEigenvectorsWrtPrimsAtCenter = solverLinearFunc'evRCWrtPrims'
+	PLM.applyLeftEigenvectorsAtCenter = solverLinearFunc'cellLeftEigenvectors'
+	PLM.applyRightEigenvectorsAtCenter = solverLinearFunc'cellRightEigenvectors'
 
 	function PLM:calcFluxes(dt)
 
-		-- calc w's
-		for i=1,self.gridsize do
-			fill(self.ws[i], self.equation:calcPrimFromCons(table.unpack(self.qs[i])))
-		end
-
 		-- calc eigenvalues and vectors at cell center
 		for i=1,self.gridsize do
-			local rho, vx, P = table.unpack(self.ws[i])
+			local rho, vx, P = self.equation:calcPrimFromCons(table.unpack(self.qs[i]))
 			local ETotal = self.qs[i][3]
 			local hTotal = self.equation:calc_hTotal(rho, P, ETotal)
-			local lambda = self.lambdaCs[i]
-			local evRWrtPrim = self.evRCWrtPrims[i]
-			local evLWrtPrim = self.evLCWrtPrims[i]
-			local evR, lambda, evL = self.equation:calcEigenBasisWrtPrims(rho, vx, hTotal, nil, nil, lambda, evLWrtPrim, evRWrtPrim)
+			local lambda = self.cellEigenvalues[i]
+			local cellRightEigenvectors = self.cellRightEigenvectors[i]
+			local cellLeftEigenvectors = self.cellLeftEigenvectors[i]
+			self.equation:calcEigenBasis(rho, vx, hTotal, nil, nil, lambda, cellLeftEigenvectors, cellRightEigenvectors)
 		end
-
-		-- (36) calc delta w's
+		
+		-- (36) calc delta q's
 		for i=2,self.gridsize-1 do
 			for j=1,self.numStates do
-				self.delta_wLs[i][j] = self.ws[i][j] - self.ws[i-1][j]
-				self.delta_wRs[i][j] = self.ws[i+1][j] - self.ws[i][j]
-				self.delta_wCs[i][j] = self.ws[i+1][j] - self.ws[i-1][j]
+				self.deltaQLs[i][j] = self.qs[i][j] - self.qs[i-1][j]
+				self.deltaQRs[i][j] = self.qs[i+1][j] - self.qs[i][j]
+				self.deltaQCs[i][j] = self.qs[i+1][j] - self.qs[i-1][j]
 			end
 		end
-
+		
 		-- (37) calc 'delta qtildes' by 'hydrodynamics ii' / 'delta a's by the paper
 		for i=2,self.gridsize-1 do
-			self.delta_aLs[i] = self:applyLeftEigenvectorsWrtPrimsAtCenter(i, self.delta_wLs[i])
-			self.delta_aRs[i] = self:applyLeftEigenvectorsWrtPrimsAtCenter(i, self.delta_wRs[i])
-			self.delta_aCs[i] = self:applyLeftEigenvectorsWrtPrimsAtCenter(i, self.delta_wCs[i])
+			self.deltaQTildeLs[i] = self:applyLeftEigenvectorsAtCenter(i, self.deltaQLs[i])
+			self.deltaQTildeRs[i] = self:applyLeftEigenvectorsAtCenter(i, self.deltaQRs[i])
+			self.deltaQTildeCs[i] = self:applyLeftEigenvectorsAtCenter(i, self.deltaQCs[i])
 		end
-
+		
 		-- (38) calc delta a^m TVD reconstruction
 		for i=2,self.gridsize-1 do
 			for j=1,self.numStates do
-				self.delta_ams[i][j] = sign(self.delta_aCs[i][j]) * math.min(2 * math.abs(self.delta_aLs[i][j]), 2 * math.abs(self.delta_aRs[i][j]), math.abs(self.delta_aCs[i][j]))
+				self.deltaQTildeMs[i][j] = sign(self.deltaQTildeCs[i][j]) * math.min(2 * math.abs(self.deltaQTildeLs[i][j]), 2 * math.abs(self.deltaQTildeRs[i][j]), math.abs(self.deltaQTildeCs[i][j]))
 			end
 		end
-
+		
 		-- (39) char -> prim
 		for i=2,self.gridsize-1 do
-			self.delta_wms[i] = self:applyRightEigenvectorsWrtPrimsAtCenter(i, self.delta_ams[i])
+			self.deltaQMs[i] = self:applyRightEigenvectorsAtCenter(i, self.deltaQTildeMs[i])
 		end
-
+		
 		-- (40, 41)
 		for i=2,self.gridsize-1 do
 			local dx = self.ixs[i+1] - self.ixs[i]
 			local dt_dx = dt / dx
-			local lambda = self.lambdaCs[i]
+			local lambda = self.cellEigenvalues[i]
 			local lambdaMin = lambda[1]	-- jacobian of of flux at cell center, min eigenvalue
 			local lambdaMax = lambda[self.numStates]	-- ... and max eigenvalue
 			for j=1,self.numStates do
 				-- \hat{w}_{L,i+1/2} left of interface = right of interface's left cell's center
-				self.wHatLs[i+1][j] = self.ws[i][j] + .5 * (1 - math.max(lambdaMax, 0) * dt_dx) * self.delta_wms[i][j]
+				self.qHatLs[i+1][j] = self.qs[i][j] + .5 * (1 - math.max(lambdaMax, 0) * dt_dx) * self.deltaQMs[i][j]
 				-- \hat{w}_{R,i-1/2} right of interface = left of interface's right cell's center
-				self.wHatRs[i][j] = self.ws[i][j] - .5 * (1 - math.min(lambdaMin, 0) * dt_dx) * self.delta_wms[i][j]
+				self.qHatRs[i][j] = self.qs[i][j] - .5 * (1 - math.min(lambdaMin, 0) * dt_dx) * self.deltaQMs[i][j]
 			end
 		end
 
@@ -142,12 +147,12 @@ local function PLMBehavior(parentClass)
 			local dx = self.ixs[i+1] - self.ixs[i]
 			local dt_dx = dt / dx
 
-			local lambda = self.lambdaCs[i]
+			local lambda = self.cellEigenvalues[i]
 			local lambdaMin = lambda[1]	-- jacobian of of flux at cell center, min eigenvalue
 			local lambdaMax = lambda[self.numStates]	-- ... and max eigenvalue
 
 			-- delta w^m in characteristic space
-			local delta_wm_char = self:applyLeftEigenvectorsWrtPrimsAtCenter(i, self.delta_wms[i])
+			local delta_wm_char = self:applyLeftEigenvectorsAtCenter(i, self.deltaQMs[i])
 			
 			-- delta w^m, in char space (original times left eigenvectors), with all eigenvalues <=0 times zero, and the others times the max eigenvalue minus its eigenvalue
 			local delta_wm_char_pos = {}
@@ -159,19 +164,13 @@ local function PLMBehavior(parentClass)
 				delta_wm_char_neg[j] = (lambda[j] >= 0 and 0 or 1) * (lambdaMin - lambda[j]) * delta_wm_char[j]
 			end
 			
-			local delta_wm_pos = self:applyRightEigenvectorsWrtPrimsAtCenter(i, delta_wm_char_pos)
-			local delta_wm_neg = self:applyRightEigenvectorsWrtPrimsAtCenter(i, delta_wm_char_neg)
+			local deltaQM_pos = self:applyRightEigenvectorsAtCenter(i, delta_wm_char_pos)
+			local deltaQM_neg = self:applyRightEigenvectorsAtCenter(i, delta_wm_char_neg)
 			
 			for j=1,self.numStates do
-				self.wLs[i+1][j] = self.wHatLs[i+1][j] + .5 * dt_dx * delta_wm_pos[j]
-				self.wRs[i][j] = self.wHatRs[i][j] + .5 * dt_dx * delta_wm_neg[j]
+				self.qLs[i+1][j] = self.qHatLs[i+1][j] + .5 * dt_dx * deltaQM_pos[j]
+				self.qRs[i][j] = self.qHatRs[i][j] + .5 * dt_dx * deltaQM_neg[j]
 			end
-		end
-
-		-- step 8
-		for i=2,self.gridsize-1 do
-			self.qLs[i+1] = {self.equation:calcPrimFromCons(table.unpack(self.wLs[i+1]))}
-			self.qRs[i] = {self.equation:calcPrimFromCons(table.unpack(self.wRs[i]))}
 		end
 
 		-- now qLs and qRs can be used
@@ -179,10 +178,16 @@ local function PLMBehavior(parentClass)
 	end
 
 	function PLM:get_qL(i)
+		for j=1,3 do
+			assert(self.qLs[i][j], "failed for i,j="..i..','..j)
+		end
 		return self.qLs[i]
 	end
 
 	function PLM:get_qR(i)
+		for j=1,3 do
+			assert(self.qRs[i][j], "failed for i,j="..i..','..j)
+		end
 		return self.qRs[i]
 	end
 

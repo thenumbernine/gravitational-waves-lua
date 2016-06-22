@@ -302,7 +302,8 @@ do
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
-	--sims:insert(Roe(args))
+	sims:insert(Roe(args))
+	sims:insert(PLMBehavior(Roe)(args)) 
 	--sims:insert(Roe(table(args, {equation = require 'euler1d_quasilinear'()})))
 	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
 	--sims:insert(Roe(table(args, {usePPM=true})))
@@ -311,7 +312,7 @@ do
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
-	sims:insert(Roe(table(args, {equation=MHD()})))
+	--sims:insert(Roe(table(args, {equation=MHD()})))
 	--sims:insert(HLL(table(args, {equation=MHD()})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation=MHD()})))
 
@@ -345,13 +346,6 @@ do
 	args.stopAtTimes = {.4}
 	sims:insert(Roe(table(args, {integrator=integrators.ForwardEuler()})))
 	sims:insert(Roe(table(args, {integrator=integrators.RungeKutta4()})))
-	--]=]
-
-	--[=[ compare constant vs piecewise linear
-	args.stopAtTimes = {.4}
-	sims:insert(Roe(args))
-	local Roe_PLM = class(PLMBehavior(Roe))
-	sims:insert(Roe_PLM(args)) 
 	--]=]
 end
 --]]
