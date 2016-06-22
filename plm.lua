@@ -6,10 +6,18 @@ local function PLMBehavior(parentClass)
 
 	local PLM = class(parentClass)
 
+	local function sign(x)
+		return x == 0 and 0 or (x > 0 and 1 or -1)
+	end
+
 	function PLM:init(args)
 		self.equation = assert(args.equation or self.equation) 
 		PLM.super.init(self, args)
 		self.name = self.name .. ' PLM'
+
+		-- should I be modifying the equation?
+		self.equation.applyLeftEigenvectorsAtCenter = self.equation.createTransformFunc('cellLeftEigenvectors', true, false)
+		self.equation.applyRightEigenvectorsAtCenter = self.equation.createTransformFunc('cellRightEigenvectors', false, true)
 
 		-- cells 
 		self.cellEigenvalues = {}
@@ -77,26 +85,17 @@ local function PLMBehavior(parentClass)
 			end
 		end
 	end
-
-	local function sign(x)
-		return x == 0 and 0 or (x > 0 and 1 or -1)
-	end
-
-	local solverLinearFunc = require 'solverlinearfunc'
-	PLM.applyLeftEigenvectorsAtCenter = solverLinearFunc'cellLeftEigenvectors'
-	PLM.applyRightEigenvectorsAtCenter = solverLinearFunc'cellRightEigenvectors'
-
+	
 	function PLM:calcFluxes(dt)
 
 		-- calc eigenvalues and vectors at cell center
 		for i=1,self.gridsize do
-			local rho, vx, P = self.equation:calcPrimFromCons(table.unpack(self.qs[i]))
-			local ETotal = self.qs[i][3]
-			local hTotal = self.equation:calc_hTotal(rho, P, ETotal)
-			local lambda = self.cellEigenvalues[i]
-			local cellRightEigenvectors = self.cellRightEigenvectors[i]
-			local cellLeftEigenvectors = self.cellLeftEigenvectors[i]
-			self.equation:calcEigenBasis(rho, vx, hTotal, nil, nil, lambda, cellLeftEigenvectors, cellRightEigenvectors)
+			self.equation:calcEigenBasis(
+				self.cellEigenvalues[i],
+				self.cellRightEigenvectors[i],
+				self.cellLeftEigenvectors[i],
+				nil,	-- not computing dF/dU at the cell center.  I only ever compute this for testing eigenbasis reconstruction accuracy.
+				self.equation:calcRoeValuesAtCellCenter(self.qs[i]))
 		end
 		
 		-- (36) calc delta q's
@@ -110,21 +109,21 @@ local function PLMBehavior(parentClass)
 		
 		-- (37) calc 'delta qtildes' by 'hydrodynamics ii' / 'delta a's by the paper
 		for i=2,self.gridsize-1 do
-			self.deltaQTildeLs[i] = self:applyLeftEigenvectorsAtCenter(i, self.deltaQLs[i])
-			self.deltaQTildeRs[i] = self:applyLeftEigenvectorsAtCenter(i, self.deltaQRs[i])
-			self.deltaQTildeCs[i] = self:applyLeftEigenvectorsAtCenter(i, self.deltaQCs[i])
+			self.deltaQTildeLs[i] = self.equation:applyLeftEigenvectorsAtCenter(self, i, self.deltaQLs[i])
+			self.deltaQTildeRs[i] = self.equation:applyLeftEigenvectorsAtCenter(self, i, self.deltaQRs[i])
+			self.deltaQTildeCs[i] = self.equation:applyLeftEigenvectorsAtCenter(self, i, self.deltaQCs[i])
 		end
 		
 		-- (38) calc delta a^m TVD reconstruction
 		for i=2,self.gridsize-1 do
-			for j=1,self.numStates do
+			for j=1,self.numWaves do
 				self.deltaQTildeMs[i][j] = sign(self.deltaQTildeCs[i][j]) * math.min(2 * math.abs(self.deltaQTildeLs[i][j]), 2 * math.abs(self.deltaQTildeRs[i][j]), math.abs(self.deltaQTildeCs[i][j]))
 			end
 		end
 		
 		-- (39) char -> prim
 		for i=2,self.gridsize-1 do
-			self.deltaQMs[i] = self:applyRightEigenvectorsAtCenter(i, self.deltaQTildeMs[i])
+			self.deltaQMs[i] = self.equation:applyRightEigenvectorsAtCenter(self, i, self.deltaQTildeMs[i])
 		end
 		
 		-- (40, 41)
@@ -133,7 +132,7 @@ local function PLMBehavior(parentClass)
 			local dt_dx = dt / dx
 			local lambda = self.cellEigenvalues[i]
 			local lambdaMin = lambda[1]	-- jacobian of of flux at cell center, min eigenvalue
-			local lambdaMax = lambda[self.numStates]	-- ... and max eigenvalue
+			local lambdaMax = lambda[self.numWaves]	-- ... and max eigenvalue
 			for j=1,self.numStates do
 				-- \hat{w}_{L,i+1/2} left of interface = right of interface's left cell's center
 				self.qHatLs[i+1][j] = self.qs[i][j] + .5 * (1 - math.max(lambdaMax, 0) * dt_dx) * self.deltaQMs[i][j]
@@ -149,23 +148,23 @@ local function PLMBehavior(parentClass)
 
 			local lambda = self.cellEigenvalues[i]
 			local lambdaMin = lambda[1]	-- jacobian of of flux at cell center, min eigenvalue
-			local lambdaMax = lambda[self.numStates]	-- ... and max eigenvalue
+			local lambdaMax = lambda[self.numWaves]	-- ... and max eigenvalue
 
 			-- delta w^m in characteristic space
-			local delta_wm_char = self:applyLeftEigenvectorsAtCenter(i, self.deltaQMs[i])
+			local delta_wm_char = self.equation:applyLeftEigenvectorsAtCenter(self, i, self.deltaQMs[i])
 			
 			-- delta w^m, in char space (original times left eigenvectors), with all eigenvalues <=0 times zero, and the others times the max eigenvalue minus its eigenvalue
-			local delta_wm_char_pos = {}
+			local deltaQTildeM_pos = {}
 			-- same as above, but only negative eigenvalues, and times min eigenvalue minus this eigenvalue
-			local delta_wm_char_neg = {}
-			for j=1,self.numStates do
+			local deltaQTildeM_neg = {}
+			for j=1,self.numWaves do
 				-- paper says in eqn 44 & 45 that, for HLL only (not Roe), we should be adding *all* nonzero waves to both, and not just positive or negative ones to each
-				delta_wm_char_pos[j] = (lambda[j] <= 0 and 0 or 1) * (lambdaMax - lambda[j]) * delta_wm_char[j]
-				delta_wm_char_neg[j] = (lambda[j] >= 0 and 0 or 1) * (lambdaMin - lambda[j]) * delta_wm_char[j]
+				deltaQTildeM_pos[j] = (lambda[j] <= 0 and 0 or 1) * (lambdaMax - lambda[j]) * delta_wm_char[j]
+				deltaQTildeM_neg[j] = (lambda[j] >= 0 and 0 or 1) * (lambdaMin - lambda[j]) * delta_wm_char[j]
 			end
 			
-			local deltaQM_pos = self:applyRightEigenvectorsAtCenter(i, delta_wm_char_pos)
-			local deltaQM_neg = self:applyRightEigenvectorsAtCenter(i, delta_wm_char_neg)
+			local deltaQM_pos = self.equation:applyRightEigenvectorsAtCenter(self, i, deltaQTildeM_pos)
+			local deltaQM_neg = self.equation:applyRightEigenvectorsAtCenter(self, i, deltaQTildeM_neg)
 			
 			for j=1,self.numStates do
 				self.qLs[i+1][j] = self.qHatLs[i+1][j] + .5 * dt_dx * deltaQM_pos[j]

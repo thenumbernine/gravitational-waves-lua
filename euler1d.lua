@@ -197,7 +197,7 @@ function Euler1D:calcFluxForState(q)
 		gamma * q[2] * q[3] / q[1] + (1 - gamma) / 2 * q[2] * q[2] * q[2] / (q[1] * q[1])
 end
 
-function Euler1D:calcEigenBasis(rho, vx, hTotal, Cs, F, lambda, evL, evR)
+function Euler1D:calcEigenBasis(lambda, evR, evL, dF_dU, rho, vx, hTotal, Cs)
 	Cs = Cs or self:calcSpeedOfSound(vx, hTotal)
 	
 	local gamma = self.gamma
@@ -206,10 +206,10 @@ function Euler1D:calcEigenBasis(rho, vx, hTotal, Cs, F, lambda, evL, evR)
 
 	fill(lambda, self:calcEigenvalues(vx, Cs))
 
-	if F then
-		fill(F[1], 0, 1, 0)
-		fill(F[2], .5*(gamma-3)*vxSq, (3-gamma)*vx, gamma-1)
-		fill(F[3], vx*(.5*(gamma-1)*vxSq - hTotal), hTotal-(gamma-1)*vxSq, gamma*vx)
+	if dF_dU then
+		fill(dF_dU[1], 0, 1, 0)
+		fill(dF_dU[2], .5*(gamma-3)*vxSq, (3-gamma)*vx, gamma-1)
+		fill(dF_dU[3], vx*(.5*(gamma-1)*vxSq - hTotal), hTotal-(gamma-1)*vxSq, gamma*vx)
 	end
 
 	fill(evR[1], 1, 1, 1)
@@ -241,12 +241,26 @@ end
 
 -- used by Roe
 function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
-	local rho, vx, hTotal, Cs = self:calcRoeValues(qL, qR)
-	local F = sim.fluxMatrix[i] 
-	local lambda = sim.eigenvalues[i]
-	local evL = sim.eigenvectorsInverse[i]
-	local evR = sim.eigenvectors[i]
-	self:calcEigenBasis(rho, vx, hTotal, Cs, F, lambda, evL, evR) 
+	self:calcEigenBasis(
+		sim.eigenvalues[i],
+		sim.eigenvectors[i],
+		sim.eigenvectorsInverse[i],
+		sim.fluxMatrix[i] ,
+		self:calcRoeValues(qL, qR))
+end
+
+--[[
+this is a bit of a misplaced function.
+it takes in the cell-centered values.
+it returns the same values that calcRoeValues returns
+so that those values can be passed on to the calcEigenBasis function.
+it is used by plm.
+--]]
+function Euler1D:calcRoeValuesAtCellCenter(q)
+	local rho, vx, P = self:calcPrimFromCons(table.unpack(q))
+	local ETotal = q[3]
+	local hTotal = self:calc_hTotal(rho, P, ETotal)
+	return rho, vx, hTotal
 end
 
 return Euler1D

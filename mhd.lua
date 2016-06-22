@@ -339,6 +339,14 @@ function MHD:calcInterfaceEigenvalues(sim,i,qL,qR)
 		self:calcRoeValues(qL, qR))
 end
 
+function MHD:calcRoeValuesAtCellCenter(q)
+	local rho, vx, vy, vz, bx, by, bz, P = self:calcPrimFromCons(table.unpack(q))
+	local ETotal = q[8]
+	local PMag = .5 * (bx * bx + by * by + bz * bz)
+	local hTotal = (ETotal + P + PMag)/rho
+	return rho, vx, vy, vz, bx, by, bz, hTotal, 0, 1
+end
+
 local function permute8to7(v1,v2,v3,v4,v5,v6,v7,v8)
 	return v1,v2,v3,v4,v8,v6,v7
 end
@@ -346,13 +354,13 @@ local function permute7to8(v1,v2,v3,v4,v5,v6,v7)
 	return v1,v2,v3,v4,0,v6,v7,v5
 end
 
-local function mulField7x7(name, convertFrom, convertTo)
+function MHD.createTransformFunc(matrixField, from, to)
 	return function(self, solver, i, x)
 		-- x is energy-last order, so convert to energy-5th order
-		if convertFrom then
+		if from then
 			x = {permute8to7(table.unpack(x))}
 		end
-		local m = solver[name][i]
+		local m = solver[matrixField][i]
 		local y = {}
 		for j=1,self.numWaves do
 			local sum = 0
@@ -362,15 +370,11 @@ local function mulField7x7(name, convertFrom, convertTo)
 			y[j] = sum
 		end
 		-- convert back to energy-last order
-		if convertTo then
+		if to then
 			y = {permute7to8(table.unpack(y))}
 		end
 		return y
 	end
 end
-
-MHD.fluxTransform = mulField7x7('fluxMatrix', true, true)	-- 8 -> 7 -> 7 -> 8
-MHD.applyLeftEigenvectors = mulField7x7('eigenvectorsInverse', true, false)	-- 8 -> 7
-MHD.applyRightEigenvectors = mulField7x7('eigenvectors', false, true)	-- 7 -> 8
 
 return MHD

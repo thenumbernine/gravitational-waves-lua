@@ -2,6 +2,21 @@ local class = require 'ext.class'
 
 local Equation = class()
 
+function Equation:init()
+	-- create transform functions based on class members
+
+	--[[
+	default implementation will dot with j'th row of eigenvectorsInverse[i]
+	subclasses with sparse matrices (like ADM) will be able to override this and optimize away (those 37x37 matrices)
+
+	another note: eigenfields never have input vectors.  they are made of state vaules, and their input is state values, so there's no need to define an inner product.
+	...except the fact that some of the state variables are on the i'th entry, and some are of the i+1/2'th entry...
+	--]]
+	self.fluxTransform = self.createTransformFunc('fluxMatrix', true, true)
+	self.applyLeftEigenvectors = self.createTransformFunc('eigenvectorsInverse', true, false)
+	self.applyRightEigenvectors = self.createTransformFunc('eigenvectors', false, true)
+end
+
 Equation.State = require 'state' 
 
 -- note this is to be used on the child class object
@@ -21,33 +36,32 @@ function Equation:buildGraphInfos(getters)
 		return info, info.name
 	end)
 end
--- future TODO: build this once all graphs are collected, 
--- so the graphs don't only have to match the first sim of the running set
--- further future TODO: everything with ImGUI, and open and close windows and stuff
 
-local solverLinearFunc = require 'solverlinearfunc'
-function Equation.buildField(matrixField)
-	local linearFunc = solverLinearFunc(matrixField)
-	return function(self, ...)	-- self isn't needed for linear systems.  but it is needed for some subclasses. 
-		return linearFunc(...)
+--[[
+from = whether we are transforming from state vector (true) or wave vector (false)
+to = same
+--]]
+function Equation.createTransformFunc(matrixField, from, to)
+	return function(self, solver, i, v)
+		local matrixWidth = from and solver.numStates or solver.numWaves
+		local matrixHeight = to and solver.numStates or solver.numWaves
+		local m = solver[matrixField][i]
+		local result = {}
+		for j=1,matrixHeight do
+			local sum = 0
+			for k=1,matrixWidth do
+				sum = sum + m[j][k] * v[k]
+			end
+			result[j] = sum
+		end
+		return result 
 	end
 end
 
---[[
-default implementation will dot with j'th row of eigenvectorsInverse[i]
-subclasses with sparse matrices (like ADM) will be able to override this and optimize away (those 37x37 matrices)
-
-another note: eigenfields never have input vectors.  they are made of state vaules, and their input is state values, so there's no need to define an inner product.
-...except the fact that some of the state variables are on the i'th entry, and some are of the i+1/2'th entry...
---]]
-Equation.fluxTransform = Equation.buildField'fluxMatrix'
-Equation.applyLeftEigenvectors = Equation.buildField'eigenvectorsInverse'
-Equation.applyRightEigenvectors = Equation.buildField'eigenvectors'
-
+-- this 'state' vs 'cons' distinction only exists because I was messing with the 'euler1dquasilinear' which was stupid
 function Equation:calcEigenvaluesFromState(...)
 	return self:calcEigenvaluesFromCons(self:calcConsFromState(...))
 end
-
 function Equation:calcMinMaxEigenvaluesFromState(...)
 	if self.calcMinMaxEigenvaluesFromCons then
 		return self:calcMinMaxEigenvaluesFromCons(self:calcConsFromState(...))
