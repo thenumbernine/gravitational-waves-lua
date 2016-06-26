@@ -4,15 +4,14 @@ local class = require 'ext.class'
 
 local function PLMBehavior(parentClass)
 
-	local PLM = class(parentClass)
+	local PLMTemplate = class(parentClass)
 
 	local function sign(x)
 		return x == 0 and 0 or (x > 0 and 1 or -1)
 	end
 
-	function PLM:init(args)
-		self.equation = assert(args.equation or self.equation) 
-		PLM.super.init(self, args)
+	function PLMTemplate:init(args)
+		PLMTemplate.super.init(self, args)
 		self.name = self.name .. ' PLM'
 
 		-- should I be modifying the equation?
@@ -42,8 +41,8 @@ local function PLMBehavior(parentClass)
 		self.qRs = {}
 	end
 
-	function PLM:reset()
-		PLM.super.reset(self)
+	function PLMTemplate:reset()
+		PLMTemplate.super.reset(self)
 
 		-- centered
 		for i=1,self.gridsize do
@@ -86,7 +85,7 @@ local function PLMBehavior(parentClass)
 		end
 	end
 	
-	function PLM:calcFluxes(dt)
+	function PLMTemplate:calcFluxes(dt)
 
 		-- calc eigenvalues and vectors at cell center
 		for i=1,self.gridsize do
@@ -117,7 +116,12 @@ local function PLMBehavior(parentClass)
 		-- (38) calc delta a^m TVD reconstruction
 		for i=2,self.gridsize-1 do
 			for j=1,self.numWaves do
-				self.deltaQTildeMs[i][j] = sign(self.deltaQTildeCs[i][j]) * math.min(2 * math.abs(self.deltaQTildeLs[i][j]), 2 * math.abs(self.deltaQTildeRs[i][j]), math.abs(self.deltaQTildeCs[i][j]))
+				self.deltaQTildeMs[i][j] = 
+					sign(self.deltaQTildeCs[i][j]) 
+					* math.min(
+						2 * math.abs(self.deltaQTildeLs[i][j]), 
+						2 * math.abs(self.deltaQTildeRs[i][j]), 
+						math.abs(self.deltaQTildeCs[i][j]))
 			end
 		end
 		
@@ -173,24 +177,24 @@ local function PLMBehavior(parentClass)
 		end
 
 		-- now qLs and qRs can be used
-		PLM.super.calcFluxes(self, dt)
+		PLMTemplate.super.calcFluxes(self, dt)
 	end
 
-	function PLM:get_qL(i)
+	function PLMTemplate:get_qL(i)
 		for j=1,3 do
 			assert(self.qLs[i][j], "failed for i,j="..i..','..j)
 		end
 		return self.qLs[i]
 	end
 
-	function PLM:get_qR(i)
+	function PLMTemplate:get_qR(i)
 		for j=1,3 do
 			assert(self.qRs[i][j], "failed for i,j="..i..','..j)
 		end
 		return self.qRs[i]
 	end
 
-	return PLM
+	return PLMTemplate
 end
 
 return PLMBehavior

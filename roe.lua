@@ -230,7 +230,7 @@ function Roe:calcFluxAtInterface(dt, i)
 	local fluxTilde = {}
 	for j=1,self.numWaves do
 		local lambda = lambdas[j]
-		local phi = self.fluxLimiter(self.rTildes[i][j])
+		local phi = self.fluxLimiter.func(self.rTildes[i][j])
 		local sgnLambda = lambda >= 0 and 1 or -1
 		local dx = self.xs[i] - self.xs[i-1]
 		local epsilon = lambda * dt / dx

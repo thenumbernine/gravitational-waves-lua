@@ -17,8 +17,8 @@ function Solver:init(args)
 
 	self.integrator = args.integrator or integrators.ForwardEuler()
 	
-	self.name = self.name .. ' ' .. self.integrator.name
-	
+	self.name = self.name .. ' ' .. self.integrator.name .. ' ' .. self.fluxLimiter.name
+
 	self.t0 = args.t or 0
 	self.iteration = args.iteration or 0
 	self.cfl = args.cfl or .05

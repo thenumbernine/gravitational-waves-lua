@@ -19,7 +19,7 @@ function assertfinite(x, msg)
 	assert(math.isfinite(x), msg or 'is not finite!')
 end
 
-local fluxLimiters = require 'limiter' 
+local limiter = require 'limiter' 
 local boundaryMethods = require 'boundary'
 local integrators = require 'integrators'
 
@@ -33,9 +33,15 @@ local symmath = require 'symmath'
 -- solvers:
 local HLL = require 'hll'
 local Roe = require 'roe'
+
+local MUSCLBehavior = require 'muscl'
+local RoeMUSCL = MUSCLBehavior(Roe)
+local HLLMUSCL = MUSCLBehavior(HLL)
+
 local PLMBehavior = require 'plm'
 local RoePLM = PLMBehavior(Roe)
 local HLLPLM = PLMBehavior(HLL)
+
 local RoeImplicitLinearized = require 'roe_implicit_linearized'
 -- equations:
 local Maxwell = require 'maxwell'
@@ -66,7 +72,7 @@ do
 		gridsize = 200,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
-		fluxLimiter = fluxLimiters.donorCell,
+		fluxLimiter = limiter.donorCell,
 		linearSolver = require 'linearsolvers'.gmres,
 		linearSolverEpsilon = 1e-10,
 		linearSolverMaxIter = 100,
@@ -141,7 +147,7 @@ do
 		gridsize = 200,
 		domain = {xmin=100, xmax=500},
 		boundaryMethod = boundaryMethods.freeFlow,
-		fluxLimiter = fluxLimiters.donorCell,
+		fluxLimiter = limiter.donorCell,
 		equation = ADM2DSpherical{
 			-- the symbolic math driving it:
 			r = r,
@@ -191,7 +197,7 @@ do
 		gridsize = 100,
 		domain = {xmin=0, xmax=300},
 		boundaryMethod = boundaryMethods.freeFlow,
-		fluxLimiter = fluxLimiters.donorCell,
+		fluxLimiter = limiter.donorCell,
 		equation = ADM3D{
 			-- the symbolic math driving it:
 			x = x,
@@ -240,7 +246,7 @@ do
 		gridsize = 100,
 		domain = {xmin=-10, xmax=10},
 		boundaryMethod = boundaryMethods.freeFlow,
-		fluxLimiter = fluxLimiters.donorCell,
+		fluxLimiter = limiter.donorCell,
 		equation = ADM3D{
 			-- the symbolic math driving it:
 			x = x,
@@ -290,19 +296,19 @@ do
 		--linearSolver = require 'linearsolvers'.conjres,
 		linearSolver = require 'linearsolvers'.gmres,
 		--linearSolver = require 'linearsolvers'.bicgstab,	-- working on this ...
-		--fluxLimiter = fluxLimiters.donorCell,
-		fluxLimiter = fluxLimiters.superbee,
+		--fluxLimiter = limiter.donorCell,
+		fluxLimiter = limiter.superbee,
 		integrator = integrators.ForwardEuler,
 		--integrator = integrators.RungeKutta4,
 		--[=[ TODO broken
 		scheme = require 'euler1d_muscl'{
 			baseScheme = require 'euler1d_burgers'(),
-			slopeLimiter = fluxLimiters.Fromm,
+			slopeLimiter = limiter.Fromm,
 		}
 		--]=]
 	}
 	
-	-- [=[ compare schemes
+	--[=[ compare schemes
 	--sims:insert(require 'euler1d_burgers'(args))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='exact', sampleMethod='alt'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='exact'})))
@@ -310,8 +316,7 @@ do
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
-	--sims:insert(Roe(args))
-	--sims:insert(RoePLM(args)) 
+	sims:insert(Roe(args))
 	--sims:insert(Roe(table(args, {equation = require 'euler1d_quasilinear'()})))
 	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
 	--sims:insert(Roe(table(args, {usePPM=true})))
@@ -320,9 +325,9 @@ do
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
-	sims:insert(Roe(table(args, {equation=MHD()})))
+	--sims:insert(Roe(table(args, {equation=MHD()})))
 	--sims:insert(HLL(table(args, {equation=MHD()})))
-	sims:insert(RoePLM(table(args, {equation=MHD()})))
+	--sims:insert(RoePLM(table(args, {equation=MHD(), fluxLimiter=limiter.donorCell})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation=MHD()})))
 
 	-- srhd Marti & Muller 2003 problem #1
@@ -336,10 +341,18 @@ do
 	--]=]
 
 	--[=[ compare flux limiters
-	sims:insert(Roe(table(args, {fluxLimiter = fluxLimiters.donorCell})))
-	sims:insert(Roe(table(args, {fluxLimiter = fluxLimiters.LaxWendroff})))
-	sims:insert(Roe(table(args, {fluxLimiter = fluxLimiters.MC})))
-	sims:insert(Roe(table(args, {fluxLimiter = fluxLimiters.superbee})))
+	sims:insert(Roe(table(args, {fluxLimiter = limiter.donorCell})))
+	sims:insert(Roe(table(args, {fluxLimiter = limiter.LaxWendroff})))
+	sims:insert(Roe(table(args, {fluxLimiter = limiter.MC})))
+	sims:insert(Roe(table(args, {fluxLimiter = limiter.superbee})))
+	--]=]
+
+	-- [=[ compare flux vs plm slope limiter
+	sims:insert(Roe(args))
+	--sims:insert(RoePLM(table(args, {fluxLimiter=limiter.superbee}))) 	-- this is applying the limiter twice: the flux and the slope
+	sims:insert(RoePLM(table(args, {fluxLimiter=limiter.donorCell}))) 	-- eliminate the flux limiter, so only the PLM slope limiter is applied
+	--sims:insert(RoeMUSCL(table(args, {fluxLimiter=limiter.superbee}))) 	-- this is applying the limiter twice: the flux and the slope
+	sims:insert(RoeMUSCL(table(args, {fluxLimiter=limiter.donorCell}))) 	-- eliminate the flux limiter, so only the MUSCL slope limiter is applied
 	--]=]
 
 	--[=[ compare schemes
@@ -365,7 +378,7 @@ sims:insert(Roe{
 	gridsize = 200,
 	domain = {xmin=-1, xmax=1},
 	boundaryMethod = boundaryMethods.freeFlow,
-	fluxLimiter = fluxLimiters.donorCell,
+	fluxLimiter = limiter.donorCell,
 })
 --]]
 
@@ -462,6 +475,10 @@ TestApp.keyDownCallbacks = {
 }
 
 local graphNamesEnabled = table()
+graphNamesEnabled:insert{
+	name = 'all',
+	ptr = ffi.new('bool[1]', true),
+}
 
 local solverGens 
 do
@@ -480,7 +497,7 @@ do
 			gridsize = 200,
 			domain = {xmin=0, xmax=300},
 			boundaryMethod = boundaryMethods.freeFlow,
-			fluxLimiter = fluxLimiters.donorCell,
+			fluxLimiter = limiter.donorCell,
 			linearSolver = require 'linearsolvers'.gmres,
 			linearSolverEpsilon = 1e-10,
 			linearSolverMaxIter = 100,
@@ -637,10 +654,6 @@ do
 		{name='Euler1D Backwards Euler Newton', gen=require 'euler1d_backwardeuler_newton'},
 		{name='Euler1D Backwards Euler Linear', gen=require 'euler1d_backwardeuler_linear'},
 		{name='Euler1D DFT', gen=require 'euler1d_dft'},
-		-- broken I think:
-		{name='Euler1D Burgers MUSCL', gen=function(args) return require 'euler1d_muscl'(table(args, {baseScheme=require 'euler1d_burgers'(), slopeLimiter=fluxLimiters.Fromm})) end},
-		{name='Euler1D HLL MUSCL', gen=function(args) return require 'euler1d_muscl'(table(args, {baseScheme=HLL(), slopeLimiter=fluxLimiters.Fromm})) end},
-		{name='Euler1D Roe MUSCL', gen=function(args) return require 'euler1d_muscl'(table(args, {baseScheme=Roe(), slopeLimiter=fluxLimiters.Fromm})) end},
 	}
 end
 local solverGenIndex = ffi.new('int[1]', 0)
@@ -650,6 +663,11 @@ function TestApp:updateGUI()
 	local toRemove
 	for i,sim in ipairs(sims) do
 		ig.igPushIdStr(i..' '..sim.name)
+		sim.visiblePtr = sim.visiblePtr or ffi.new('bool[1]', true)
+		ig.igPushIdStr('visible')
+		ig.igCheckbox('', sim.visiblePtr)
+		ig.igPopId()
+		ig.igSameLine()
 		if ig.igButton('X') then
 			toRemove = toRemove or table()
 			toRemove:insert(1,i)	-- insert last-to-first
@@ -673,7 +691,7 @@ function TestApp:updateGUI()
 			boundaryMethod = boundaryMethods.freeFlow,
 			linearSolver = require 'linearsolvers'.gmres,
 			--linearSolver = require 'linearsolvers'.conjres,
-			fluxLimiter = fluxLimiters.superbee,
+			fluxLimiter = limiter.superbee,
 			integrator = integrators.ForwardEuler,
 		}
 		local r, g, b = math.random(), math.random(), math.random()
@@ -687,6 +705,7 @@ function TestApp:updateGUI()
 	for _, graphNameEnabled in ipairs(graphNamesEnabled) do
 		graphNameEnabled.found = false
 	end
+	graphNamesEnabled[1].found = true
 	for _,sim in ipairs(sims) do
 		for _,graphInfo in ipairs(sim.equation.graphInfos) do
 			local _, graphNameEnabled = graphNamesEnabled:find(nil, function(graphName)
@@ -708,18 +727,25 @@ function TestApp:updateGUI()
 			graphNamesEnabled:remove(i)
 		end
 	end
-	--[[
+	--[[ if you do sort, keep 'all' at the top
 	graphNamesEnabled = graphNamesEnabled:sort(function(a,b)
 		if #a.name ~= #b.name then return #a.name < #b.name end
 		return a.name < b.name
 	end)
 	--]]
 
+	local allBefore = graphNamesEnabled[1].ptr[0]
 	ig.igText('variables:')
 	for i,graphNameEnabled in ipairs(graphNamesEnabled) do
 		ig.igPushIdStr(tostring(i))
 		ig.igCheckbox(graphNameEnabled.name, graphNameEnabled.ptr)
 		ig.igPopId()
+	end
+	local allAfter = graphNamesEnabled[1].ptr[0]
+	if allAfter ~= allBefore then
+		for i=2,#graphNamesEnabled do
+			graphNamesEnabled[i].ptr[0] = allAfter
+		end
 	end
 
 	if self.doIteration then
@@ -798,63 +824,69 @@ function TestApp:update(...)
 
 				local xmin, xmax, ymin, ymax
 				for _,sim in ipairs(sims) do
-					sim.ys = {}
-					local simymin, simymax
-					for i=3,sim.gridsize-2 do
-						local siminfo = sim.equation.graphInfoForNames[name]
-						if siminfo then
-							
-							local y = siminfo.getter(sim,i)
-							if not y then 
-								--error("failed to get for getter "..name)
-							else
-								sim.ys[i] = y
-								if y == y and math.abs(y) < math.huge then
-									if not simymin or y < simymin then simymin = y end
-									if not simymax or y > simymax then simymax = y end
+					if sim.visiblePtr and sim.visiblePtr[0] then
+						sim.ys = {}
+						local simymin, simymax
+						for i=3,sim.gridsize-2 do
+							local siminfo = sim.equation.graphInfoForNames[name]
+							if siminfo then
+								
+								local y = siminfo.getter(sim,i)
+								if not y then 
+									--error("failed to get for getter "..name)
+								else
+									sim.ys[i] = y
+									if y == y and math.abs(y) < math.huge then
+										if not simymin or y < simymin then simymin = y end
+										if not simymax or y > simymax then simymax = y end
+									end
 								end
 							end
 						end
-					end
-					if self.reportError then
-						print(name, 'min', simymin, 'max', simymax)
-					end
+						if self.reportError then
+							print(name, 'min', simymin, 'max', simymax)
+						end
 
-					if not simymin or not simymax or simymin ~= simymin or simymax ~= simymax then
-						--simymin = -1
-						--simymax = 1
-					--elseif math.abs(simymin) == math.huge or math.abs(simymax) == math.huge then
-					else
-						local base = 10	-- round to nearest base-10
-						local scale = 10 -- ...with increments of 10
-						simymin, simymax = 1.1 * simymin - .1 * simymax, 1.1 * simymax - .1 * simymin	
-						local newymin = (simymin<0 and -1 or 1)*(math.abs(simymin)==math.huge and 1e+100 or base^math.log(math.abs(simymin),base))
-						local newymax = (simymax<0 and -1 or 1)*(math.abs(simymax)==math.huge and 1e+100 or base^math.log(math.abs(simymax),base))
-						simymin, simymax = newymin, newymax
-						do
-							local minDeltaY = 1e-5
-							local deltaY = simymax - simymin
-							if deltaY < minDeltaY then
-								simymax = simymax + .5 * minDeltaY
-								simymin = simymin - .5 * minDeltaY
+						if not simymin or not simymax or simymin ~= simymin or simymax ~= simymax then
+							--simymin = -1
+							--simymax = 1
+						--elseif math.abs(simymin) == math.huge or math.abs(simymax) == math.huge then
+						else
+							local base = 10	-- round to nearest base-10
+							local scale = 10 -- ...with increments of 10
+							simymin, simymax = 1.1 * simymin - .1 * simymax, 1.1 * simymax - .1 * simymin	
+							local newymin = (simymin<0 and -1 or 1)*(math.abs(simymin)==math.huge and 1e+100 or base^math.log(math.abs(simymin),base))
+							local newymax = (simymax<0 and -1 or 1)*(math.abs(simymax)==math.huge and 1e+100 or base^math.log(math.abs(simymax),base))
+							simymin, simymax = newymin, newymax
+							do
+								local minDeltaY = 1e-5
+								local deltaY = simymax - simymin
+								if deltaY < minDeltaY then
+									simymax = simymax + .5 * minDeltaY
+									simymin = simymin - .5 * minDeltaY
+								end
 							end
 						end
+
+						local simxmin, simxmax = sim.domain.xmin, sim.domain.xmax
+						simxmin, simxmax = 1.1 * simxmin - .1 * simxmax, 1.1 * simxmax - .1 * simxmin
+
+						xmin = xmin or simxmin
+						xmax = xmax or simxmax
+						ymin = ymin or simymin
+						ymax = ymax or simymax
+							
+						if xmin and simxmin then xmin = math.min(xmin, simxmin) end
+						if xmax and simxmax then xmax = math.max(xmax, simxmax) end
+						if ymin and simymin then ymin = math.min(ymin, simymin) end
+						if ymax and simymax then ymax = math.max(ymax, simymax) end
 					end
-
-					local simxmin, simxmax = sim.domain.xmin, sim.domain.xmax
-					simxmin, simxmax = 1.1 * simxmin - .1 * simxmax, 1.1 * simxmax - .1 * simxmin
-
-					xmin = xmin or simxmin
-					xmax = xmax or simxmax
-					ymin = ymin or simymin
-					ymax = ymax or simymax
-						
-					if xmin and simxmin then xmin = math.min(xmin, simxmin) end
-					if xmax and simxmax then xmax = math.max(xmax, simxmax) end
-					if ymin and simymin then ymin = math.min(ymin, simymin) end
-					if ymax and simymax then ymax = math.max(ymax, simymax) end
 				end
 				
+				if not xmin or not xmax or xmin ~= xmin or xmax ~= xmax then
+					xmin = -1
+					xmax = 1
+				end
 				if not ymin or not ymax or ymin ~= ymin or ymax ~= ymax then
 					ymin = -1
 					ymax = 1
@@ -905,81 +937,82 @@ function TestApp:update(...)
 			
 				-- should I show ghost cells? for some derived values it causes errors...
 				for _,sim in ipairs(sims) do
-					gl.glColor3f(unpack(sim.color))
-					gl.glPointSize(2)
-					if #sim.ys > 0 then
-						for _,mode in ipairs{
-							gl.GL_LINE_STRIP,
-							DEBUG_PPM and gl.GL_POINTS
-						} do
-							gl.glBegin(mode)
+					if sim.visiblePtr and sim.visiblePtr[0] then
+						gl.glColor3f(unpack(sim.color))
+						gl.glPointSize(2)
+						if #sim.ys > 0 then
+							for _,mode in ipairs{
+								gl.GL_LINE_STRIP,
+								DEBUG_PPM and gl.GL_POINTS
+							} do
+								gl.glBegin(mode)
+								for i=3,sim.gridsize-2 do
+									gl.glVertex2f(sim.xs[i], sim.ys[i])
+								end
+								gl.glEnd()
+							end
+						end
+			-- [[ special PPM hack
+			if DEBUG_PPM then
+						local channel = 2
+						local ppmCount = 0
+						local ppmYs = table()
+						gl.glColor3f(1,1,0)
+						gl.glBegin(gl.GL_LINE_STRIP)
+						for n=0,#sim.xs*10 do
+							local x = (xmax - xmin) / (#sim.xs*10) * n + xmin
+							-- getter ... abstracts the index of the state variable ...
+							local y = sim:getPPM(x,channel)
+							if y then
+								ppmYs:insert(y)
+								ppmCount = ppmCount + 1
+								gl.glVertex2f(x,y)
+							end
+						end
+						gl.glEnd()
+						--print(unpack(ppmYs,1,10))
+						--print(ppmCount) 
+						if sim.ppm_iqs then
+							gl.glColor3f(0,1,0)
+							gl.glBegin(gl.GL_LINES)
 							for i=3,sim.gridsize-2 do
-								gl.glVertex2f(sim.xs[i], sim.ys[i])
+								gl.glVertex2f(sim.ixs[i], sim.ppm_qLs[i][channel])
+								gl.glVertex2f(sim.ixs[i+1], sim.ppm_qRs[i][channel])
+							end
+							gl.glEnd()
+							gl.glColor3f(1,0,1)
+							gl.glBegin(gl.GL_POINTS)
+							for i=3,sim.gridsize-1 do
+								gl.glVertex2f(sim.ixs[i],sim.ppm_iqs[i][channel])
 							end
 							gl.glEnd()
 						end
-					end
-		-- [[ special PPM hack
-		if DEBUG_PPM then
-					local channel = 2
-					local ppmCount = 0
-					local ppmYs = table()
-					gl.glColor3f(1,1,0)
-					gl.glBegin(gl.GL_LINE_STRIP)
-					for n=0,#sim.xs*10 do
-						local x = (xmax - xmin) / (#sim.xs*10) * n + xmin
-						-- getter ... abstracts the index of the state variable ...
-						local y = sim:getPPM(x,channel)
-						if y then
-							ppmYs:insert(y)
-							ppmCount = ppmCount + 1
-							gl.glVertex2f(x,y)
-						end
-					end
-					gl.glEnd()
-					--print(unpack(ppmYs,1,10))
-					--print(ppmCount) 
-					if sim.ppm_iqs then
-						gl.glColor3f(0,1,0)
-						gl.glBegin(gl.GL_LINES)
-						for i=3,sim.gridsize-2 do
-							gl.glVertex2f(sim.ixs[i], sim.ppm_qLs[i][channel])
-							gl.glVertex2f(sim.ixs[i+1], sim.ppm_qRs[i][channel])
-						end
-						gl.glEnd()
-						gl.glColor3f(1,0,1)
-						gl.glBegin(gl.GL_POINTS)
-						for i=3,sim.gridsize-1 do
-							gl.glVertex2f(sim.ixs[i],sim.ppm_iqs[i][channel])
-						end
-						gl.glEnd()
-					end
-		end
-		--]]
-					gl.glPointSize(1)
-					
-					if self.font then
-						local fontSizeX = (xmax - xmin) * .05
-						local fontSizeY = (ymax - ymin) * .05
-						local ystep = ystep * 2
-						for y=math.floor(ymin/ystep)*ystep,math.ceil(ymax/ystep)*ystep,ystep do
+			end
+			--]]
+						gl.glPointSize(1)
+						
+						if self.font then
+							local fontSizeX = (xmax - xmin) * .05
+							local fontSizeY = (ymax - ymin) * .05
+							local ystep = ystep * 2
+							for y=math.floor(ymin/ystep)*ystep,math.ceil(ymax/ystep)*ystep,ystep do
+								self.font:draw{
+									pos={xmin * .9 + xmax * .1, y + fontSizeY * .5},
+									text=tostring(y),
+									color = {1,1,1,1},
+									fontSize={fontSizeX, -fontSizeY},
+									multiLine=false,
+								}
+							end
 							self.font:draw{
-								pos={xmin * .9 + xmax * .1, y + fontSizeY * .5},
-								text=tostring(y),
+								pos={xmin, ymax},
+								text=name,
 								color = {1,1,1,1},
 								fontSize={fontSizeX, -fontSizeY},
 								multiLine=false,
 							}
 						end
-						self.font:draw{
-							pos={xmin, ymax},
-							text=name,
-							color = {1,1,1,1},
-							fontSize={fontSizeX, -fontSizeY},
-							multiLine=false,
-						}
 					end
-				
 				end
 
 				gl.glViewport(0,0,w,h)

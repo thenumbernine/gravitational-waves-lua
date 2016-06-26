@@ -75,7 +75,7 @@ function Euler1DBurgers:calcFluxes(dt)
 				(iu >= 0 
 					and ((qL[j] - qL2[j]) / dq) 
 					or ((qR2[j] - qR[j]) / dq))
-			local phi = self.fluxLimiter(r)
+			local phi = self.fluxLimiter.func(r)
 			local theta = iu >= 0 and 1 or -1
 			self.fluxes[i][j] =
 				.5 * iu * ((1 + theta) * qL[j] + (1 - theta) * qR[j])
