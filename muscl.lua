@@ -30,6 +30,13 @@ local function MUSCLBehavior(parentClass)
 	-- first calculate new state interface left and right
 	-- then call the old calcDT which also calculates eigen basis stuff
 	function MUSCLTemplate:calcFluxes(dt)
+		--[[
+		some thoughts:
+		*) what is the wavespeed to be used to determine which slope ratio to use for the limiter?
+			I'm using euler-equation-velocity.  why not characteristic wavespeeds?
+				and in the case of using char wave speeds ...
+		*) ... why extrapolate state variables and not characteristic variables?
+		--]]
 
 		-- calculate the slopes
 		for i=3,self.gridsize-1 do
