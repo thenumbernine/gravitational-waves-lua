@@ -17,7 +17,8 @@ function Solver:init(args)
 
 	self.integrator = args.integrator or integrators.ForwardEuler()
 	
-	self.name = self.name .. ' ' .. self.integrator.name .. ' ' .. self.fluxLimiter.name
+	self.name = self.name .. ' int.=' .. self.integrator.name 
+	self.name = self.name .. ' flux lim.=' .. self.fluxLimiter.name
 
 	self.t0 = args.t or 0
 	self.iteration = args.iteration or 0
@@ -87,6 +88,10 @@ function Solver:step(dt)
 		end
 		return dq_dt
 	end)
+end
+
+function Solver:calcDT()
+	return assert(self.fixed_dt)
 end
 
 function Solver:iterate()

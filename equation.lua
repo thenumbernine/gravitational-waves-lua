@@ -37,24 +37,35 @@ function Equation:buildGraphInfos(getters)
 	end)
 end
 
+function Equation:eigenTransform(solver, m, v, from, to)
+	local matrixWidth = from and solver.numStates or solver.numWaves
+	local matrixHeight = to and solver.numStates or solver.numWaves
+	local result = {}
+	for j=1,matrixHeight do
+		local sum = 0
+		for k=1,matrixWidth do
+			sum = sum + m[j][k] * v[k]
+		end
+		result[j] = sum
+	end
+	return result 
+end
+
+function Equation:eigenLeftTransform(solver, m, v)
+	return self:eigenTransform(solver, m, v, true, false)
+end
+function Equation:eigenRightTransform(m, v)
+	return self:eigenTransform(solver, m, v, false, true)
+end
+
 --[[
 from = whether we are transforming from state vector (true) or wave vector (false)
 to = same
 --]]
 function Equation.createTransformFunc(matrixField, from, to)
 	return function(self, solver, i, v)
-		local matrixWidth = from and solver.numStates or solver.numWaves
-		local matrixHeight = to and solver.numStates or solver.numWaves
 		local m = solver[matrixField][i]
-		local result = {}
-		for j=1,matrixHeight do
-			local sum = 0
-			for k=1,matrixWidth do
-				sum = sum + m[j][k] * v[k]
-			end
-			result[j] = sum
-		end
-		return result 
+		return self:eigenTransform(solver, m, v, from, to)
 	end
 end
 

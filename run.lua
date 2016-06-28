@@ -348,11 +348,13 @@ do
 	--]=]
 
 	-- [=[ compare flux vs plm slope limiter
+	sims:insert(require 'sod_exact'(table(args, {gridsize=2000})))
 	sims:insert(Roe(args))
+	sims:insert(Roe(table(args, {fluxLimiter=limiter.donorCell}))) 	-- eliminate the flux limiter, so only the PLM slope limiter is applied
 	--sims:insert(RoePLM(table(args, {fluxLimiter=limiter.superbee}))) 	-- this is applying the limiter twice: the flux and the slope
-	sims:insert(RoePLM(table(args, {fluxLimiter=limiter.donorCell}))) 	-- eliminate the flux limiter, so only the PLM slope limiter is applied
+	--sims:insert(RoePLM(table(args, {fluxLimiter=limiter.donorCell}))) 	-- eliminate the flux limiter, so only the PLM slope limiter is applied
 	--sims:insert(RoeMUSCL(table(args, {fluxLimiter=limiter.superbee}))) 	-- this is applying the limiter twice: the flux and the slope
-	sims:insert(RoeMUSCL(table(args, {fluxLimiter=limiter.donorCell}))) 	-- eliminate the flux limiter, so only the MUSCL slope limiter is applied
+	--sims:insert(RoeMUSCL(table(args, {fluxLimiter=limiter.donorCell}))) 	-- eliminate the flux limiter, so only the MUSCL slope limiter is applied
 	--]=]
 
 	--[=[ compare schemes
@@ -805,8 +807,8 @@ function TestApp:update(...)
 	local w, h = self:size()
 
 	local numEnabled = 0
-	for _,graphNameEnabled in ipairs(graphNamesEnabled) do
-		if graphNameEnabled.ptr[0] then
+	for i=2,#graphNamesEnabled do
+		if graphNamesEnabled[i].ptr[0] then
 			numEnabled = numEnabled + 1
 		end
 	end
@@ -818,7 +820,8 @@ function TestApp:update(...)
 	-- just use the first sim's infos
 	--for name,info in pairs(sims[1].equation.graphInfoForNames) do
 	if #sims > 0 then
-		for _,graphNameEnabled in ipairs(graphNamesEnabled) do
+		for j=2,#graphNamesEnabled do
+			local graphNameEnabled = graphNamesEnabled[j]
 			if graphNameEnabled.ptr[0] then		
 				local name = graphNameEnabled.name
 
@@ -1023,7 +1026,7 @@ function TestApp:update(...)
 				gl.glLoadIdentity()
 
 				if self.font then
-					local strings = sims:map(function(sim)
+					local simNames = sims:map(function(sim)
 						return {
 							text = ('(%.3f) '):format(sim.t)..sim.name,
 							color = sim.color,
@@ -1031,19 +1034,19 @@ function TestApp:update(...)
 					end)
 					local fontSizeX = .02
 					local fontSizeY = .02
-					local maxlen = strings:map(function(string)
+					local maxlen = simNames:map(function(simName)
 						return self.font:draw{
-							text = string.text,
+							text = simName.text,
 							fontSize = {fontSizeX, -fontSizeY},
 							dontRender = true,
 							multiLine = false,
 						}
 					end):inf()
-					for i,string in ipairs(strings) do
+					for i,simName in ipairs(simNames) do
 						self.font:draw{
 							pos = {w/h-maxlen,fontSizeY*(i+1)},
-							text = string.text,
-							color = {string.color[1],string.color[2],string.color[3],1},
+							text = simName.text,
+							color = {simName.color[1], simName.color[2], simName.color[3],1},
 							fontSize = {fontSizeX, -fontSizeY},
 							multiLine = false,
 						}
