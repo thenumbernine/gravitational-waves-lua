@@ -2,21 +2,6 @@ local class = require 'ext.class'
 
 local Equation = class()
 
-function Equation:init()
-	-- create transform functions based on class members
-
-	--[[
-	default implementation will dot with j'th row of eigenvectorsInverse[i]
-	subclasses with sparse matrices (like ADM) will be able to override this and optimize away (those 37x37 matrices)
-
-	another note: eigenfields never have input vectors.  they are made of state vaules, and their input is state values, so there's no need to define an inner product.
-	...except the fact that some of the state variables are on the i'th entry, and some are of the i+1/2'th entry...
-	--]]
-	self.fluxTransform = self.createTransformFunc('fluxMatrix', true, true)
-	self.applyLeftEigenvectors = self.createTransformFunc('eigenvectorsInverse', true, false)
-	self.applyRightEigenvectors = self.createTransformFunc('eigenvectors', false, true)
-end
-
 Equation.State = require 'state' 
 
 -- note this is to be used on the child class object
@@ -37,6 +22,14 @@ function Equation:buildGraphInfos(getters)
 	end)
 end
 
+--[[
+apply any arbitrary left/right eigenvector matrix, or flux to any vector 
+from/true = true if transforming from states, false if transforming from waves
+from, to:
+	true, false = left transform
+	false, true = right transform
+	true, true = flux transform
+--]]
 function Equation:eigenTransform(solver, m, v, from, to)
 	local matrixWidth = from and solver.numStates or solver.numWaves
 	local matrixHeight = to and solver.numStates or solver.numWaves
@@ -51,44 +44,50 @@ function Equation:eigenTransform(solver, m, v, from, to)
 	return result 
 end
 
+-- helpers for the above from/to 
+-- any arbitrary left eigenvector matrix to any vector 
 function Equation:eigenLeftTransform(solver, m, v)
 	return self:eigenTransform(solver, m, v, true, false)
 end
-function Equation:eigenRightTransform(m, v)
+-- any arbitrary right eigenvector matrix to any vector 
+function Equation:eigenRightTransform(solver, m, v)
 	return self:eigenTransform(solver, m, v, false, true)
 end
-
---[[
-from = whether we are transforming from state vector (true) or wave vector (false)
-to = same
---]]
-function Equation.createTransformFunc(matrixField, from, to)
-	return function(self, solver, i, v)
-		local m = solver[matrixField][i]
-		return self:eigenTransform(solver, m, v, from, to)
-	end
+-- any arbitrary flux matrix to any vector
+function Equation:fluxMatrixTransform(solver, m, v)
+	return self:eigenTransform(solver, m, v, true, true)
 end
 
--- this 'state' vs 'cons' distinction only exists because I was messing with the 'euler1dquasilinear' which was stupid
-function Equation:calcEigenvaluesFromState(...)
-	return self:calcEigenvaluesFromCons(self:calcConsFromState(...))
-end
-function Equation:calcMinMaxEigenvaluesFromState(...)
-	if self.calcMinMaxEigenvaluesFromCons then
-		return self:calcMinMaxEigenvaluesFromCons(self:calcConsFromState(...))
-	else
-		return firstAndLast(self:calcEigenvaluesFromState(...))
+-- default implementation is arithmetic
+function Equation:calcRoeValues(qL, qR)
+	local q = {}
+	for i=1,self.numStates do
+		q[i] = .5 * (qL[i] + qR[i])
 	end
+	return table.unpack(q)
+end
+
+-- default implementation just treats L and R the same
+function Equation:calcCellCenterRoeValues(solver, i)
+	local q = solver.qs[i]
+	return self:calcRoeValues(q, q)
 end
 
 -- functions that use sim:
 
--- used by SolverFV
-function Equation:calcCellMinMaxEigenvalues(sim, i)
-	return self:calcMinMaxEigenvaluesFromState(table.unpack(sim.qs[i]))
+-- used by Roe, passed to the input arguments calcEigenBasis
+-- calculates the values used by calcEigenBasis to compute the eigenvalues, eigenvectors, and dF/dU matrices
+function Equation:calcInterfaceRoeValues(solver, i)
+	return self:calcRoeValues(solver:get_qL(i), solver:get_qR(i))
 end
 
--- by default, assume the state is conservative variables
-function Equation:calcConsFromState(...) return ... end
+-- used by SolverFV
+function Equation:calcCellMinMaxEigenvalues(sim, i)
+	if self.calcMinMaxEigenvaluesFromCons then
+		return self:calcMinMaxEigenvaluesFromCons(table.unpack(sim.qs[i]))
+	else
+		return firstAndLast(self:calcEigenvaluesFromCons(table.unpack(sim.qs[i])))
+	end
+end
 
 return Equation

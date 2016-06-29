@@ -10,11 +10,7 @@ local SolverFV = class(Solver)
 function SolverFV:init(args)
 	SolverFV.super.init(self, args)
 	
-	-- matches Burgers and HLL
 	self.fluxes = {}
-
-	-- matches HLL
-	self.eigenvalues = {}
 end
 
 function SolverFV:reset()
@@ -25,13 +21,6 @@ function SolverFV:reset()
 		self.fluxes[i] = {}
 		for j=1,self.numStates do
 			self.fluxes[i][j] = 0
-		end
-	end
-	
-	for i=1,self.gridsize+1 do
-		self.eigenvalues[i] = {}
-		for j=1,self.numWaves do
-			self.eigenvalues[i][j] = 0
 		end
 	end
 end

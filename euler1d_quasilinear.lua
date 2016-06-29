@@ -254,8 +254,8 @@ function Euler1DQuasiLinear:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local rho, vx, a = self:calcRoeValues(qL, qR)
 	local F = sim.fluxMatrix[i] 
 	local lambda = sim.eigenvalues[i]
-	local evL = sim.eigenvectorsInverse[i]
-	local evR = sim.eigenvectors[i]
+	local evL = sim.leftEigenvectors[i]
+	local evR = sim.rightEigenvectors[i]
 	self:calcEigenBasis(rho, vx, a, F, lambda, evL, evR) 
 end
 

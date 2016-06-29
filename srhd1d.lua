@@ -40,6 +40,10 @@ function SRHD1D:calc_eInt_from_P(rho, P)
 	return P / ((self.gamma - 1) * rho)
 end
 
+function SRHD1D:calc_h(rho, P, eInt)
+	return 1 + eInt + P / rho
+end
+
 function SRHD1D:init(...)
 	assert(not SRHD1D.super.init)
 
@@ -60,7 +64,7 @@ function SRHD1D:init(...)
 	local P = self:calcP(rho, eInt)
 	self.gamma = originalGamma
 
-	local h = 1 + eInt + P/rho	
+	local h = self:calc_h(rho, P, eInt)
 	local D = q:_(1)	-- rho * W
 	local Sx = q:_(2)	-- rho h W^2 vx
 	local tau = q:_(3)	-- rho h W^2 - P - D
@@ -75,7 +79,7 @@ function SRHD1D:init(...)
 		{Sx = Sx},
 		{tau = tau},
 		{W = W},
-		{['primitive reconstruction error'] = function(self,i) return self.primitiveReconstructionErrors and self.primitiveReconstructionErrors[i] and math.log(self.primitiveReconstructionErrors[i]) end},
+		{['primitive reconstruction error'] = function(self,i) return self.primitiveReconstructionErrors and self.primitiveReconstructionErrors[i] and math.log(self.primitiveReconstructionErrors[i], 10) end},
 	}
 end
 
@@ -84,7 +88,7 @@ function SRHD1D:consFromPrims(rho, vx, eInt)
 	local WSq = 1/(1-vSq)
 	local W = math.sqrt(WSq)
 	local P = self:calcP(rho, eInt)
-	local h = 1 + eInt + P/rho
+	local h = self:calc_h(rho, P, eInt)
 	-- rest-mass density
 	local D = rho * W
 	-- momentum density
@@ -94,9 +98,9 @@ function SRHD1D:consFromPrims(rho, vx, eInt)
 	return D, Sx, tau
 end
 
-function SRHD1D:initCell(sim,i)
-	local x = sim.xs[i]
-	local xmid = (sim.domain.xmin + sim.domain.xmax) / 2
+function SRHD1D:initCell(solver,i)
+	local x = solver.xs[i]
+	local xmid = (solver.domain.xmin + solver.domain.xmax) / 2
 	
 	--primitives:
 	--[[ Sod
@@ -106,7 +110,7 @@ function SRHD1D:initCell(sim,i)
 	local P = x < xmid and 1 or .1
 	--]]
 	--[[ Marti & Muller 2008 rppm relativistic shock reflection
-	-- not working with my sim...
+	-- not working with my solver...
 	self.gamma = 4/3
 	local rho = 1
 	local vx = 1 - 1e-5
@@ -132,8 +136,8 @@ function SRHD1D:initCell(sim,i)
 	--]]
 	-- [[ Marti & Muller 2008 rppm relativistic blast wave interaction
 	self.gamma = 7/5
-	local lhs = .9 * sim.domain.xmin + .1 * sim.domain.xmax
-	local rhs = .1 * sim.domain.xmin + .9 * sim.domain.xmax
+	local lhs = .9 * solver.domain.xmin + .1 * solver.domain.xmax
+	local rhs = .1 * solver.domain.xmin + .9 * solver.domain.xmax
 	local rho = 1
 	local vx = 0
 	local P = x < lhs and 1000 or (x > rhs and 100 or .01)
@@ -142,20 +146,34 @@ function SRHD1D:initCell(sim,i)
 	local eInt = self:calc_eInt_from_P(rho, P)
 	local vSq = vx*vx -- + vy*vy + vz*vz
 	local W = 1/math.sqrt(1 - vSq)
-	local h = 1 + eInt + P/rho
-	sim.ws[i] = {rho, vx, eInt}
+	local h = self:calc_h(rho, P, eInt)
+	solver.ws[i] = {rho, vx, eInt}
 	return {self:consFromPrims(rho, vx, eInt)}
 end
 
-function SRHD1D:calcInterfaceEigenBasis(sim,i)
-	-- but the Roe section says to use these variables:
-	local rhoL, vxL, eIntL = table.unpack(sim.ws[i-1])
-	local rhoR, vxR, eIntR = table.unpack(sim.ws[i])
---print('cell',i,'prims L=',rhoL,vxL,eIntL,'R=',rhoR,vxR,eIntR)
+function SRHD1D:calcEigenvalues(
+		-- primitives:
+		vx,
+		-- aux
+		vxSq, vSq, cs, csSq)
+	
+	-- Marti 1998 eqn 19
+	-- also Marti & Muller 2008 eqn 68
+	-- also Font 2008 eqn 106
+	local discr = math.sqrt((1 - vSq) * ((1 - vSq * csSq) - vxSq * (1 - csSq)))
+	return 
+		(vx * (1 - csSq) - cs * discr) / (1 - vSq * csSq),
+		vx,
+		(vx * (1 - csSq) + cs * discr) / (1 - vSq * csSq)
+end
 
---[[ roe averaging.  i need to find a paper that describes how to average all variables, and not just these ...
+-- I need to find a paper that describes how to average all variables, and not just these ...
+function SRHD1D:calcRoeValues_RoeAveraging(wL, wR, qL, qR)
+	local rhoL, vxL, eIntL = table.unpack(wL)
+	local rhoR, vxR, eIntR = table.unpack(wR)
+	
 	local sqrtAbsGL = 1	-- this will change once you start using a proper metric
-	local DL, _, _ = table.unpack(sim.qs[i-1])
+	local DL, _, _ = table.unpack(qL)
 	local WL = DL / rhoL
 	local PL = self:calcP(rhoL, eIntL)
 	local hL = 1 + eIntL + PL/rhoL
@@ -164,7 +182,7 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local roeVarsL = {WL, u1L, PL / (rhoL * hL)}
 	
 	local sqrtAbsGR = 1
-	local DR, _, _ = table.unpack(sim.qs[i])
+	local DR, _, _ = table.unpack(qR)
 	local WR = DR / rhoR
 	local PR = self:calcP(rhoR, eIntR)
 	local hR = 1 + eIntR + PR/rhoR
@@ -197,8 +215,14 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local W2 = W * W
 	local vSq = vx * vx
 	local oneOverW = 1/W
---]]
--- [[ arithmetic averaging
+	
+	return rho, vx, vSq, oneOverW, W, W2, h, P_over_rho_h, P
+end
+
+function SRHD1D:calcRoeValues_Linear(wL, wR, qL, qR)
+	local rhoL, vxL, eIntL = table.unpack(wL)
+	local rhoR, vxR, eIntR = table.unpack(wR)
+	
 	local rho = (rhoL + rhoR) / 2
 	local eInt = (eIntL + eIntR) / 2
 	local vx = (vxL + vxR) / 2
@@ -208,10 +232,48 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local W = 1/oneOverW
 	local W2 = 1/oneOverW2
 	local P = self:calcP(rho, eInt)
-	local h = 1 + eInt + P/rho
+	local h = self:calc_h(rho, P, eInt)
 	local P_over_rho_h = P / (rho  * h)
---]]
 
+	return rho, vx, vSq, oneOverW, W, W2, h, P_over_rho_h,
+		-- only used by dF_dU:
+		P
+end
+
+function SRHD1D:calcInterfaceRoeValues(solver,i)
+	local wL = solver.ws[i-1]
+	local wR = solver.ws[i]
+	return self:calcRoeValues_Linear(wL, wR)
+	-- I'm starting to see the need for cell, interface, and eigenbasis objects ...
+	--return self:calcRoeValues_RoeAveraging(wL, wR, solver:get_qL(i), solver:get_qR(i))
+end
+
+function SRHD1D:calcCellCenterRoeValues(solver, i)
+	local rho, vx, eInt = table.unpack(solver.ws[i])
+	local D, Sx, tau = table.unpack(solver.qs[i])
+	
+	local vSq = vx * vx
+	local oneOverW2 = 1 - vSq
+	local oneOverW = math.sqrt(oneOverW2)
+	local W = 1/oneOverW
+	local W2 = 1/oneOverW2
+	local P = self:calcP(rho, eInt)
+	local h = self:calc_h(rho, P, eInt)
+	local P_over_rho_h = P / (rho  * h)
+
+	return rho, vx, vSq, oneOverW, W, W2, h, P_over_rho_h,
+		-- only used by dF_dU:
+		P
+end
+
+function SRHD1D:calcEigenBasis(
+	-- outputs:
+	lambda, evr, evl, dF_dU,
+	-- inputs:
+	rho, vx, vSq, oneOverW, W, W2, h, P_over_rho_h,
+	-- dF/dU specific inputs
+	P
+)
 	local hW = h * W
 	local hSq = h * h
 
@@ -219,18 +281,7 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local csSq = self.gamma * P_over_rho_h
 	local cs = math.sqrt(csSq)
 
-	-- Marti 1998 eqn 19
-	-- also Marti & Muller 2008 eqn 68
-	-- also Font 2008 eqn 106
-	local lambda = sim.eigenvalues[i]
-	local discr = math.sqrt((1 - vSq) * ((1 - vSq * csSq) - vxSq * (1 - csSq)))
-	-- slow
-	lambda[1] = (vx * (1 - csSq) - cs * discr) / (1 - vSq * csSq)
-	-- med
-	lambda[2] = vx
-	-- fast
-	lambda[3] = (vx * (1 - csSq) + cs * discr) / (1 - vSq * csSq)
---print('cell',i,'lambda',table.unpack(lambda))
+	fill(lambda, self:calcEigenvalues(vx, vxSq, vSq, cs, csSq))
 
 	--[[ general equations
 	-- these explode with the two-shockwave test
@@ -252,7 +303,6 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local APlus = (1 - vxSq) / (1 - vx * lambda[3])
 --print('cell',i,'A+',APlus,'A-',AMinus)
 --print('cell',i,'h',h,'W',W,'hW',hW)
-	local evr = sim.eigenvectors[i]
 	evr[1][1] = 1
 	evr[2][1] = hW * AMinus * lambda[1]
 	evr[3][1] = hW * AMinus - 1
@@ -265,7 +315,6 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 
 	-- [[
 	local Delta = h*h*hW * (Kappa - 1) * (1 - vxSq) * (APlus * lambda[3] - AMinus * lambda[1])
-	local evl = sim.eigenvectorsInverse[i]
 	evl[1][1] = hSq / Delta * ( hW * APlus * (vx - lambda[3]) - vx - W2 * (vSq - vxSq) * (2 * Kappa - 1) * (vx - APlus * lambda[3]) + Kappa * APlus * lambda[3] )
 	evl[1][2] = hSq / Delta * (1 + W2 * (vSq - vxSq) * (2 * Kappa - 1) * (1 - APlus) - Kappa * APlus )
 	evl[1][3] = hSq / Delta * (-vx - W2 * (vSq - vxSq) * (2 * Kappa - 1) * (vx - APlus * lambda[3]) + Kappa * APlus * lambda[3] )
@@ -288,7 +337,6 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	local CXMinus = vx - VXMinus
 	local CXPlus  = vx - VXPlus
 
-	local evr = sim.eigenvectors[i]
 	-- r- is the slow column
 	evr[1][1] = 1
 	evr[2][1] = hW * CXMinus
@@ -311,7 +359,6 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	--[[
 	-- Font 2008 eqn 118
 	-- Notice the left slow/fast vectors has a def wrt -+ and then uses 20x over +- ... I think the -+ might be a typo ... why would anything be defined in terms of -+?  usually -+ is used to denote the negative of a +- definition
-	local evl = sim.eigenvectorsInverse[i]
 	-- l- is the slow row
 	evl[1][2] = -hSq / Delta * ((1 - Kappa * AXTildePlus) + (2 * Kappa - 1) * VXPlus * (W2 * vx * xi - vx))
 	evl[1][3] = -hSq / Delta * ((1 - Kappa) * (-vx + VXPlus * (W2 * xi - 1)) - Kappa * W2 * VXPlus * xi)
@@ -329,8 +376,7 @@ function SRHD1D:calcInterfaceEigenBasis(sim,i)
 	--]]
 --]=]
 	--[[ or just do it numerically
-	local evl = sim.eigenvectorsInverse[i]
-	sim.eigenvectorsInverse[i] = mat33.inv(evr)
+	fill(evl, table.unpack(mat33.inv(evr)))
 	--]]
 
 --[[
@@ -366,58 +412,74 @@ for j=1,3 do
 	end
 end
 
-	-- define the flux matrix to see how accurate our 
-	-- this is coming out different than the matrix reconstructed from the eigensystem
-	local W3 = W2 * W
-	local W4 = W2 * W2
-	local dF_dw = {{},{},{}}
-	dF_dw[1][1] = W * vx
-	dF_dw[2][1] = (-P/rho + h * W2 - h)
-	dF_dw[3][1] = W * (hW - 1) * vx
-	dF_dw[1][2] = rho * W3
-	dF_dw[2][2] = 2 * rho * W4 * h * vx
-	dF_dw[3][2] = rho * W * (1 + W4 - 3*W2 + 2*W3*h - h*W - W4*vx*vx*vx*vx)
-	dF_dw[1][3] = 0
-	dF_dw[2][3] = rho * (1 - 2 * self.gamma + self.gamma * W2)
-	dF_dw[3][3] = self.gamma * rho * W2 * vx
-	
-	local dU_dw = {{},{},{}}
-	dU_dw[1][1] = W
-	dU_dw[2][1] = h * W2 * vx
-	dU_dw[3][1] = (-P/rho - W + h * W2)
-	dU_dw[1][2] = rho * W3 * vx
-	dU_dw[2][2] = rho * h * W2 * (2 * W2 - 1)
-	dU_dw[3][2] = rho * W3 * (2 * hW - 1) * vx
-	dU_dw[1][3] = 0
-	dU_dw[2][3] = self.gamma * rho * W2 * vx
-	dU_dw[3][3] = rho * (1 - self.gamma + W2 * self.gamma)
-	local _, dw_dU = xpcall(function()
-		return mat33.inv(dU_dw)
-	end, function(err)
-		print(err..'\n'..tolua({
-			rho=rho,
-			vx=vx,
-			P=P,
-			h=h,
-			W=W,
-			W2=W2,
-			W3=W3,
-		},{indent=true})..'\n'..debug.traceback())
-	end)
+	if dF_dU then
+		-- define the flux matrix to see how accurate our 
+		-- this is coming out different than the matrix reconstructed from the eigensystem
+		local W3 = W2 * W
+		local W4 = W2 * W2
+		local dF_dw = {{},{},{}}
+		dF_dw[1][1] = W * vx
+		dF_dw[2][1] = (-P/rho + h * W2 - h)
+		dF_dw[3][1] = W * (hW - 1) * vx
+		dF_dw[1][2] = rho * W3
+		dF_dw[2][2] = 2 * rho * W4 * h * vx
+		dF_dw[3][2] = rho * W * (1 + W4 - 3*W2 + 2*W3*h - h*W - W4*vx*vx*vx*vx)
+		dF_dw[1][3] = 0
+		dF_dw[2][3] = rho * (1 - 2 * self.gamma + self.gamma * W2)
+		dF_dw[3][3] = self.gamma * rho * W2 * vx
+		
+		local dU_dw = {{},{},{}}
+		dU_dw[1][1] = W
+		dU_dw[2][1] = h * W2 * vx
+		dU_dw[3][1] = (-P/rho - W + h * W2)
+		dU_dw[1][2] = rho * W3 * vx
+		dU_dw[2][2] = rho * h * W2 * (2 * W2 - 1)
+		dU_dw[3][2] = rho * W3 * (2 * hW - 1) * vx
+		dU_dw[1][3] = 0
+		dU_dw[2][3] = self.gamma * rho * W2 * vx
+		dU_dw[3][3] = rho * (1 - self.gamma + W2 * self.gamma)
+		local _, dw_dU = xpcall(function()
+			return mat33.inv(dU_dw)
+		end, function(err)
+			print(err..'\n'..tolua({
+				rho=rho,
+				vx=vx,
+				P=P,
+				h=h,
+				W=W,
+				W2=W2,
+				W3=W3,
+			},{indent=true})..'\n'..debug.traceback())
+		end)
 
-	for j=1,3 do
-		for k=1,3 do
-			local sum = 0
-			for l=1,3 do
-				sum = sum + dF_dw[j][l] * dw_dU[l][k]
+		for j=1,3 do
+			for k=1,3 do
+				local sum = 0
+				for l=1,3 do
+					sum = sum + dF_dw[j][l] * dw_dU[l][k]
+				end
+				dF_dU[j][k] = sum
 			end
-			sim.fluxMatrix[i][j][k] = sum
 		end
 	end
 end
 
+-- This function is called when using cell-centered wavespeeds to determine the CFL.
+-- This, like all of SRHD functions, requires the primitives associated with the conservative state variables (which must be kept track of separately).
+function SRHD1D:calcCellMinMaxEigenvalues(solver, i)
+	local rho, vx, eInt = table.unpack(solver.ws[i])
+	local vxSq = vx * vx
+	local vSq = vxSq -- + vySq + vzSq
+	local P = self:calcP(rho, eInt)
+	local h = self:calc_h(rho, P, eInt)
+	local csSq = self.gamma * P / (rho * h)
+	local cs = math.sqrt(csSq)
+
+	return firstAndLast(self:calcEigenvalues(vx, vxSq, vSq, cs, csSq))
+end
+
 -- this is my attempt based on the recover pressure method described in Alcubierre, Baumgarte & Shapiro, Marti & Muller, Font, and generally everywhere
-function SRHD1D:calcPrimsByPressure(sim, i ,prims, qs)
+function SRHD1D:calcPrimsByPressure(solver, i ,prims, qs)
 	local rho, vx, eInt = table.unpack(prims)
 
 	-- use the new state variables to newton converge
@@ -498,13 +560,13 @@ Mara converges Z=rho h W^2 and W, while the paper says to converge rho and W
 either way, if you converge W then you're calculating things based on a W apart from your conservative W
 unless you replaced the conservative W with the converged W
 --]]
-function SRHD1D:calcPrimsByZAndW(sim, i, prims, qs)
+function SRHD1D:calcPrimsByZAndW(solver, i, prims, qs)
 	local D, Sx, tau = table.unpack(qs)
 	local rho, vx, eInt = table.unpack(prims)
 	local vSq = vx*vx
 	local W = 1/math.sqrt(1-vSq)	-- W is the other
 	local P = self:calcP(rho,eInt)
-	local h = 1 + eInt + P/rho
+	local h = self:calc_h(rho, P, eInt)
 	local Z = rho * h * W*W -- Z = rho h W^2 is one var we converge
 	for iter=1,self.solvePrimMaxIter do
 		rho = D / W
@@ -558,7 +620,7 @@ U = the zeros of the cons eqns
 ...for D', Sx', tau' fixed
 ...and all else calculated based on rho,vx,eInt
 --]]
-function SRHD1D:calcPrimsByPrims(sim, i, prims, qs)
+function SRHD1D:calcPrimsByPrims(solver, i, prims, qs)
 	--fixed cons to converge to
 	local D, Sx, tau = table.unpack(qs)
 assertfinite(D)
@@ -577,7 +639,7 @@ assertfinite(eInt)
 		local dP_drho = self:calc_dP_drho(rho, eInt)
 		local dP_deInt = self:calc_dP_deInt(rho, eInt)
 assertfinite(P)
-		local h = 1 + eInt + P/rho
+		local h = self:calc_h(rho, P, eInt)
 assertfinite(h)
 		local W2 = 1/(1-vx*vx)
 		local W = math.sqrt(W2)

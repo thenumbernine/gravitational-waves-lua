@@ -170,14 +170,59 @@ function ADM3D:init(args, ...)
 	self:buildGraphInfos(getters)
 end
 
-function ADM3D:fluxTransform(sim, i, v)
-	local avgQ = {}
-	for j=1,sim.numStates do 
-		avgQ[j] = (sim.qs[i-1][j] + sim.qs[i][j]) / 2
+function ADM3D:initCell(solver,i)
+	local x = solver.xs[i]
+	local y = 0
+	local z = 0
+	local xs = table{x,y,z}
+	local alpha = self.calc.alpha(x,y,z)
+	local A = self.calc.A:map(function(A_i) return A_i(x,y,z) end)
+	local gamma = self.calc.gamma:map(function(gamma_ij) return gamma_ij(x,y,z) end)
+	local D = self.calc.D:map(function(D_i) return D_i:map(function(D_ijk) return D_ijk(x,y,z) end) end)
+	local gammaU = self.calc.gammaU:map(function(gammaUij) return gammaUij(x,y,z) end)
+
+	local function sym3x3(m,i,j)
+		local m_xx, m_xy, m_xz, m_yy, m_yz, m_zz = unpack(m)
+		return ({
+			{m_xx, m_xy, m_xz},
+			{m_xy, m_yy, m_yz},
+			{m_xz, m_yz, m_zz},
+		})[i][j]
+	end
+	local V = range(3):map(function(i)
+		local s = 0
+		for j=1,3 do
+			for k=1,3 do
+				local D_ijk = sym3x3(D[i],j,k)
+				local D_kji = sym3x3(D[k],j,i)
+				local gammaUjk = sym3x3(gammaU,j,k)
+				local dg = (D_ijk - D_kji) * gammaUjk
+				s = s + dg
+			end
+		end
+		return s
+	end)
+
+	local K = {}
+	for i=1,6 do
+		K[i] = self.calc.K[i](x,y,z)
 	end
 
-	-- ... is the incoming vector
-	-- avgQ is the state used to make the eigenvectors
+	return {
+		alpha,
+		gamma[1], gamma[2], gamma[3], gamma[4], gamma[5], gamma[6],
+		A[1], A[2], A[3],
+		D[1][1], D[1][2], D[1][3], D[1][4], D[1][5], D[1][6],
+		D[2][1], D[2][2], D[2][3], D[2][4], D[2][5], D[2][6],
+		D[3][1], D[3][2], D[3][3], D[3][4], D[3][5], D[3][6],
+		K[1], K[2], K[3], K[4], K[5], K[6],
+		V[1], V[2], V[3],
+	}
+end
+
+function ADM3D:fluxMatrixTransform(solver, avgQ, v)
+	-- avgQ is the state used to make the flux 
+	-- v is the incoming vector
 	return {
 		0,	--alpha
 		0,0,0,0,0,0,	--gamma_ij
@@ -190,14 +235,8 @@ function ADM3D:fluxTransform(sim, i, v)
 	}
 end
 
-function ADM3D:applyLeftEigenvectors(sim, i, v)
-
+function ADM3D:eigenLeftTransform(solver, avgQ, v)
 	-- interface eigenvector variables
-	local avgQ = {}
-	for j=1,sim.numStates do 
-		avgQ[j] = (sim.qs[i-1][j] + sim.qs[i][j]) / 2
-		assert(type(avgQ[j])=='number')
-	end
 	local alpha = avgQ[1]
 	local gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz = unpack(avgQ, 2, 7)
 	local gamma = mat33sym.det(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
@@ -260,13 +299,8 @@ function ADM3D:applyLeftEigenvectors(sim, i, v)
 	}
 end
 
-function ADM3D:applyRightEigenvectors(sim, i, v)
-	
+function ADM3D:eigenRightTransform(solver, avgQ, v)
 	-- interface eigenvector varialbes
-	local avgQ = {}
-	for j=1,sim.numStates do 
-		avgQ[j] = (sim.qs[i-1][j] + sim.qs[i][j]) / 2
-	end
 	local alpha = avgQ[1]
 	local gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz = unpack(avgQ, 2, 7)
 	local gamma = mat33sym.det(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
@@ -321,67 +355,15 @@ function ADM3D:applyRightEigenvectors(sim, i, v)
 	}
 end
 
-
-function ADM3D:initCell(sim,i)
-	local x = sim.xs[i]
-	local y = 0
-	local z = 0
-	local xs = table{x,y,z}
-	local alpha = self.calc.alpha(x,y,z)
-	local A = self.calc.A:map(function(A_i) return A_i(x,y,z) end)
-	local gamma = self.calc.gamma:map(function(gamma_ij) return gamma_ij(x,y,z) end)
-	local D = self.calc.D:map(function(D_i) return D_i:map(function(D_ijk) return D_ijk(x,y,z) end) end)
-	local gammaU = self.calc.gammaU:map(function(gammaUij) return gammaUij(x,y,z) end)
-
-	local function sym3x3(m,i,j)
-		local m_xx, m_xy, m_xz, m_yy, m_yz, m_zz = unpack(m)
-		return ({
-			{m_xx, m_xy, m_xz},
-			{m_xy, m_yy, m_yz},
-			{m_xz, m_yz, m_zz},
-		})[i][j]
-	end
-	local V = range(3):map(function(i)
-		local s = 0
-		for j=1,3 do
-			for k=1,3 do
-				local D_ijk = sym3x3(D[i],j,k)
-				local D_kji = sym3x3(D[k],j,i)
-				local gammaUjk = sym3x3(gammaU,j,k)
-				local dg = (D_ijk - D_kji) * gammaUjk
-				s = s + dg
-			end
-		end
-		return s
-	end)
-
-	local K = {}
-	for i=1,6 do
-		K[i] = self.calc.K[i](x,y,z)
-	end
-
-	return {
-		alpha,
-		gamma[1], gamma[2], gamma[3], gamma[4], gamma[5], gamma[6],
-		A[1], A[2], A[3],
-		D[1][1], D[1][2], D[1][3], D[1][4], D[1][5], D[1][6],
-		D[2][1], D[2][2], D[2][3], D[2][4], D[2][5], D[2][6],
-		D[3][1], D[3][2], D[3][3], D[3][4], D[3][5], D[3][6],
-		K[1], K[2], K[3], K[4], K[5], K[6],
-		V[1], V[2], V[3],
-	}
-end
-
-function ADM3D:calcInterfaceEigenBasis(sim,i,qL,qR)
-	local avgQ = {}
-	for j=1,self.numStates do
-		avgQ[j] = (qL[j] + qR[j]) / 2
-	end
-	fill(sim.eigenvalues[i], self:calcEigenvaluesFromCons(table.unpack(avgQ)))
+function ADM3D:calcEigenBasis(eigenvalues, rightEigenvectors, leftEigenvectors, fluxMatrix, ...)
+	fill(eigenvalues, self:calcEigenvaluesFromCons(...))
+	fill(leftEigenvectors, ...)
+	fill(rightEigenvectors, ...)
+	if fluxMatrix then fill(fluxMatrix, ...) end
 end
 
 function ADM3D:calcEigenvaluesFromCons(
-		alpha, 
+		alpha,
 		gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz,
 		...)
 	local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33sym.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
@@ -414,9 +396,9 @@ function ADM3D:calcEigenvaluesFromCons(
 		lambdaGauge
 end
 
-function ADM3D:sourceTerm(sim, qs)
-	local source = sim:newState()
-	for i=1,sim.gridsize do
+function ADM3D:sourceTerm(solver, qs)
+	local source = solver:newState()
+	for i=1,solver.gridsize do
 		local alpha = qs[i][1]
 		local gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz = unpack(qs[i], 2, 7)
 		local A_x, A_y, A_z = unpack(qs[i], 8, 10)
@@ -730,8 +712,8 @@ GU0L[3] + AKL[3] - A_z * trK + K12D23L[3] + KD23L[3] - 2 * K12D12L[3] + 2 * KD12
 end
 
 -- enforce constraint V_k = (D_kmn - D_mnk) gamma^mn
-function ADM3D:postIterate(sim, qs)
-	for i=1,sim.gridsize do
+function ADM3D:postIterate(solver, qs)
+	for i=1,solver.gridsize do
 		local gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz = unpack(qs[i], 2, 7)
 		local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(qs[i], 11, 16)
 		local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(qs[i], 17, 22)

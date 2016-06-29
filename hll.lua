@@ -6,10 +6,26 @@ local HLL = class(SolverFV)
 function HLL:init(args)
 	self.equation = assert(self.equation or args.equation)
 	self.name = self.equation.name .. ' HLL'
+	self.eigenvalues = {}
+	
 	HLL.super.init(self, args)
 end
 
+function HLL:reset()
+	HLL.super.reset(self)
+
+	for i=1,self.gridsize+1 do
+		self.eigenvalues[i] = {}
+		for j=1,self.numWaves do
+			self.eigenvalues[i][j] = 0
+		end
+	end
+end
+
 function HLL:calcFluxes(dt)
+	-- only the eigenvalues
+	self:calcInterfaceEigenvalues()
+	
 	local gamma = self.gamma
 	
 	local iqs = self:newState()

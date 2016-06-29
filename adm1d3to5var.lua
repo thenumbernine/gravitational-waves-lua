@@ -66,6 +66,24 @@ do
 	}
 end
 
+function ADM1D3to5Var:initCell(sim,i)
+	local x = sim.xs[i]
+	local alpha = self.calc.alpha(x)
+	local gamma_xx = self.calc.gamma_xx(x)
+	local A_x = self.calc.dx_alpha(x) / self.calc.alpha(x)
+	local D_xxx = 1/2 * self.calc.dx_gamma_xx(x)
+	local K_xx = self.calc.K_xx(x)
+	local KTilde_xx = K_xx / math.sqrt(gamma_xx)
+	return {alpha, gamma_xx, A_x, D_xxx, KTilde_xx}
+end
+
+function ADM1D3to5Var:calcRoeValues(qL, qR)
+	local alpha = .5 * (qL[1] + qR[1])
+	local gamma_xx = .5 * (qL[2] + qR[2])
+	local f = self.calc.f(alpha)
+	return alpha, gamma_xx, f
+end
+
 local function buildField(call)
 	return function(self, sim, i, v)
 		local avgQ = {}
@@ -79,51 +97,49 @@ local function buildField(call)
 	end
 end
 
-ADM1D3to5Var.fluxTransform = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, ...)
-	local v1, v2, v3, v4, v5 = ... 
+function ADM1D3to5Var:calcEigenBasis(lambda, evr, evl, dF_dU, alpha, gamma_xx, f)
+	fill(lambda, self:calcEigenvalues(alpha, gamma_xx))
+	fill(evl, f)
+	fill(evr, f)
+	if dF_dU then fill(dF_dU, alpha, gamma_xx, f) end
+end
+
+function ADM1D3to5Var:fluxMatrixTransform(solver, m, v)
+	local alpha, gamma_xx, f = table.unpack(m)
+	local v1, v2, v3, v4, v5 = table.unpack(v)
 	local alpha_over_sqrt_gamma_xx = alpha / math.sqrt(gamma_xx)
-	return
+	return {
 		0,
 		0,
 		v5 * f * alpha_over_sqrt_gamma_xx,
 		v5 * 2 * alpha_over_sqrt_gamma_xx,
 		v3 * alpha_over_sqrt_gamma_xx
-end)
-ADM1D3to5Var.applyLeftEigenvectors = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, ...)
-	local v1, v2, v3, v4, v5 = ... 
+	}
+end
+
+function ADM1D3to5Var:eigenLeftTransform(solver, m, v)
+	local v1, v2, v3, v4, v5 = table.unpack(v)
+	local f = table.unpack(m)
 	local sqrt_f = math.sqrt(f)
-	return
+	return {
 		v3 / (2 * f) - v5 / (2 * sqrt_f),	-- first column so it lines up with the min eigenvalue
 		v1,
 		v2,
 		-2*v3/f + v4,
 		v3 / (2 * f) + v5 / (2 * sqrt_f)
-end)
-ADM1D3to5Var.applyRightEigenvectors = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, ...)
-	local v1, v2, v3, v4, v5 = ...
-	return
+	}
+end
+
+function ADM1D3to5Var:eigenRightTransform(solver, m, v)
+	local v1, v2, v3, v4, v5 = table.unpack(v)
+	local f = table.unpack(m)
+	return {
 		v2,
 		v3,
 		(v1 + v5) * f,
 		2 * v1 + v4 + 2 * v5,
 		math.sqrt(f) * (-v1 + v5)
-end)
-
-function ADM1D3to5Var:initCell(sim,i)
-	local x = sim.xs[i]
-	local alpha = self.calc.alpha(x)
-	local gamma_xx = self.calc.gamma_xx(x)
-	local A_x = self.calc.dx_alpha(x) / self.calc.alpha(x)
-	local D_xxx = 1/2 * self.calc.dx_gamma_xx(x)
-	local K_xx = self.calc.K_xx(x)
-	local KTilde_xx = K_xx / math.sqrt(gamma_xx)
-	return {alpha, gamma_xx, A_x, D_xxx, KTilde_xx}
-end
-
-function ADM1D3to5Var:calcInterfaceEigenBasis(sim,i,qL,qR)
-	local alpha = .5 * (qL[1] + qR[1])
-	local gamma_xx = .5 * (qL[2] + qR[2])
-	sim.eigenvalues[i] = {self:calcEigenvalues(alpha, gamma_xx)}
+	}
 end
 
 function ADM1D3to5Var:calcMaxEigenvalue(alpha, gamma_xx)

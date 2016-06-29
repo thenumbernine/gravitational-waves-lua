@@ -54,9 +54,8 @@ invert(eigenvectors);
 /* [wxMaxima: input   end   ] */
 
 
-alright this didn't work.
-last bet is to use the eigenspace variables and use identity for the eigenvalues
-then use the nonlinear transforms to recover state variables
+I need to change this from a 3-var (with two extra)
+to a 5-var, 3-wave with waves no acting on alpha or gamma
 
 --]]
 
@@ -66,57 +65,8 @@ local Equation = require 'equation'
 local ADM1D3Var = class(Equation)
 ADM1D3Var.name = 'ADM 1D 3-Var'
 
-ADM1D3Var.numStates = 3
-
-local State = class(Equation.State)
-
-function State:init(...)
-	State.super.init(self, ...)
-	for i=1,#self do
-		self[i].alpha = 0
-		self[i].gamma_xx = 0
-	end
-end
-
-function State:clone()
-	local dst = State.super.clone(self)
-	for i=1,#self do
-		dst[i].alpha = self[i].alpha
-		dst[i].gamma_xx = self[i].gamma_xx
-	end
-	return dst
-end
-
-function State.__add(a,b)
-	local c = State(#a, #a[1])
-	for i=1,#a do
-		for j=1,#a[1] do
-			c[i][j] = a[i][j] + b[i][j]
-		end
-		c[i].alpha = a[i].alpha + b[i].alpha
-		c[i].gamma_xx = a[i].gamma_xx + b[i].gamma_xx
-	end
-	return c
-end
-
-function State.__mul(a,b)
-	local function is(x) return type(x) == 'table' and x.isa and x:isa(State) end
-	local src = is(a) and a or b
-	local c = State(#src, #src[1])
-	for i=1,#src do
-		for j=1,#src[1] do
-			local aij = type(a) == 'number' and a or a[i][j]
-			local bij = type(b) == 'number' and b or b[i][j]
-			c[i][j] = aij * bij
-		end
-		c[i].alpha = (type(a) == 'number' and a or a[i].alpha) * (type(b) == 'number' and b or b[i].alpha)
-		c[i].gamma_xx = (type(a) == 'number' and a or a[i].gamma_xx) * (type(b) == 'number' and b or b[i].gamma_xx)
-	end
-	return c
-end
-
-ADM1D3Var.State = State
-
+ADM1D3Var.numStates = 5
+ADM1D3Var.numWaves = 3
 
 -- initial conditions
 function ADM1D3Var:init(args, ...)
@@ -155,11 +105,11 @@ end
 
 do
 	local q = function(self,i) return self.qs[i] end
-	local alpha = q:_'alpha'
-	local gamma_xx = q:_'gamma_xx'
-	local A_x = q:_(1)
-	local D_xxx = q:_(2)
-	local KTilde_xx = q:_(3)
+	local alpha = q:_(1)
+	local gamma_xx = q:_(2)
+	local A_x = q:_(3)
+	local D_xxx = q:_(4)
+	local KTilde_xx = q:_(5)
 	local K_xx = KTilde_xx / math.sqrt:o(gamma_xx)
 	local volume = alpha * math.sqrt:o(gamma_xx)
 	ADM1D3Var:buildGraphInfos{
@@ -168,52 +118,10 @@ do
 		{gamma_xx = gamma_xx},
 		{D_xxx = D_xxx},
 		{K_xx = K_xx},
-		{KTildee_xx = KTilde_xx},
+		{KTilde_xx = KTilde_xx},
 		{volume = volume},
 	}
 end
-
-local function buildField(call)
-	return function(self, sim, i, v)
-		local v1, v2, v3 = table.unpack(v)
-		
-		local avgQ = {}
-		for j=1,sim.numStates do 
-			avgQ[j] = (sim.qs[i-1][j] + sim.qs[i][j]) / 2
-		end
-		avgQ.alpha = (sim.qs[i-1].alpha + sim.qs[i].alpha) / 2
-		avgQ.gamma_xx = (sim.qs[i-1].gamma_xx + sim.qs[i].gamma_xx) / 2
-		
-		local A_x, D_xxx, KTilde_xx = table.unpack(avgQ)
-		local x = sim.ixs[i]
-		local alpha = avgQ.alpha
-		local gamma_xx = avgQ.gamma_xx
-		local f = self.calc.f(alpha)
-
-		return {call(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)}
-	end
-end
-
-ADM1D3Var.fluxTransform = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
-	return
-		v3 * alpha * f / math.sqrt(gamma_xx),
-		v3 * 2 * alpha / math.sqrt(gamma_xx),
-		v1 * alpha / math.sqrt(gamma_xx)
-end)
-
-ADM1D3Var.applyLeftEigenvectors = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
-	return
-		v1 / (2 * f) - v3 / (2 * math.sqrt(f)),
-		-2*v1/f + v2,
-		v1 / (2 * f) + v3 / (2 * math.sqrt(f))
-end)
-
-ADM1D3Var.applyRightEigenvectors = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, v1, v2, v3)
-	return
-		(v1 + v3) * f,
-		2 * v1 + v2 + 2 * v3,
-		math.sqrt(f) * (-v1 + v3)
-end)
 
 function ADM1D3Var:initCell(sim,i)
 	local x = sim.xs[i]
@@ -223,7 +131,7 @@ function ADM1D3Var:initCell(sim,i)
 	local D_xxx = 1/2 * self.calc.dx_gamma_xx(x)
 	local K_xx = self.calc.K_xx(x) 
 	local KTilde_xx = K_xx / math.sqrt(gamma_xx)
-	return {alpha=alpha, gamma_xx=gamma_xx, A_x, D_xxx, KTilde_xx}
+	return {alpha, gamma_xx, A_x, D_xxx, KTilde_xx}
 end
 
 function ADM1D3Var:calcEigenvalues(alpha, gamma_xx, f)
@@ -231,17 +139,62 @@ function ADM1D3Var:calcEigenvalues(alpha, gamma_xx, f)
 	return -lambda, 0, lambda
 end
 
-function ADM1D3Var:calcInterfaceEigenBasis(sim,i,qL,qR)
-	local alpha = (qL.alpha + qR.alpha) / 2
-	local gamma_xx = (qL.gamma_xx + qR.gamma_xx) / 2
+-- arithmetic
+function ADM1D3Var:calcRoeValues(qL, qR)
+	local alpha = (qL[1] + qR[1]) / 2
+	local gamma_xx = (qL[2] + qR[2]) / 2
 	local f = self.calc.f(alpha)
-	sim.eigenvalues[i] = {self:calcEigenvalues(alpha, gamma_xx, f)}
+	return alpha, gamma_xx, f
 end
 
+function ADM1D3Var:calcEigenBasis(lambda, evr, evl, dF_dU, alpha, gamma_xx, f)
+	-- store eigenvalues
+	fill(lambda, self:calcEigenvalues(alpha, gamma_xx, f))
+	-- store information needed to build left and right eigenvectors
+	-- this is why I need an 'eigenbasis' object - to hold this information once
+	fill(evl, f)
+	fill(evr, f)
+	if dF_dU then fill(dF_dU, alpha, gamma_xx, f) end
+end
+
+-- how can the flux depend on gamma_xx and alpha but not the eigenvectors?
+function ADM1D3Var:fluxMatrixTransform(solver, m, v)
+	local alpha, gamma_xx, f = table.unpack(m)
+	local _, _, v1, v2, v3 = table.unpack(v)
+	return {
+		0,
+		0,
+		v3 * alpha * f / math.sqrt(gamma_xx),
+		v3 * 2 * alpha / math.sqrt(gamma_xx),
+		v1 * alpha / math.sqrt(gamma_xx)
+	}
+end
+
+function ADM1D3Var:eigenLeftTransform(solver, m, v)
+	local f = table.unpack(m)
+	local _, _, v1, v2, v3 = table.unpack(v)
+	return {
+		v1 / (2 * f) - v3 / (2 * math.sqrt(f)),
+		-2*v1/f + v2,
+		v1 / (2 * f) + v3 / (2 * math.sqrt(f))
+	}
+end
+
+function ADM1D3Var:eigenRightTransform(solver, m, v)
+	local f = table.unpack(m)
+	local v1, v2, v3 = table.unpack(v)
+	return {
+		0,
+		0,
+		(v1 + v3) * f,
+		2 * v1 + v2 + 2 * v3,
+		math.sqrt(f) * (-v1 + v3)
+	}
+end
+
+
 function ADM1D3Var:calcCellMinMaxEigenvalues(sim, i)
-	local q = sim.qs[i]
-	local alpha = q.alpha
-	local gamma_xx = q.gamma_xx
+	local alpha, gamma_xx = table.unpack(sim.qs[i])
 	local f = self.calc.f(alpha)
 	return firstAndLast(self:calcEigenvalues(alpha, gamma_xx, f))
 end
@@ -249,14 +202,12 @@ end
 function ADM1D3Var:sourceTerm(sim, qs)
 	local source = sim:newState()
 	for i=1,sim.gridsize do
-		local A_x, D_xxx, KTilde_xx = table.unpack(qs[i])
-		local alpha = qs[i].alpha
-		local gamma_xx = qs[i].gamma_xx
+		local alpha, gamma_xx, A_x, D_xxx, KTilde_xx = table.unpack(qs[i])
 		local f = self.calc.f(alpha)
 		local dalpha_f = self.calc.dalpha_f(alpha)
 		
-		source[i].alpha = -alpha * alpha * f * KTilde_xx / (gamma_xx * math.sqrt(gamma_xx))
-		source[i].gamma_xx = -2 * alpha * KTilde_xx / math.sqrt(gamma_xx)
+		source[i][1] = -alpha * alpha * f * KTilde_xx / (gamma_xx * math.sqrt(gamma_xx))
+		source[i][2] = -2 * alpha * KTilde_xx / math.sqrt(gamma_xx)
 	end
 	return source
 end

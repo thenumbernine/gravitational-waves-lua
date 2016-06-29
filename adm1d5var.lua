@@ -89,37 +89,37 @@ function ADM1D5Var:initCell(sim,i)
 	return {alpha, gamma_xx, A_x, D_xxx, K_xx}
 end
 
-local function buildField(call)
-	return function(self, sim, i, v)
-		local v1, v2, v3, v4, v5 = unpack(v)
-		
-		local avgQ = {}
-		for j=1,sim.numStates do 
-			avgQ[j] = (sim.qs[i-1][j] + sim.qs[i][j]) / 2
-		end
-		local alpha, gamma_xx, A_x, D_xxx, K_xx = unpack(avgQ)
-		local f = self.calc.f(alpha)
-		return {call(alpha, f, gamma_xx, A_x, D_xxx, K_xx, v1, v2, v3, v4, v5)}
-	end
+function ADM1D5Var:calcRoeValues(qL, qR)
+	local alpha, gamma_xx, A_x, D_xxx, K_xx = ADM1D5Var.super.calcRoeValues(self, qL, qR)
+	local f = self.calc.f(alpha)
+	return alpha, gamma_xx, A_x, D_xxx, K_xx, f
 end
 
-ADM1D5Var.fluxTransform = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, K_xx, v1, v2, v3, v4, v5)
-	return 
+-- [[
+function ADM1D5Var:fluxMatrixTransform(solver, m, v)
+	local alpha, gamma_xx, A_x, D_xxx, K_xx, f = table.unpack(m)
+	local v1, v2, v3, v4, v5 = table.unpack(v)
+	return {
 		0,
 		0,
 		v1*f*K_xx/gamma_xx - v2*alpha*f*K_xx/gamma_xx^2 + v5*alpha*f/gamma_xx,
 		v1*K_xx + v5*alpha,
 		v1*A_x + v3*alpha
-end)
+	}
+end
+--]]
 --[[fixme
-ADM1D5Var.applyLeftEigenvectors = buildField(function(alpha, f, gamma_xx, A_x, D_xxx, K_xx, v1, v2, v3, v4, v5)
-	return 
+function ADM1D5Var:eigenLeftTransform(solver, m, v)
+	local alpha, gamma_xx, A_x, D_xxx, K_xx, f = table.unpack(m)
+	local v1, v2, v3, v4, v5 = table.unpack(v)
+	return {
 		v1 * (gamma_xx * A_x / f - K_xx * math.sqrt(gamma_xx / f)) / (2 * alpha) + v3 * gamma_xx / (2 * f) - v5 * .5 * math.sqrt(gamma_xx / f),
 		v1 / alpha,
 		-v1 * (gamma_xx * A_x) / (alpha * f) - v3 * gamma_xx / f + v4,
 		v2,
-		v1 * (gamma_xx * A_x / f + K_xx * math.sqrt(gamma_xx / f)) / (2 * alpha) + v3 * gamma_xx / (2 * f) + v5 * .5 * math.sqrt(gamma_xx / f) 
-end),
+		v1 * (gamma_xx * A_x / f + K_xx * math.sqrt(gamma_xx / f)) / (2 * alpha) + v3 * gamma_xx / (2 * f) + v5 * .5 * math.sqrt(gamma_xx / f)
+	}
+end
 --]]
 
 function ADM1D5Var:calcMaxEigenvalue(alpha, gamma_xx)
@@ -128,65 +128,62 @@ function ADM1D5Var:calcMaxEigenvalue(alpha, gamma_xx)
 	return lambda
 end
 
-function ADM1D5Var:calcEigenvaluesFromCons(alpha, gamma_xx, A_x, D_xxx, K_xx)
+function ADM1D5Var:calcEigenvaluesFromCons(alpha, gamma_xx, A_x, D_xxx, K_xx, f)
 	local lambda = self:calcMaxEigenvalue(alpha, gamma_xx)
 	return -lambda, 0, 0, 0, lambda
 end
 
-function ADM1D5Var:calcInterfaceEigenBasis(sim,i,qL,qR)
-	local avgQ = {}
-	for j=1,self.numStates do
-		avgQ[j] = (qL[j] + qR[j]) / 2
-	end
-	
-	local alpha, gamma_xx, A_x, D_xxx, K_xx = unpack(avgQ)
-	local x = sim.ixs[i]
-	local f = self.calc.f(alpha)
+function ADM1D5Var:calcEigenBasis(lambdas, evr, evl, dF_dU, alpha, gamma_xx, A_x, D_xxx, K_xx, f)
 	local sqrt_f = math.sqrt(f)
 	local sqrt_g = math.sqrt(gamma_xx)
 	local lambda = alpha * sqrt_f / sqrt_g 
-	fill(sim.eigenvalues[i], -lambda, 0, 0, 0, lambda)
+	fill(lambdas, -lambda, 0, 0, 0, lambda)
 	
 	-- row-major, math-indexed
-	sim.fluxMatrix[i] = {
-		{0,0,0,0,0},
-		{0,0,0,0,0},
-		{f*K_xx/gamma_xx, -alpha*f*K_xx/gamma_xx^2, 0,0, alpha*f/gamma_xx},
-		{K_xx,0,0,0,alpha},
-		{A_x,0,alpha,0,0},
-	}
+	if dF_dU then
+		fill(dF_dU, alpha, gamma_xx, A_x, D_xxx, K_xx, f)
+		--[[
+		fill(dF_dU,
+			{0,0,0,0,0},
+			{0,0,0,0,0},
+			{f*K_xx/gamma_xx, -alpha*f*K_xx/gamma_xx^2, 0,0, alpha*f/gamma_xx},
+			{K_xx,0,0,0,alpha},
+			{A_x,0,alpha,0,0}
+		)
+		--]]
+	end
 	--[[ where did I get this from? probably eigenvector decomposition on the flux
-	sim.eigenvectors[i] = {
+	fill(evr,	
 		{0,			alpha,	0,	0,	0			},	-- alpha
 		{0,			0,		0,	1,	0			},	-- gamma_xx
 		{f/gamma_xx,		-A_x,		0,	0,	f/gamma_xx			},	-- A_x
 		{1,			0,		1,	0,	1			},	-- D_xxx
-		{-sqrt_f/sqrt_g,-K_xx,		0,	0,	sqrt_f/sqrt_g	},	-- K_xx
-	}
-	sim.eigenvectorsInverse[i] = {
+		{-sqrt_f/sqrt_g,-K_xx,		0,	0,	sqrt_f/sqrt_g	}	-- K_xx
+	)
+	fill(evl,
 		{(gamma_xx * A_x / f - K_xx * math.sqrt(gamma_xx / f)) / (2 * alpha), 0, gamma_xx / (2 * f), 0, -.5 * math.sqrt(gamma_xx / f)}, 
 		{1 / alpha, 0, 0, 0, 0}, 
 		{-(gamma_xx * A_x) / (alpha * f), 0, -gamma_xx / f, 1, 0}, 
 		{0, 1, 0, 0, 0}, 
-		{(gamma_xx * A_x / f + K_xx * math.sqrt(gamma_xx / f)) / (2 * alpha), 0, gamma_xx / (2 * f), 0, .5 * math.sqrt(gamma_xx / f)}, 
-	}
+		{(gamma_xx * A_x / f + K_xx * math.sqrt(gamma_xx / f)) / (2 * alpha), 0, gamma_xx / (2 * f), 0, .5 * math.sqrt(gamma_xx / f)} 
+	)
 	-- note that because we have zero eigenvalues that the eigendecomposition cannot reconstruct the flux matrix
 	--]]
 	-- [[ here's from the left eigenvectors
-	sim.eigenvectorsInverse[i] = {
+	fill(evl,
 		{0, 0, -1/sqrt_g, 0, sqrt_f/gamma_xx},	-- math.sqrt(f) K_xx / gamma_xx - A_x / math.sqrt(gamma_xx)
 		{1, 0, 0, 0, 0},								-- alpha
 		{0, 1, 0, 0, 0},								-- gamma_xx
 		{0, 0, 1, -f/gamma_xx, 0},						-- A_x - f D_xxx / gamma_xx
-		{0, 0, 1/sqrt_g, 0, sqrt_f/gamma_xx},	-- math.sqrt(f) K_xx / gamma_xx + A_x / math.sqrt(gamma_xx)
-	}
-	sim.eigenvectors[i] = {
+		{0, 0, 1/sqrt_g, 0, sqrt_f/gamma_xx}	-- math.sqrt(f) K_xx / gamma_xx + A_x / math.sqrt(gamma_xx)
+	)
+	fill(evr,	
 		{0, 1, 0, 0, 0},
 		{0, 0, 1, 0, 0},
 		{-.5 * sqrt_g, 0, 0, 0, .5 * sqrt_g},
 		{-.5 * sqrt_g * gamma_xx / f, 0, 0, -gamma_xx / f, .5 * sqrt_g * gamma_xx / f},
-		{.5 * gamma_xx / sqrt_f, 0, 0, 0, .5 * gamma_xx / sqrt_f},
-	}
+		{.5 * gamma_xx / sqrt_f, 0, 0, 0, .5 * gamma_xx / sqrt_f}
+	)
 	--]]
 end	
 

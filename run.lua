@@ -57,7 +57,7 @@ local ADM3D = require 'adm3d'
 -- setup
 local sims = table()
 
---[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+-- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -107,16 +107,18 @@ do
 	--sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
 	--sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
 	-- these two match, but differ from the first two:
-	--sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
+	sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
 	--sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
 	-- this one is similar to the last two, but off by just a bit (and has an asymmetric evolution of alpha)
-	--sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
+	sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
+	
 	-- ... and plm:
-	sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
-	--sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
-	--sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
-	--sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
-	--sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
+	--sims:insert(RoePLM(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
+	--sims:insert(RoePLM(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
+	--sims:insert(RoePLM(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
+	--sims:insert(RoePLM(table(args, {equation = ADM3D(equationArgs)})))
+	--sims:insert(RoePLM(table(args, {equation = BSSNOK1D(equationArgs)})))
+	
 	-- and here's the start of my looking into implicit solvers.
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D3to5Var(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D5Var(equationArgs)})))
@@ -282,7 +284,7 @@ end
 --]]
 
 
--- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+--[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
 	local args = {
 		equation = Euler1D(),
@@ -308,7 +310,7 @@ do
 		--]=]
 	}
 	
-	--[=[ compare schemes
+	-- [=[ compare schemes
 	--sims:insert(require 'euler1d_burgers'(args))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='exact', sampleMethod='alt'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='exact'})))
@@ -316,7 +318,9 @@ do
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
-	sims:insert(Roe(args))
+	--sims:insert(Roe(args))
+	sims:insert(RoePLM(args))
+	--sims:insert(HLLPLM(args))
 	--sims:insert(Roe(table(args, {equation = require 'euler1d_quasilinear'()})))
 	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
 	--sims:insert(Roe(table(args, {usePPM=true})))
@@ -325,34 +329,39 @@ do
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
+	
+	-- mhd:
 	--sims:insert(Roe(table(args, {equation=MHD()})))
 	--sims:insert(HLL(table(args, {equation=MHD()})))
 	--sims:insert(RoePLM(table(args, {equation=MHD(), fluxLimiter=limiter.donorCell})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation=MHD()})))
 
 	-- srhd Marti & Muller 2003 problem #1
-	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.4249], gridsize=400, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
+	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.4249}, gridsize=400, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
 	-- srhd Marti & Muller 2003 problem #2
 	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.43}, gridsize=2000, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
 	-- srhd Marti & Muller 2003 blast wave interaction
 	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.1, .26, .426}, gridsize=4000, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
 	-- srhd versus euler
 	--sims:insert(Roe(table(args, {gridsize=2000})))
+	
+	-- problem #1 with PLM ... not working
+	--sims:insert(PLMBehavior(require 'srhd1d_roe')(table(args, {stopAtTimes={.4249}, gridsize=400, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
 	--]=]
 
-	--[=[ compare flux limiters
+	--[=[ compare various flux limiters
 	sims:insert(Roe(table(args, {fluxLimiter = limiter.donorCell})))
 	sims:insert(Roe(table(args, {fluxLimiter = limiter.LaxWendroff})))
 	sims:insert(Roe(table(args, {fluxLimiter = limiter.MC})))
 	sims:insert(Roe(table(args, {fluxLimiter = limiter.superbee})))
 	--]=]
 
-	-- [=[ compare flux vs plm slope limiter
+	--[=[ compare flux vs plm slope limiter
 	sims:insert(require 'sod_exact'(table(args, {gridsize=2000})))
 	sims:insert(Roe(args))
 	sims:insert(Roe(table(args, {fluxLimiter=limiter.donorCell}))) 	-- eliminate the flux limiter, so only the PLM slope limiter is applied
+	sims:insert(RoePLM(table(args, {fluxLimiter=limiter.donorCell}))) 	-- eliminate the flux limiter, so only the PLM slope limiter is applied
 	--sims:insert(RoePLM(table(args, {fluxLimiter=limiter.superbee}))) 	-- this is applying the limiter twice: the flux and the slope
-	--sims:insert(RoePLM(table(args, {fluxLimiter=limiter.donorCell}))) 	-- eliminate the flux limiter, so only the PLM slope limiter is applied
 	--sims:insert(RoeMUSCL(table(args, {fluxLimiter=limiter.superbee}))) 	-- this is applying the limiter twice: the flux and the slope
 	--sims:insert(RoeMUSCL(table(args, {fluxLimiter=limiter.donorCell}))) 	-- eliminate the flux limiter, so only the MUSCL slope limiter is applied
 	--]=]

@@ -205,7 +205,7 @@ function ADM2DSpherical:calcInterfaceEigenBasis(sim,i,qL,qR)
 		{lambdaUr_hh, -alpha/gamma_rr^2, 0, 0, 0, alpha/gamma_rr, 0, 0, 0},
 		{0,0,0,0,0,0,0,0,0},
 	}
-	sim.eigenvectors[i] = {
+	sim.rightEigenvectors[i] = {
 		{0,0,1,0,0,0,0,0,0},
 		{0,0,0,1,0,0,0,0,0},
 		{0,0,0,0,1,0,0,0,0},
@@ -216,7 +216,7 @@ function ADM2DSpherical:calcInterfaceEigenBasis(sim,i,qL,qR)
 		{0,1/(2*sqrt(gamma_rr)),0,0,0,0,0,1/(2*sqrt(gamma_rr)),0},
 		{0,0,0,0,0,1,0,0,0}
 	}
-	sim.eigenvectorsInverse[i] = {
+	sim.leftEigenvectors[i] = {
 		{0, 0, 0, -1, 0, 0, sqrt(f/gamma_rr), sqrt(f*gamma_rr)/gamma_hh, -2},
 		{0, 0, 0, 0, 0, -1, 0, sqrt(gamma_rr), 0},
 		{1, 0, 0, 0, 0, 0, 0, 0, 0}, 

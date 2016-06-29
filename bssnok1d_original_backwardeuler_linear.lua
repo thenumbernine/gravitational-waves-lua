@@ -38,8 +38,8 @@ function BSSNOK1DOriginalBackwardEuler:init(args)
 	args.equation = BSSNOK1D(args)
 	self.linearSolver = args.linearSolver or require 'linearsolvers'.conjres
 	self.fluxMatrix = {}
-	self.eigenvectors = {}
-	self.eigenvectorsInverse = {}
+	self.rightEigenvectors = {}
+	self.leftEigenvectors = {}
 	self.eigenbasisErrors = {}
 	self.fluxMatrixErrors = {}
 	BSSNOK1DOriginalBackwardEuler.super.init(self, args)

@@ -231,13 +231,8 @@ function BSSNOK1D:initCell(sim,i)
 	return {alpha, phi, A_x, Phi_x, K, ATilde_xx}
 end
 
-function BSSNOK1D:calcInterfaceEigenBasis(sim,i,qL,qR)
-	local avgQ = {}
-	for j=1,self.numStates do
-		avgQ[j] = (qL[j] + qR[j]) / 2
-	end
-	
-	local alpha, phi, A_x, Phi_x, K, ATilde_xx = unpack(avgQ)
+function BSSNOK1D:calcEigenBasis(eigenvalues, rightEigenvectors, leftEigenvectors, fluxMatrix, ...)
+	local alpha, phi, A_x, Phi_x, K, ATilde_xx = ... 
 	local f = self.calc.f(alpha)
 	local dalpha_f = self.calc.dalpha_f(alpha)
 	
@@ -247,33 +242,35 @@ function BSSNOK1D:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local f_1_2 = math.sqrt(f)
 	local f_3_2 = f * f_1_2
 	local lambda = alpha * f_1_2 * ie2p
-	sim.eigenvalues[i] = {-lambda, 0, 0, 0, 0, lambda}
+	
+	fill(eigenvalues, -lambda, 0, 0, 0, 0, lambda)
+	
 	-- row-major, math-indexed
-	sim.fluxMatrix[i] = {
+	fill(fluxMatrix,
 		{0,0,0,0,0,0},
 		{0,0,0,0,0,0},
 		{alpha * dalpha_f * K, 0, 0, 0, alpha * f, 0},
 		{0, 0, 0, 0, alpha/6, 0},
 		{0, 0, alpha * ie4p, 0, 0, 0},
-		{0, 0, alpha * ie4p, 2 * alpha * ie4p, 0, 0},
-	}
-	sim.eigenvectors[i] = {
+		{0, 0, alpha * ie4p, 2 * alpha * ie4p, 0, 0}
+	)
+	fill(rightEigenvectors,
 		{0, 1, 0, 0, 0, 0},
 		{0, 0, 1, 0, 0, 0},
 		{6*f_3_2*e2p, 0, 0, 0, 0, 6*f_3_2*e2p},
 		{f_1_2*e2p, 0, 0, 6*f_1_2*ie2p, 0, f_1_2*e2p},
 		{-6*f, 0, 0, 1, 0, 6*f},
-		{-6*f-2, 0, 0, 0, 1, 6*f+2},
-	}
+		{-6*f-2, 0, 0, 0, 1, 6*f+2}
+	)
 	local tmp1 = e2p/(36*f_3_2)+ie2p/f_1_2
-	sim.eigenvectorsInverse[i] = {
+	fill(leftEigenvectors,
 		{0, 0, ie2p/(6*f_3_2)*(1 - .5*(f_1_2*e2p*tmp1)), e2p/(72*f_3_2), -1/(12*f), 0},
 		{1,0,0,0,0,0},
 		{0,1,0,0,0,0},
 		{0,0,-e2p/(36*f_3_2),e2p/(6*f_1_2),0,0},
 		{0,0,-(12*f+4)*tmp1/(12*f) - (-6*f-2)*ie2p/(6*f_3_2), (12*f+4)*e2p/(72*f_3_2), -(12*f+4)/(12*f), 1},
-		{0, 0, tmp1/(12*f), -e2p/(72*f_3_2), 1/(12*f), 0},
-	}
+		{0, 0, tmp1/(12*f), -e2p/(72*f_3_2), 1/(12*f), 0}
+	)
 end
 
 function BSSNOK1D:calcEigenvaluesFromCons(alpha, phi, ...)

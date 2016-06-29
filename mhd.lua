@@ -120,7 +120,7 @@ function MHD:calcMinMaxEigenvaluesFromCons(...)
 end
 --]]
 -- [[
-function MHD:calcEigenvaluesFromState(...)
+function MHD:calcEigenvaluesFromCons(...)
 	local gamma = self.gamma
 	local rho, vx, vy, vz, bx, by, bz, P = self:calcPrimFromCons(...)
 	local hTotal = .5 * (vx * vx + vy * vy + vz * vz) + (gamma / (gamma - 1) * P + bx * bx + by * by + bz * bz) / rho
@@ -321,25 +321,17 @@ function MHD:calcEigenBasis(lambda, evR, evL, dF_dU, rho, vx, vy, vz, bx, by, bz
 	end
 end
 
-function MHD:calcInterfaceEigenBasis(sim,i,qL,qR)
+function MHD:calcInterfaceEigenvalues(solver,i)
 	return self:calcEigenBasis(
-		sim.eigenvalues[i],
-		sim.eigenvectors[i],
-		sim.eigenvectorsInverse[i],
-		sim.fluxMatrix[i],
-		self:calcRoeValues(qL, qR))
+		solver.eigenvalues[i],
+		nil,
+		nil,
+		nil,
+		self:calcInterfaceRoeValues(solver, i))
 end
 
-function MHD:calcInterfaceEigenvalues(sim,i,qL,qR)
-	return self:calcEigenBasis(
-		sim.eigenvalues[i],
-		nil,
-		nil,
-		nil,
-		self:calcRoeValues(qL, qR))
-end
-
-function MHD:calcRoeValuesAtCellCenter(q)
+function MHD:calcCellCenterRoeValues(solver, i)
+	local q = solver.qs[i]
 	local rho, vx, vy, vz, bx, by, bz, P = self:calcPrimFromCons(table.unpack(q))
 	local ETotal = q[8]
 	local PMag = .5 * (bx * bx + by * by + bz * bz)
@@ -354,27 +346,24 @@ local function permute7to8(v1,v2,v3,v4,v5,v6,v7)
 	return v1,v2,v3,v4,0,v6,v7,v5
 end
 
-function MHD.createTransformFunc(matrixField, from, to)
-	return function(self, solver, i, x)
-		-- x is energy-last order, so convert to energy-5th order
-		if from then
-			x = {permute8to7(table.unpack(x))}
-		end
-		local m = solver[matrixField][i]
-		local y = {}
-		for j=1,self.numWaves do
-			local sum = 0
-			for k=1,self.numWaves do
-				sum = sum + m[j][k] * x[k]
-			end
-			y[j] = sum
-		end
-		-- convert back to energy-last order
-		if to then
-			y = {permute7to8(table.unpack(y))}
-		end
-		return y
+function MHD:eigenTransform(solver, m, x, from, to)
+	-- x is energy-last order, so convert to energy-5th order
+	if from then
+		x = {permute8to7(table.unpack(x))}
 	end
+	local y = {}
+	for j=1,self.numWaves do
+		local sum = 0
+		for k=1,self.numWaves do
+			sum = sum + m[j][k] * x[k]
+		end
+		y[j] = sum
+	end
+	-- convert back to energy-last order
+	if to then
+		y = {permute7to8(table.unpack(y))}
+	end
+	return y
 end
 
 return MHD

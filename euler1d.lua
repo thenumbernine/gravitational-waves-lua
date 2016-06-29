@@ -184,10 +184,6 @@ function Euler1D:calcEigenvaluesFromCons(rho, mx, ETotal)
 	return self:calcEigenvalues(vx, Cs)
 end
 
-function Euler1D:calcConsFromState(...)
-	return ...
-end
-
 -- used by HLL
 function Euler1D:calcFluxForState(q)
 	local gamma = self.gamma
@@ -239,16 +235,6 @@ function Euler1D:calcInterfaceEigenvalues(sim, i, qL, qR)
 	fill(sim.eigenvalues[i], self:calcEigenvalues(vx, Cs))
 end
 
--- used by Roe
-function Euler1D:calcInterfaceEigenBasis(sim,i,qL,qR)
-	self:calcEigenBasis(
-		sim.eigenvalues[i],
-		sim.eigenvectors[i],
-		sim.eigenvectorsInverse[i],
-		sim.fluxMatrix[i] ,
-		self:calcRoeValues(qL, qR))
-end
-
 --[[
 this is a bit of a misplaced function.
 it takes in the cell-centered values.
@@ -256,9 +242,9 @@ it returns the same values that calcRoeValues returns
 so that those values can be passed on to the calcEigenBasis function.
 it is used by plm.
 --]]
-function Euler1D:calcRoeValuesAtCellCenter(q)
-	local rho, vx, P = self:calcPrimFromCons(table.unpack(q))
-	local ETotal = q[3]
+function Euler1D:calcCellCenterRoeValues(solver, i)
+	local rho, mx, ETotal = table.unpack(solver.qs[i])
+	local rho, vx, P = self:calcPrimFromCons(rho, mx, ETotal)
 	local hTotal = self:calc_hTotal(rho, P, ETotal)
 	return rho, vx, hTotal
 end

@@ -9,6 +9,7 @@ Maxwell.numStates = 6	--E,B xyz
 
 local e0 = 1	-- permittivity
 local u0 = 1	-- permissivity
+local sigma = 1	-- conductivity
 
 do
 	local q = function(self,i) return self.qs[i] end
@@ -55,19 +56,27 @@ function Maxwell:calcFluxForState(q)
 		q[2]/seu
 end
 
+-- return nothing.  this is passed on to 'calcEigenBasis', which does nothing and stores nothing.
+-- eigenvalues/vectors
+function Maxwell:calcInterfaceRoeValues(solver, i)
+end
+
+-- typically stores eigenvalues, left and right eigenvectors, flux matrix
+-- but no information is needed to recreate any of those, so don't store any
+-- except for the values, which are used externally
+function Maxwell:calcEigenBasis(lambda, evr, evl, dF_dU)
+	fill(lambda, self:calcEigenvalues())
+end
+
 function Maxwell:calcInterfaceEigenvalues(sim,i,qL,qR)
 	fill(sim.eigenvalues[i], self:calcEigenvalues())
 end
 
-function Maxwell:calcInterfaceEigenBasis(sim,i,qL,qR)
-	fill(sim.eigenvalues[i], self:calcEigenvalues())
-end
-
-function Maxwell:fluxTransform(sim, i, v)
+function Maxwell:applyFluxMatrix(sim, i, v)
 	return {self:calcFluxForState(v)}
 end
 
-function Maxwell:applyLeftEigenvectors(sim, i, v)
+function Maxwell:eigenLeftTransform(solver, m, v)
 	local se = math.sqrt(e0/2)
 	local ise = 1/se
 	local su = math.sqrt(u0/2)
@@ -82,7 +91,7 @@ function Maxwell:applyLeftEigenvectors(sim, i, v)
 	}
 end
 
-function Maxwell:applyRightEigenvectors(sim, i, v)
+function Maxwell:eigenRightTransform(solver, m, v)
 	local se = math.sqrt(e0/2)
 	local su = math.sqrt(u0/2)
 	return {
@@ -111,7 +120,6 @@ function Maxwell:calcMinMaxEigenvaluesFromCons(...)
 	return -lambda, lambda
 end
 
-local sigma = 1	-- conductivity
 function Maxwell:sourceTerm(sim, qs)
 	local source = sim:newState()
 	for i=1,sim.gridsize do

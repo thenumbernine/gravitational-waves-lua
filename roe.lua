@@ -32,8 +32,9 @@ function Roe:init(args)
 	self.deltaQTildes = {}
 	self.rTildes = {}
 	self.fluxMatrix = {}
-	self.eigenvectors = {}
-	self.eigenvectorsInverse = {}
+	self.eigenvalues = {}
+	self.rightEigenvectors = {}
+	self.leftEigenvectors = {}
 	self.eigenbasisErrors = {}
 	self.fluxMatrixErrors = {}
 end
@@ -57,6 +58,11 @@ function Roe:reset()
 	end
 
 	for i=1,self.gridsize+1 do
+		self.eigenvalues[i] = {}
+		for j=1,self.numWaves do
+			self.eigenvalues[i][j] = 0
+		end
+
 		-- #states x #states
 		self.fluxMatrix[i] = {}
 		for j=1,self.numStates do
@@ -66,19 +72,19 @@ function Roe:reset()
 			end
 		end
 		-- #waves x #states
-		self.eigenvectorsInverse[i] = {}
+		self.leftEigenvectors[i] = {}
 		for j=1,self.numWaves do
-			self.eigenvectorsInverse[i][j] = {}
+			self.leftEigenvectors[i][j] = {}
 			for k=1,self.numStates do
-				self.eigenvectorsInverse[i][j][k] = 0
+				self.leftEigenvectors[i][j][k] = 0
 			end
 		end
 		-- #states x #waves
-		self.eigenvectors[i] = {}
+		self.rightEigenvectors[i] = {}
 		for j=1,self.numStates do
-			self.eigenvectors[i][j] = {}
+			self.rightEigenvectors[i][j] = {}
 			for k=1,self.numWaves do
-				self.eigenvectors[i][j][k] = 0
+				self.rightEigenvectors[i][j][k] = 0
 			end
 		end
 		
@@ -98,23 +104,28 @@ function Roe:calcInterfaceEigenBasis()
 		local qL = self:get_qL(i)
 		local qR = self:get_qR(i)
 		
-		self.equation:calcInterfaceEigenBasis(self,i,qL,qR)
+		self.equation:calcEigenBasis(
+			self.eigenvalues[i],
+			self.rightEigenvectors[i],
+			self.leftEigenvectors[i],
+			self.fluxMatrix[i],
+			self.equation:calcInterfaceRoeValues(self, i))
 
 		-- collect error for reporting
 		local eigenbasisError = 0
 		local fluxMatrixError = 0
 		-- for the i'th cell:
-		-- Q = eigenvectors matrix
+		-- Q = right eigenvectors matrix
 		-- L = eigenvalues matrix
 		-- A_jk = Q_jl L_l invQ_lk
 		-- eigenbasisError = Q_jl invQ_lk - delta_jk
 		-- fluxMatrixError = Q_jl L_l invQ_lk - A_jk
 		for j=1,self.numStates do
 			-- local basis_j = 0's everywhere except a 1 at the j'th entry
-			-- local eigencoords_j = {k,eigenvectorsInverse[i][k](basis_j)}			<- dot input vector with eigenvector inverse row k
+			-- local eigencoords_j = {k,leftEigenvectors[i][k](basis_j)}			<- dot input vector with eigenvector inverse row k
 			-- local eigenscaled_j = eigencoords_j * lambda_j
-			-- local newbasis_j = {k,eigenvectors[i][k](eigencoords_j)}	<- dot input vector with eigenvector row k
-			-- local newtransformed_j = {k,eigenvectors[i][k](eigenscaled_j)}
+			-- local newbasis_j = {k,rightEigenvectors[i][k](eigencoords_j)}	<- dot input vector with eigenvector row k
+			-- local newtransformed_j = {k,rightEigenvectors[i][k](eigenscaled_j)}
 			-- sum up abs error between basis_j and newbasis_j 
 			-- sum up abs error between A_jk basis_k and newtransformed_j
 		
@@ -125,7 +136,7 @@ function Roe:calcInterfaceEigenBasis()
 			end
 
 			-- eigenCoords_k = invQ_kl basis_l
-			local eigenCoords = self.equation:applyLeftEigenvectors(self, i, basis)
+			local eigenCoords = self.equation:eigenLeftTransform(self, self.leftEigenvectors[i], basis)
 			for k=1,self.numWaves do
 				assert(type(eigenCoords[k])=='number', "failed for coord "..k.." got type "..type(eigenCoords[k]))
 			end
@@ -137,13 +148,13 @@ function Roe:calcInterfaceEigenBasis()
 			end
 			
 			-- newbasis_k = Q_kl eigenCoords_l
-			local newbasis = self.equation:applyRightEigenvectors(self, i, eigenCoords)
+			local newbasis = self.equation:eigenRightTransform(self, self.rightEigenvectors[i], eigenCoords)
 			
 			-- newtransformed_k = Q_kl eigenScaled_l = Q_kl lambda_l eigenCoords_k
-			local newtransformed = self.equation:applyRightEigenvectors(self, i, eigenScaled)
+			local newtransformed = self.equation:eigenRightTransform(self, self.rightEigenvectors[i], eigenScaled)
 
 			-- transformed_k = A_kl basis_l
-			local transformed = self.equation:fluxTransform(self, i, basis)
+			local transformed = self.equation:fluxMatrixTransform(self, self.fluxMatrix[i], basis)
 
 			for k=1,self.numStates do
 				eigenbasisError = eigenbasisError + math.abs(basis[k] - newbasis[k])
@@ -181,7 +192,7 @@ function Roe:calcDeltaQTildes()
 		for j=1,self.numStates do
 			dq[j] = qR[j] - qL[j]
 		end
-		self.deltaQTildes[i] = self.equation:applyLeftEigenvectors(self, i, dq)
+		self.deltaQTildes[i] = self.equation:eigenLeftTransform(self, self.leftEigenvectors[i], dq)
 	end
 end
 
@@ -243,13 +254,13 @@ function Roe:calcFluxAtInterface(dt, i)
 		for j=1,self.numStates do
 			qAvg[j] = .5 * (qR[j] + qL[j])
 		end	
-		local qAvgTildes = self.equation:applyLeftEigenvectors(self, i, qAvg)
+		local qAvgTildes = self.equation:eigenLeftTransform(self, self.leftEigenvectors[i], qAvg)
 		for j=1,self.numWaves do
 			fluxTilde[j] = fluxTilde[j] + lambdas[j] * qAvgTildes[j]
 		end
 	end
 	
-	local flux = self.equation:applyRightEigenvectors(self, i, fluxTilde)
+	local flux = self.equation:eigenRightTransform(self, self.rightEigenvectors[i], fluxTilde)
 	
 	-- using the flux itself allows for complete reconstruction even in the presence of zero-self.eigenvalues
 	if canCalcFlux then
