@@ -107,7 +107,7 @@ do
 	--sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
 	--sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
 	-- these two match, but differ from the first two:
-	sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
+	--sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
 	--sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
 	-- this one is similar to the last two, but off by just a bit (and has an asymmetric evolution of alpha)
 	sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
@@ -117,7 +117,7 @@ do
 	--sims:insert(RoePLM(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
 	--sims:insert(RoePLM(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
 	--sims:insert(RoePLM(table(args, {equation = ADM3D(equationArgs)})))
-	--sims:insert(RoePLM(table(args, {equation = BSSNOK1D(equationArgs)})))
+	sims:insert(RoePLM(table(args, {equation = BSSNOK1D(equationArgs)})))
 	
 	-- and here's the start of my looking into implicit solvers.
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D3to5Var(equationArgs)})))

@@ -170,11 +170,13 @@ function BSSNOK1D:init(args, ...)
 	end)
 
 	-- derived functions
+	-- these were phi = -log(gamma_xx)/4, but below was phi = -log(gamma_xx)/12, so I changed these to /12
+	-- ... but which is it?
 	stateExprs.A_x = (stateExprs.alpha:diff(x) / stateExprs.alpha):simplify()
-	stateExprs.phi = -symmath.log(stateExprs.gamma_xx)/4
+	stateExprs.phi = -symmath.log(stateExprs.gamma_xx)/12
 	stateExprs.Phi_x = stateExprs.phi:diff(x):simplify()
 	stateExprs.K = (stateExprs.K_xx / stateExprs.gamma_xx):simplify()
-	stateExprs.ATilde_xx = symmath.exp(-4 * stateExprs.phi) * (stateExprs.K_xx - stateExprs.K/3 * stateExprs.gamma_xx)
+	stateExprs.ATilde_xx = symmath.exp(-12 * stateExprs.phi) * (stateExprs.K_xx - stateExprs.K/3 * stateExprs.gamma_xx)
 	
 	-- convert from symbolic functions to Lua functions
 	self.calc = stateExprs:map(function(expr, name)
@@ -246,14 +248,17 @@ function BSSNOK1D:calcEigenBasis(eigenvalues, rightEigenvectors, leftEigenvector
 	fill(eigenvalues, -lambda, 0, 0, 0, 0, lambda)
 	
 	-- row-major, math-indexed
-	fill(fluxMatrix,
-		{0,0,0,0,0,0},
-		{0,0,0,0,0,0},
-		{alpha * dalpha_f * K, 0, 0, 0, alpha * f, 0},
-		{0, 0, 0, 0, alpha/6, 0},
-		{0, 0, alpha * ie4p, 0, 0, 0},
-		{0, 0, alpha * ie4p, 2 * alpha * ie4p, 0, 0}
-	)
+	if fluxMatrix then
+		fill(fluxMatrix,
+			{0,0,0,0,0,0},
+			{0,0,0,0,0,0},
+			{alpha * dalpha_f * K, 0, 0, 0, alpha * f, 0},
+			{0, 0, 0, 0, alpha/6, 0},
+			{0, 0, alpha * ie4p, 0, 0, 0},
+			{0, 0, alpha * ie4p, 2 * alpha * ie4p, 0, 0}
+		)
+	end
+
 	fill(rightEigenvectors,
 		{0, 1, 0, 0, 0, 0},
 		{0, 0, 1, 0, 0, 0},
