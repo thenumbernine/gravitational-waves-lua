@@ -43,9 +43,6 @@ do
 		{ETotal=ETotal}, {EKin=EKin}, {EInt=EInt}, {EHydro=EHydro}, {EMag=EMag},
 	}
 end
-MHD.graphInfoForNames = MHD.graphInfos:map(function(info,i)
-	return info, info.name
-end)
 
 function MHD:initCell(sim,i)
 	local x = sim.xs[i]
@@ -58,9 +55,9 @@ function MHD:initCell(sim,i)
 	local bz = 0
 	--]]
 	--[[ some other tests
-	local bx = 1 -- 1 - math.sin(math.pi/2*x)
-	local by = 0-- math.cos(math.pi/2*x)
-	local bz = 0-- math.sin(math.pi/2*x)
+	local bx = 1 - math.sin(math.pi/2*x)	-- sine waves break
+	local by = math.cos(math.pi/2*x)
+	local bz = math.sin(math.pi/2*x)
 	--local bx, by, bz = 0, math.sin(math.pi/2*x), 0
 	--local bx, by, bz = 0, 1, 0	-- constant field works
 	--]]
@@ -169,8 +166,11 @@ function MHD:calcRoeValues(qL, qR)
 	local vy = (sqrtRhoL * vyL + sqrtRhoR * vyR) * invDenom
 	local vz = (sqrtRhoL * vzL + sqrtRhoR * vzR) * invDenom
 	local bx = (sqrtRhoL * bxL + sqrtRhoR * bxR) * invDenom
+	
+	-- why does athena switch the weights of the by and bz components?
 	local by = (sqrtRhoR * byL + sqrtRhoL * byR) * invDenom
 	local bz = (sqrtRhoR * bzL + sqrtRhoL * bzR) * invDenom
+	
 	local hTotal = (sqrtRhoL * hTotalL + sqrtRhoR * hTotalR) * invDenom
 	local X = .5*((byL - byR)^2 + (bzL - bzR)^2)/((sqrtRhoL + sqrtRhoR)^2)
 	local Y = .5*(rhoL + rhoR)/rho
@@ -321,7 +321,7 @@ function MHD:calcEigenBasis(lambda, evR, evL, dF_dU, rho, vx, vy, vz, bx, by, bz
 	end
 end
 
-function MHD:calcInterfaceEigenvalues(solver,i)
+function MHD:calcInterfaceEigenvalues(solver,i)	
 	return self:calcEigenBasis(
 		solver.eigenvalues[i],
 		nil,

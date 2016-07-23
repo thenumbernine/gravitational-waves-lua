@@ -105,19 +105,19 @@ do
 	-- [=[ compare different equations/formalisms 
 	-- these two match:
 	--sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
-	--sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
+	sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
 	-- these two match, but differ from the first two:
 	--sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
 	--sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
 	-- this one is similar to the last two, but off by just a bit (and has an asymmetric evolution of alpha)
-	sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
+	--sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
 	
 	-- ... and plm:
-	--sims:insert(RoePLM(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
-	--sims:insert(RoePLM(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
+	--sims:insert(RoePLM(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ the piecewise-constant versions are identical, but plm the 2nd one differs from the 1st and from the constant ones
+	sims:insert(RoePLM(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
 	--sims:insert(RoePLM(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
 	--sims:insert(RoePLM(table(args, {equation = ADM3D(equationArgs)})))
-	sims:insert(RoePLM(table(args, {equation = BSSNOK1D(equationArgs)})))
+	--sims:insert(RoePLM(table(args, {equation = BSSNOK1D(equationArgs)})))
 	
 	-- and here's the start of my looking into implicit solvers.
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D3to5Var(equationArgs)})))
@@ -289,7 +289,7 @@ do
 	local args = {
 		equation = Euler1D(),
 		--stopAtTimes = {.1},
-		gridsize = 100,
+		gridsize = 128,
 		domain = {xmin=-1, xmax=1},
 		boundaryMethod = boundaryMethods.freeFlow,
 		--boundaryMethod = boundaryMethods.freeFlow,
@@ -318,8 +318,8 @@ do
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
-	--sims:insert(Roe(args))
-	sims:insert(RoePLM(args))
+	sims:insert(Roe(args))
+	sims:insert(RoePLM(table(args, {fluxLimiter=limiter.donorCell})))
 	--sims:insert(HLLPLM(args))
 	--sims:insert(Roe(table(args, {equation = require 'euler1d_quasilinear'()})))
 	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
@@ -357,8 +357,8 @@ do
 	--]=]
 
 	--[=[ compare flux vs plm slope limiter
-	sims:insert(require 'sod_exact'(table(args, {gridsize=2000})))
-	sims:insert(Roe(args))
+	--sims:insert(require 'sod_exact'(table(args, {gridsize=2000})))
+	sims:insert(Roe(table(args, {fluxLimiter=limiter.superbee})))
 	sims:insert(Roe(table(args, {fluxLimiter=limiter.donorCell}))) 	-- eliminate the flux limiter, so only the PLM slope limiter is applied
 	sims:insert(RoePLM(table(args, {fluxLimiter=limiter.donorCell}))) 	-- eliminate the flux limiter, so only the PLM slope limiter is applied
 	--sims:insert(RoePLM(table(args, {fluxLimiter=limiter.superbee}))) 	-- this is applying the limiter twice: the flux and the slope

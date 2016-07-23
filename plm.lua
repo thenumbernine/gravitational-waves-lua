@@ -75,7 +75,7 @@ local function PLMBehavior(parentClass)
 				deltaQR[j] = self.qs[i+1][j] - self.qs[i][j]
 				deltaQC[j] = self.qs[i+1][j] - self.qs[i-1][j]
 			end
-		
+
 			-- (37) calc 'delta qtildes' by 'hydrodynamics ii' / 'delta a's by the paper
 			local deltaQTildeL = self.equation:eigenLeftTransform(self, leftEigenvectors, deltaQL)
 			local deltaQTildeR = self.equation:eigenLeftTransform(self, leftEigenvectors, deltaQR)
@@ -85,57 +85,36 @@ local function PLMBehavior(parentClass)
 			local deltaQTildeM = {}
 			for j=1,self.numWaves do
 				deltaQTildeM[j] = 
-					sign(deltaQTildeC[j]) 
-					* math.min(
+					math.min(
 						2 * math.abs(deltaQTildeL[j]), 
 						2 * math.abs(deltaQTildeR[j]), 
 						math.abs(deltaQTildeC[j]))
+					* sign(deltaQTildeC[j]) 
+					-- I didn't see this in the paper ... but it's in the code 
+--					* math.max(sign(deltaQTildeL[j] * deltaQTildeR[j]), 0)
 			end
-		
-			-- (39) char -> prim
-			local deltaQM = self.equation:eigenRightTransform(self, rightEigenvectors, deltaQTildeM)
-		
-			-- (40, 41)
+
 			local dx = self.ixs[i+1] - self.ixs[i]
 			local dt_dx = dt / dx
-			local lambdaMin = lambdas[1]	-- jacobian of of flux at cell center, min eigenvalue
-			local lambdaMax = lambdas[self.numWaves]	-- ... and max eigenvalue
-		
-			local qHatLs = {}	-- right interface left side
-			local qHatRs = {}	-- left interface right side
-			for j=1,self.numStates do
-				-- \hat{w}_{L,i+1/2} left of interface = right of interface's left cell's center
-				qHatLs[j] = self.qs[i][j] + .5 * (1 - math.max(lambdaMax, 0) * dt_dx) * deltaQM[j]
-				-- \hat{w}_{R,i-1/2} right of interface = left of interface's right cell's center
-				qHatRs[j] = self.qs[i][j] - .5 * (1 - math.min(lambdaMin, 0) * dt_dx) * deltaQM[j]
-			end
 
-			-- (42, 43)
-
-			-- delta w^m in characteristic space
-			-- wait, if deltaQM are the right apply of deltaQTidleMs, and nothing modified them since then,
-			-- then how is delta_wm_char anything other than deltaQTildeMs?
-			local delta_wm_char = self.equation:eigenLeftTransform(self, leftEigenvectors, deltaQM)
-			
-			-- delta w^m, in char space (original times left eigenvectors), with all eigenvalues <=0 times zero, and the others times the max eigenvalue minus its eigenvalue
-			local deltaQTildeM_pos = {}
-			-- same as above, but only negative eigenvalues, and times min eigenvalue minus this eigenvalue
-			local deltaQTildeM_neg = {}
+			local pl = {}
+			local pr = {}
 			for j=1,self.numWaves do
-				-- paper says in eqn 44 & 45 that, for HLL only (not Roe), we should be adding *all* nonzero waves to both, and not just positive or negative ones to each
-				deltaQTildeM_pos[j] = (lambdas[j] <= 0 and 0 or 1) * (lambdaMax - lambdas[j]) * delta_wm_char[j]
-				deltaQTildeM_neg[j] = (lambdas[j] >= 0 and 0 or 1) * (lambdaMin - lambdas[j]) * delta_wm_char[j]
+				pl[j] = deltaQTildeM[j] * .5 * (lambdas[j] >= 0 and 1 - dt_dx * lambdas[j] or 0)
+				pr[j] = deltaQTildeM[j] * .5 * (lambdas[j] <= 0 and 1 + dt_dx * lambdas[j] or 0)
 			end
-			
-			local deltaQM_pos = self.equation:eigenRightTransform(self, rightEigenvectors, deltaQTildeM_pos)
-			local deltaQM_neg = self.equation:eigenRightTransform(self, rightEigenvectors, deltaQTildeM_neg)
-			
-			for j=1,self.numStates do
-				self.qLs[i+1][j] = qHatLs[j] + .5 * dt_dx * deltaQM_pos[j]
-				self.qRs[i][j] = qHatRs[j] + .5 * dt_dx * deltaQM_neg[j]
-			end
-		end
 
+			local qTilde = self.equation:eigenLeftTransform(self, leftEigenvectors, self.qs[i])
+			local qp = {}
+			local qm = {}
+			for j=1,self.numWaves do
+				qp[j] = qTilde[j] + pl[j]
+				qm[j] = qTilde[j] - pr[j]
+			end
+			self.qLs[i+1] = self.equation:eigenRightTransform(self, rightEigenvectors, qp)
+			self.qRs[i] = self.equation:eigenRightTransform(self, rightEigenvectors, qm)
+		end
+		
 		-- now qLs and qRs can be used
 		PLMTemplate.super.calcFluxes(self, dt)
 	end

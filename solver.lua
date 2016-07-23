@@ -22,7 +22,7 @@ function Solver:init(args)
 
 	self.t0 = args.t or 0
 	self.iteration = args.iteration or 0
-	self.cfl = args.cfl or .05
+	self.cfl = args.cfl or .5
 	self.fixed_dt = args.fixed_dt
 	self.stopAtTimes = args.stopAtTimes
 
@@ -98,7 +98,6 @@ function Solver:iterate()
 	self:applyBoundary()
 
 	local dt = self:calcDT()
-
 	self:step(dt)
 
 	if self.postIterate then
