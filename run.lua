@@ -46,6 +46,7 @@ local RoeImplicitLinearized = require 'roe_implicit_linearized'
 -- equations:
 local Maxwell = require 'maxwell'
 local Euler1D = require 'euler1d'
+local Euler3D = require 'euler3d'
 local MHD = require 'mhd'
 local ADM1D3Var = require'adm1d3var'
 local ADM1D3to5Var = require'adm1d3to5var'
@@ -57,7 +58,7 @@ local ADM3D = require 'adm3d'
 -- setup
 local sims = table()
 
--- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+--[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -105,7 +106,7 @@ do
 	-- [=[ compare different equations/formalisms 
 	-- these two match:
 	--sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
-	sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
+	--sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
 	-- these two match, but differ from the first two:
 	--sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
 	--sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
@@ -113,11 +114,11 @@ do
 	--sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
 	
 	-- ... and plm:
-	--sims:insert(RoePLM(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ the piecewise-constant versions are identical, but plm the 2nd one differs from the 1st and from the constant ones
-	sims:insert(RoePLM(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
-	--sims:insert(RoePLM(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
-	--sims:insert(RoePLM(table(args, {equation = ADM3D(equationArgs)})))
-	--sims:insert(RoePLM(table(args, {equation = BSSNOK1D(equationArgs)})))
+	sims:insert(RoePLM(table(args, {equation=ADM1D3Var(equationArgs), fluxLimiter=limiter.donorCell})))
+	--sims:insert(RoePLM(table(args, {equation=ADM1D3to5Var(equationArgs), fluxLimiter=limiter.donorCell})))
+	--sims:insert(RoePLM(table(args, {equation=ADM1D5Var(equationArgs), fluxLimiter=limiter.donorCell})))
+	--sims:insert(RoePLM(table(args, {equation=ADM3D(equationArgs), fluxLimiter=limiter.donorCell})))
+	--sims:insert(RoePLM(table(args, {equation=BSSNOK1D(equationArgs), fluxLimiter=limiter.donorCell})))
 	
 	-- and here's the start of my looking into implicit solvers.
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D3to5Var(equationArgs)})))
@@ -284,12 +285,12 @@ end
 --]]
 
 
---[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+-- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
 	local args = {
-		equation = Euler1D(),
+		equation = Euler3D(),
 		--stopAtTimes = {.1},
-		gridsize = 128,
+		gridsize = 200,
 		domain = {xmin=-1, xmax=1},
 		boundaryMethod = boundaryMethods.freeFlow,
 		--boundaryMethod = boundaryMethods.freeFlow,

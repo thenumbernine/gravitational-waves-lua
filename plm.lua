@@ -1,5 +1,9 @@
--- going by this paper:
--- https://arxiv.org/pdf/0804.0402v1.pdf
+--[[
+going by this paper:
+https://arxiv.org/pdf/0804.0402v1.pdf
+
+this is working for Roe, but not for MHD, ADM, etc
+--]]
 local class = require 'ext.class'
 
 local function PLMBehavior(parentClass)
@@ -91,7 +95,8 @@ local function PLMBehavior(parentClass)
 						math.abs(deltaQTildeC[j]))
 					* sign(deltaQTildeC[j]) 
 					-- I didn't see this in the paper ... but it's in the code 
---					* math.max(sign(deltaQTildeL[j] * deltaQTildeR[j]), 0)
+					-- this looks like a 2nd deriv constraint to me:
+					* math.max(sign(deltaQTildeL[j] * deltaQTildeR[j]), 0)
 			end
 
 			local dx = self.ixs[i+1] - self.ixs[i]
@@ -113,6 +118,17 @@ local function PLMBehavior(parentClass)
 			end
 			self.qLs[i+1] = self.equation:eigenRightTransform(self, rightEigenvectors, qp)
 			self.qRs[i] = self.equation:eigenRightTransform(self, rightEigenvectors, qm)
+--[[
+print('q', tolua(self.qs[i]))
+local qTilde = self.equation:eigenLeftTransform(self, leftEigenvectors, self.qs[i])
+print('l', tolua(leftEigenvectors))
+print('l q', tolua(qTilde))
+local q = self.equation:eigenRightTransform(self, rightEigenvectors, qTilde)
+print('r', tolua(rightEigenvectors))
+print('r l q', tolua(q))
+self.qLs[i+1] = q 
+self.qRs[i] = q 
+--]]
 		end
 		
 		-- now qLs and qRs can be used

@@ -197,33 +197,26 @@ function Euler1D:calcEigenBasis(lambda, evR, evL, dF_dU, rho, vx, hTotal, Cs)
 	Cs = Cs or self:calcSpeedOfSound(vx, hTotal)
 	
 	local gamma = self.gamma
+	local gamma_1 = gamma - 1
+	local gamma_3 = gamma - 3
 	local CsSq = Cs * Cs
 	local vxSq = vx * vx
 
 	fill(lambda, self:calcEigenvalues(vx, Cs))
 
 	if dF_dU then
-		fill(dF_dU[1], 0, 1, 0)
-		fill(dF_dU[2], .5*(gamma-3)*vxSq, (3-gamma)*vx, gamma-1)
-		fill(dF_dU[3], vx*(.5*(gamma-1)*vxSq - hTotal), hTotal-(gamma-1)*vxSq, gamma*vx)
+		fill(dF_dU[1], 0, 									1, 							0			)
+		fill(dF_dU[2], .5 * gamma_3 * vxSq, 				-gamma_3 * vx, 				gamma_1		)
+		fill(dF_dU[3], vx * (.5 * gamma_1 * vxSq - hTotal), hTotal - gamma_1 * vxSq,	gamma*vx	)
 	end
 
-	fill(evR[1], 1, 1, 1)
-	fill(evR[2], vx - Cs, vx, vx + Cs)
-	fill(evR[3], hTotal - Cs * vx, .5 * vxSq, hTotal + Cs * vx)
+	fill(evR[1], 1, 				1, 			1				)
+	fill(evR[2], vx - Cs, 			vx, 		vx + Cs			)
+	fill(evR[3], hTotal - Cs * vx, .5 * vxSq, 	hTotal + Cs * vx)
 
-	fill(evL[1],
-		(.5 * (gamma - 1) * vxSq + Cs * vx) / (2 * CsSq),
-		 -(Cs + (gamma - 1) * vx) / (2 * CsSq),
-		 (gamma - 1) / (2 * CsSq))
-	fill(evL[2], 
-		1 - (gamma - 1) * vxSq / (2 * CsSq),
-		(gamma - 1) * vx / CsSq,
-		-(gamma - 1) / CsSq)
-	fill(evL[3],
-		(.5 * (gamma - 1) * vxSq - Cs * vx) / (2 * CsSq),
-		(Cs - (gamma - 1) * vx) / (2 * CsSq),
-		(gamma - 1) / (2 * CsSq))
+	fill(evL[1], (.5 * gamma_1 * vxSq + Cs * vx) / (2 * CsSq),	-(Cs + gamma_1 * vx) / (2 * CsSq),	gamma_1 / (2 * CsSq)	)
+	fill(evL[2], 1 - gamma_1 * vxSq / (2 * CsSq),				gamma_1 * vx / CsSq,				-gamma_1 / CsSq			)
+	fill(evL[3], (.5 * gamma_1 * vxSq - Cs * vx) / (2 * CsSq),	(Cs - gamma_1 * vx) / (2 * CsSq),	gamma_1 / (2 * CsSq)	)
 end
 
 -- functions that use sim:
