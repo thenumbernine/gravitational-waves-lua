@@ -23,7 +23,15 @@ local inv = function(xx, xy, xz, yy, yz, zz, d)
 		(xx * yy - xy * xy) / d	-- zz
 end
 
+local mul = function(xx, xy, xz, yy, yz, zz, x, y, z)
+	return 
+		xx * x + xy * y + xz * z,
+		xy * x + yy * y + yz * z,
+		xz * x + yz * y + zz * z
+end
+
 return {
 	det = det,
 	inv = inv,
+	mul = mul,
 }

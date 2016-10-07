@@ -11,7 +11,7 @@ function Equation:buildGraphInfos(getters)
 	self.graphInfos = table()
 	for _,getter in ipairs(getters) do
 		local name = next(getter)
-		local func = getter[name]
+		local func = assert(getter[name], "failed to get graphInfo for "..name)
 		self.graphInfos:insert{
 			getter = getter[name],
 			name = name,

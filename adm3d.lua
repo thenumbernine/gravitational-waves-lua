@@ -21,6 +21,32 @@ V_x, V_y, V_z,
 --]]
 ADM3D.numStates = 37
 
+--[[
+true means use V_i (requires constraints as well)
+false means use Gamma^i (doesn't require constraints)
+	Gamma^i = gamma^ij Gamma^i_jk = gamma^jk gamma^il Gamma_ljk
+		= 1/2 gamma^jk gamma^il (gamma_lj,k + gamma_lk,j - gamma_jk,l)
+		= 1/2 (gamma^il gamma_lj,k gamma^jk + gamma^il gamma_lk,j gamma^kj - gamma^jk gamma_jk,l gamma^li)
+		= -(gamma^ij_,j - 1/2 gamma_jk gamma^jk_,l gamma^li)
+		= gamma^jk (2 d_jk^i - d^i_jk)
+		= gamma^il gamma^jk (2 d_jkl - d_ljk)
+
+0 = 3,k = delta^i_i,j = (gamma^ij gamma_ij),k = gamma^ij_,k gamma_ij + gamma^ij gamma_ij,k 
+so gamma^ij_,k gamma_ij = -gamma^ij gamma_ij,k
+--]]
+
+--ADM3D.useMomentumConstraints = true	-- advect V_i
+ADM3D.useMomentumConstraints = false	-- advect Gamma^i
+
+-- if useMomentumConstraints == true
+ADM3D.momentumConstraintMethod = 'directAssign'	--directly assign V_i = d_im^m + d^m_mi.  technically this is ignoring the V_i's altogether ... but this matches the ADM1D5Var solver
+--ADM3D.momentumConstraintMethod = 'linearProject' 	-- linear project V_i and d_ijk
+
+-- if useMomentumConstraints == false
+-- true means use Gamma_i, false means use Gamma^i
+--ADM3D.useContractedGammaLower = true	-- technically not hyperbolic ... and maybe that's why it's not working?
+ADM3D.useContractedGammaLower = false
+
 function ADM3D:init(args, ...)
 	local function makesym(field)
 		local v = args[field]
@@ -149,7 +175,17 @@ function ADM3D:init(args, ...)
 	local suffix3 = {'x', 'y', 'z'}
 	local suffix3x3sym = {'xx', 'xy', 'xz', 'yy', 'yz', 'zz'}
 	add{name='A_', index=8, suffix=suffix3}
-	add{name='V_', index=35, suffix=suffix3}
+	
+	if self.useMomentumConstraints then	
+		add{name='V_', index=35, suffix=suffix3}
+	else
+		if self.useContractedGammaLower then 
+			add{name='Gamma_', index=35, suffix=suffix3}
+		else
+			add{name='Gamma^', index=35, suffix=suffix3}
+		end
+	end
+
 	add{name='gamma_', index=2, suffix=suffix3x3sym}
 	add{name='D_x', index=11, suffix=suffix3x3sym}
 	add{name='D_y', index=17, suffix=suffix3x3sym}
@@ -170,6 +206,15 @@ function ADM3D:init(args, ...)
 	self:buildGraphInfos(getters)
 end
 
+local function sym3x3(m,i,j)
+	local m_xx, m_xy, m_xz, m_yy, m_yz, m_zz = unpack(m)
+	return ({
+		{m_xx, m_xy, m_xz},
+		{m_xy, m_yy, m_yz},
+		{m_xz, m_yz, m_zz},
+	})[i][j]
+end
+
 function ADM3D:initCell(solver,i)
 	local x = solver.xs[i]
 	local y = 0
@@ -181,15 +226,7 @@ function ADM3D:initCell(solver,i)
 	local D = self.calc.D:map(function(D_i) return D_i:map(function(D_ijk) return D_ijk(x,y,z) end) end)
 	local gammaU = self.calc.gammaU:map(function(gammaUij) return gammaUij(x,y,z) end)
 
-	local function sym3x3(m,i,j)
-		local m_xx, m_xy, m_xz, m_yy, m_yz, m_zz = unpack(m)
-		return ({
-			{m_xx, m_xy, m_xz},
-			{m_xy, m_yy, m_yz},
-			{m_xz, m_yz, m_zz},
-		})[i][j]
-	end
-	local V = range(3):map(function(i)
+	local V = self.useMomentumConstraints and range(3):map(function(i)
 		local s = 0
 		for j=1,3 do
 			for k=1,3 do
@@ -201,12 +238,35 @@ function ADM3D:initCell(solver,i)
 			end
 		end
 		return s
-	end)
+	end) or nil
+	-- Gamma_i = gamma^jk (2 d_jki - d_ijk)
+	local GammaL = not self.useMomentumConstraints and range(3):map(function(i)
+		local s = 0
+		for j=1,3 do
+			for k=1,3 do
+				local D_jki = sym3x3(D[j], k, i)
+				local D_ijk = sym3x3(D[i], j, k)
+				local gammaUjk = sym3x3(gammaU, j, k)
+				s = s + gammaUjk * (2 * D_jki - D_ijk)
+			end
+		end
+		return s
+	end) or nil
+	local GammaU = not self.useMomentumConstraints and not self.useContractedGammaLower and range(3):map(function(i)
+		local s = 0
+		for j=1,3 do
+			local gammaUij = sym3x3(gammaU, i, j)
+			s = s + gammaUij * GammaL[j]
+		end
+		return s
+	end) or nil
 
 	local K = {}
 	for i=1,6 do
 		K[i] = self.calc.K[i](x,y,z)
 	end
+
+	local last = self.useMomentumConstraints and V or (self.useContractedGammaLower and GammaL or GammaU)
 
 	return {
 		alpha,
@@ -216,7 +276,7 @@ function ADM3D:initCell(solver,i)
 		D[2][1], D[2][2], D[2][3], D[2][4], D[2][5], D[2][6],
 		D[3][1], D[3][2], D[3][3], D[3][4], D[3][5], D[3][6],
 		K[1], K[2], K[3], K[4], K[5], K[6],
-		V[1], V[2], V[3],
+		last[1], last[2], last[3],
 	}
 end
 
@@ -245,7 +305,7 @@ function ADM3D:eigenLeftTransform(solver, avgQ, v)
 	local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(avgQ, 17, 22)
 	local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(avgQ, 23, 28)
 	local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = unpack(avgQ, 29, 34)
-	local V_x, V_y, V_z = unpack(avgQ, 35, 37)
+	--local V_x, V_y, V_z = unpack(avgQ, 35, 37)
 	local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33sym.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
 	local f = self.calc.f(alpha)
 
@@ -257,46 +317,130 @@ function ADM3D:eigenLeftTransform(solver, avgQ, v)
 	-- 	and deferring differences or averages til after applyLeftEigenvectors() is called (assuming it is a linear function)
 	-- this also has an issue with applyRightEigenvectors(), which is called on a flux vector, i.e. at cell interface, which would probably need the average of cells for that input
 
-	-- left eigenvectors in x:
-	return {
-		((math.sqrt(f) * (gammaUxx ^ (3 / 2)) * v[29]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxy * v[30]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxz * v[31]) + (math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyy * v[32]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyz * v[33]) + (((((((math.sqrt(f) * math.sqrt(gammaUxx) * gammaUzz * v[34]) - (gammaUxx * v[8])) - (2 * gammaUxx * v[35])) - (gammaUxy * v[9])) - (2 * gammaUxy * v[36])) - (gammaUxz * v[10])) - (2 * gammaUxz * v[37]))),
-		((-(v[9] + (2 * v[36]) + ((((2 * gammaUxx * v[12]) - (gammaUxx * v[17])) - (2 * math.sqrt(gammaUxx) * v[30])) - (2 * gammaUxz * v[19])) + ((((2 * gammaUxz * v[24]) - (gammaUyy * v[20])) - (2 * gammaUyz * v[21])) - (gammaUzz * v[22])))) / 2),
-		((-(v[10] + (2 * v[37]) + (((2 * gammaUxx * v[13]) - (gammaUxx * v[23])) - (2 * math.sqrt(gammaUxx) * v[31])) + (((((2 * gammaUxy * v[19]) - (2 * gammaUxy * v[24])) - (gammaUyy * v[26])) - (2 * gammaUyz * v[27])) - (gammaUzz * v[28])))) / 2),
-		(-(((gammaUxx * v[14]) - (math.sqrt(gammaUxx) * v[32])) + (gammaUxy * v[20]) + (gammaUxz * v[26]))),
-		(-(((gammaUxx * v[15]) - (math.sqrt(gammaUxx) * v[33])) + (gammaUxy * v[21]) + (gammaUxz * v[27]))),
-		(-(((gammaUxx * v[16]) - (math.sqrt(gammaUxx) * v[34])) + (gammaUxy * v[22]) + (gammaUxz * v[28]))),
-		v[1],
-		v[2],
-		v[3],
-		v[4],
-		v[5],
-		v[6],
-		v[7],
-		v[9],
-		v[10],
-		v[17],
-		v[18],
-		v[19],
-		v[20],
-		v[21],
-		v[22],
-		v[23],
-		v[24],
-		v[25],
-		v[26],
-		v[27],
-		v[28],
-		v[35],
-		v[36],
-		v[37],
-		((((((v[8] - (f * gammaUxx * v[11])) - (2 * f * gammaUxy * v[12])) - (2 * f * gammaUxz * v[13])) - (f * gammaUyy * v[14])) - (2 * f * gammaUyz * v[15])) - (f * gammaUzz * v[16])),
-		((v[9] + (2 * v[36]) + ((2 * gammaUxx * v[12]) - (gammaUxx * v[17])) + ((2 * math.sqrt(gammaUxx) * v[30]) - (2 * gammaUxz * v[19])) + ((((2 * gammaUxz * v[24]) - (gammaUyy * v[20])) - (2 * gammaUyz * v[21])) - (gammaUzz * v[22]))) / 2),
-		((v[10] + (2 * v[37]) + ((2 * gammaUxx * v[13]) - (gammaUxx * v[23])) + (2 * math.sqrt(gammaUxx) * v[31]) + (((((2 * gammaUxy * v[19]) - (2 * gammaUxy * v[24])) - (gammaUyy * v[26])) - (2 * gammaUyz * v[27])) - (gammaUzz * v[28]))) / 2),
-		((gammaUxx * v[14]) + (math.sqrt(gammaUxx) * v[32]) + (gammaUxy * v[20]) + (gammaUxz * v[26])),
-		((gammaUxx * v[15]) + (math.sqrt(gammaUxx) * v[33]) + (gammaUxy * v[21]) + (gammaUxz * v[27])),
-		((gammaUxx * v[16]) + (math.sqrt(gammaUxx) * v[34]) + (gammaUxy * v[22]) + (gammaUxz * v[28])),
-		((math.sqrt(f) * (gammaUxx ^ (3 / 2)) * v[29]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxy * v[30]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxz * v[31]) + (math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyy * v[32]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyz * v[33]) + (math.sqrt(f) * math.sqrt(gammaUxx) * gammaUzz * v[34]) + (gammaUxx * v[8]) + (2 * gammaUxx * v[35]) + (gammaUxy * v[9]) + (2 * gammaUxy * v[36]) + (gammaUxz * v[10]) + (2 * gammaUxz * v[37]))
-	}
+	if self.useMomentumConstraints then
+		-- left eigenvectors in x:
+		return {
+			((math.sqrt(f) * (gammaUxx ^ (3 / 2)) * v[29]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxy * v[30]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxz * v[31]) + (math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyy * v[32]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyz * v[33]) + (((((((math.sqrt(f) * math.sqrt(gammaUxx) * gammaUzz * v[34]) - (gammaUxx * v[8])) - (2 * gammaUxx * v[35])) - (gammaUxy * v[9])) - (2 * gammaUxy * v[36])) - (gammaUxz * v[10])) - (2 * gammaUxz * v[37]))),
+			((-(v[9] + (2 * v[36]) + ((((2 * gammaUxx * v[12]) - (gammaUxx * v[17])) - (2 * math.sqrt(gammaUxx) * v[30])) - (2 * gammaUxz * v[19])) + ((((2 * gammaUxz * v[24]) - (gammaUyy * v[20])) - (2 * gammaUyz * v[21])) - (gammaUzz * v[22])))) / 2),
+			((-(v[10] + (2 * v[37]) + (((2 * gammaUxx * v[13]) - (gammaUxx * v[23])) - (2 * math.sqrt(gammaUxx) * v[31])) + (((((2 * gammaUxy * v[19]) - (2 * gammaUxy * v[24])) - (gammaUyy * v[26])) - (2 * gammaUyz * v[27])) - (gammaUzz * v[28])))) / 2),
+			(-(((gammaUxx * v[14]) - (math.sqrt(gammaUxx) * v[32])) + (gammaUxy * v[20]) + (gammaUxz * v[26]))),
+			(-(((gammaUxx * v[15]) - (math.sqrt(gammaUxx) * v[33])) + (gammaUxy * v[21]) + (gammaUxz * v[27]))),
+			(-(((gammaUxx * v[16]) - (math.sqrt(gammaUxx) * v[34])) + (gammaUxy * v[22]) + (gammaUxz * v[28]))),
+			v[1],
+			v[2],
+			v[3],
+			v[4],
+			v[5],
+			v[6],
+			v[7],
+			v[9],
+			v[10],
+			v[17],
+			v[18],
+			v[19],
+			v[20],
+			v[21],
+			v[22],
+			v[23],
+			v[24],
+			v[25],
+			v[26],
+			v[27],
+			v[28],
+			v[35],
+			v[36],
+			v[37],
+			((((((v[8] - (f * gammaUxx * v[11])) - (2 * f * gammaUxy * v[12])) - (2 * f * gammaUxz * v[13])) - (f * gammaUyy * v[14])) - (2 * f * gammaUyz * v[15])) - (f * gammaUzz * v[16])),
+			((v[9] + (2 * v[36]) + ((2 * gammaUxx * v[12]) - (gammaUxx * v[17])) + ((2 * math.sqrt(gammaUxx) * v[30]) - (2 * gammaUxz * v[19])) + ((((2 * gammaUxz * v[24]) - (gammaUyy * v[20])) - (2 * gammaUyz * v[21])) - (gammaUzz * v[22]))) / 2),
+			((v[10] + (2 * v[37]) + ((2 * gammaUxx * v[13]) - (gammaUxx * v[23])) + (2 * math.sqrt(gammaUxx) * v[31]) + (((((2 * gammaUxy * v[19]) - (2 * gammaUxy * v[24])) - (gammaUyy * v[26])) - (2 * gammaUyz * v[27])) - (gammaUzz * v[28]))) / 2),
+			((gammaUxx * v[14]) + (math.sqrt(gammaUxx) * v[32]) + (gammaUxy * v[20]) + (gammaUxz * v[26])),
+			((gammaUxx * v[15]) + (math.sqrt(gammaUxx) * v[33]) + (gammaUxy * v[21]) + (gammaUxz * v[27])),
+			((gammaUxx * v[16]) + (math.sqrt(gammaUxx) * v[34]) + (gammaUxy * v[22]) + (gammaUxz * v[28])),
+			((math.sqrt(f) * (gammaUxx ^ (3 / 2)) * v[29]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxy * v[30]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxz * v[31]) + (math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyy * v[32]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyz * v[33]) + (math.sqrt(f) * math.sqrt(gammaUxx) * gammaUzz * v[34]) + (gammaUxx * v[8]) + (2 * gammaUxx * v[35]) + (gammaUxy * v[9]) + (2 * gammaUxy * v[36]) + (gammaUxz * v[10]) + (2 * gammaUxz * v[37]))
+		}
+	else
+		if self.useContractedGammaLower then
+			return {
+				((math.sqrt(f) * (gammaUxx ^ (3 / 2)) * v[29]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxy * v[30]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxz * v[31]) + (math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyy * v[32]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyz * v[33]) + (((math.sqrt(f) * math.sqrt(gammaUxx) * gammaUzz * v[34]) - (gammaUxx * v[8])) - ((gammaUxx ^ 2) * v[11])) + (((((((gammaUxx * v[35]) - (2 * gammaUxx * gammaUxy * v[12])) - (gammaUxx * gammaUxy * v[17])) - (2 * gammaUxx * gammaUxz * v[13])) - (gammaUxx * gammaUxz * v[23])) - (gammaUxy * v[9])) - (2 * (gammaUxy ^ 2) * v[18])) + ((((gammaUxy * v[36]) - (2 * gammaUxy * gammaUxz * v[19])) - (gammaUxz * v[10])) - (2 * (gammaUxz ^ 2) * v[25])) + (((((((((((gammaUxz * v[37]) - (2 * gammaUxz * gammaUxy * v[24])) - (gammaUyy * gammaUxx * v[14])) - (gammaUyy * gammaUxy * v[20])) - (gammaUyy * gammaUxz * v[26])) - (2 * gammaUyz * gammaUxx * v[15])) - (2 * gammaUyz * gammaUxy * v[21])) - (2 * gammaUyz * gammaUxz * v[27])) - (gammaUzz * gammaUxx * v[16])) - (gammaUzz * gammaUxy * v[22])) - (gammaUzz * gammaUxz * v[28]))),
+				((-((v[9] - v[36]) + ((2 * gammaUxx * v[12]) - (2 * math.sqrt(gammaUxx) * v[30])) + (2 * gammaUxy * v[18]) + (2 * gammaUxz * v[24]))) / 2),
+				((-((v[10] - v[37]) + ((2 * gammaUxx * v[13]) - (2 * math.sqrt(gammaUxx) * v[31])) + (2 * gammaUxy * v[19]) + (2 * gammaUxz * v[25]))) / 2),
+				(-(((gammaUxx * v[14]) - (math.sqrt(gammaUxx) * v[32])) + (gammaUxy * v[20]) + (gammaUxz * v[26]))),
+				(-(((gammaUxx * v[15]) - (math.sqrt(gammaUxx) * v[33])) + (gammaUxy * v[21]) + (gammaUxz * v[27]))),
+				(-(((gammaUxx * v[16]) - (math.sqrt(gammaUxx) * v[34])) + (gammaUxy * v[22]) + (gammaUxz * v[28]))),
+				v[1],
+				v[2],
+				v[3],
+				v[4],
+				v[5],
+				v[6],
+				v[7],
+				v[9],
+				v[10],
+				v[17],
+				v[18],
+				v[19],
+				v[20],
+				v[21],
+				v[22],
+				v[23],
+				v[24],
+				v[25],
+				v[26],
+				v[27],
+				v[28],
+				((-((((((v[35] - (gammaUxx * v[11])) - (2 * gammaUxy * v[12])) - (2 * gammaUxz * v[13])) - (gammaUyy * v[14])) - (2 * gammaUyz * v[15])) - (gammaUzz * v[16]))) / 2),
+				((-((((((v[36] - (gammaUxx * v[17])) - (2 * gammaUxy * v[18])) - (2 * gammaUxz * v[19])) - (gammaUyy * v[20])) - (2 * gammaUyz * v[21])) - (gammaUzz * v[22]))) / 2),
+				((-((((((v[37] - (gammaUxx * v[23])) - (2 * gammaUxy * v[24])) - (2 * gammaUxz * v[25])) - (gammaUyy * v[26])) - (2 * gammaUyz * v[27])) - (gammaUzz * v[28]))) / 2),
+				((((((v[8] - (f * gammaUxx * v[11])) - (2 * f * gammaUxy * v[12])) - (2 * f * gammaUxz * v[13])) - (f * gammaUyy * v[14])) - (2 * f * gammaUyz * v[15])) - (f * gammaUzz * v[16])),
+				(((v[9] - v[36]) + (2 * gammaUxx * v[12]) + (2 * math.sqrt(gammaUxx) * v[30]) + (2 * gammaUxy * v[18]) + (2 * gammaUxz * v[24])) / 2),
+				(((v[10] - v[37]) + (2 * gammaUxx * v[13]) + (2 * math.sqrt(gammaUxx) * v[31]) + (2 * gammaUxy * v[19]) + (2 * gammaUxz * v[25])) / 2),
+				((gammaUxx * v[14]) + (math.sqrt(gammaUxx) * v[32]) + (gammaUxy * v[20]) + (gammaUxz * v[26])),
+				((gammaUxx * v[15]) + (math.sqrt(gammaUxx) * v[33]) + (gammaUxy * v[21]) + (gammaUxz * v[27])),
+				((gammaUxx * v[16]) + (math.sqrt(gammaUxx) * v[34]) + (gammaUxy * v[22]) + (gammaUxz * v[28])),
+				((math.sqrt(f) * (gammaUxx ^ (3 / 2)) * v[29]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxy * v[30]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxz * v[31]) + (math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyy * v[32]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyz * v[33]) + (math.sqrt(f) * math.sqrt(gammaUxx) * gammaUzz * v[34]) + (gammaUxx * v[8]) + (((gammaUxx ^ 2) * v[11]) - (gammaUxx * v[35])) + (2 * gammaUxx * gammaUxy * v[12]) + (gammaUxx * gammaUxy * v[17]) + (2 * gammaUxx * gammaUxz * v[13]) + (gammaUxx * gammaUxz * v[23]) + (gammaUxy * v[9]) + ((2 * (gammaUxy ^ 2) * v[18]) - (gammaUxy * v[36])) + (2 * gammaUxy * gammaUxz * v[19]) + (gammaUxz * v[10]) + ((2 * (gammaUxz ^ 2) * v[25]) - (gammaUxz * v[37])) + (2 * gammaUxz * gammaUxy * v[24]) + (gammaUyy * gammaUxx * v[14]) + (gammaUyy * gammaUxy * v[20]) + (gammaUyy * gammaUxz * v[26]) + (2 * gammaUyz * gammaUxx * v[15]) + (2 * gammaUyz * gammaUxy * v[21]) + (2 * gammaUyz * gammaUxz * v[27]) + (gammaUzz * gammaUxx * v[16]) + (gammaUzz * gammaUxy * v[22]) + (gammaUzz * gammaUxz * v[28]))
+			}
+		else
+			return {
+				(v[35] + (math.sqrt(f) * (gammaUxx ^ (3 / 2)) * v[29]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxy * v[30]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxz * v[31]) + (math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyy * v[32]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyz * v[33]) + ((((((((((((((((((((((math.sqrt(f) * math.sqrt(gammaUxx) * gammaUzz * v[34]) - (gammaUxx * v[8])) - ((gammaUxx ^ 2) * v[11])) - (2 * gammaUxx * gammaUxy * v[12])) - (gammaUxx * gammaUxy * v[17])) - (2 * gammaUxx * gammaUxz * v[13])) - (gammaUxx * gammaUxz * v[23])) - (gammaUxy * v[9])) - (2 * (gammaUxy ^ 2) * v[18])) - (2 * gammaUxy * gammaUxz * v[19])) - (gammaUxz * v[10])) - (2 * (gammaUxz ^ 2) * v[25])) - (2 * gammaUxz * gammaUxy * v[24])) - (gammaUyy * gammaUxx * v[14])) - (gammaUyy * gammaUxy * v[20])) - (gammaUyy * gammaUxz * v[26])) - (2 * gammaUyz * gammaUxx * v[15])) - (2 * gammaUyz * gammaUxy * v[21])) - (2 * gammaUyz * gammaUxz * v[27])) - (gammaUzz * gammaUxx * v[16])) - (gammaUzz * gammaUxy * v[22])) - (gammaUzz * gammaUxz * v[28]))),
+				((-(v[9] + ((2 * gammaUxx * v[12]) - (2 * math.sqrt(gammaUxx) * v[30])) + (2 * gammaUxy * v[18]) + ((((2 * gammaUxz * v[24]) - (v[3] * v[35])) - (v[5] * v[36])) - (v[6] * v[37])))) / 2),
+				((-(v[10] + ((2 * gammaUxx * v[13]) - (2 * math.sqrt(gammaUxx) * v[31])) + (2 * gammaUxy * v[19]) + ((((2 * gammaUxz * v[25]) - (v[4] * v[35])) - (v[6] * v[36])) - (v[7] * v[37])))) / 2),
+				(-(((gammaUxx * v[14]) - (math.sqrt(gammaUxx) * v[32])) + (gammaUxy * v[20]) + (gammaUxz * v[26]))),
+				(-(((gammaUxx * v[15]) - (math.sqrt(gammaUxx) * v[33])) + (gammaUxy * v[21]) + (gammaUxz * v[27]))),
+				(-(((gammaUxx * v[16]) - (math.sqrt(gammaUxx) * v[34])) + (gammaUxy * v[22]) + (gammaUxz * v[28]))),
+				v[1],
+				v[2],
+				v[3],
+				v[4],
+				v[5],
+				v[6],
+				v[7],
+				v[9],
+				v[10],
+				v[17],
+				v[18],
+				v[19],
+				v[20],
+				v[21],
+				v[22],
+				v[23],
+				v[24],
+				v[25],
+				v[26],
+				v[27],
+				v[28],
+				(((gammaUxx * v[11]) + (2 * gammaUxy * v[12]) + (2 * gammaUxz * v[13]) + (gammaUyy * v[14]) + (2 * gammaUyz * v[15]) + ((((gammaUzz * v[16]) - (v[2] * v[35])) - (v[3] * v[36])) - (v[4] * v[37]))) / 2),
+				(((gammaUxx * v[17]) + (2 * gammaUxy * v[18]) + (2 * gammaUxz * v[19]) + (gammaUyy * v[20]) + (2 * gammaUyz * v[21]) + ((((gammaUzz * v[22]) - (v[3] * v[35])) - (v[5] * v[36])) - (v[6] * v[37]))) / 2),
+				(((gammaUxx * v[23]) + (2 * gammaUxy * v[24]) + (2 * gammaUxz * v[25]) + (gammaUyy * v[26]) + (2 * gammaUyz * v[27]) + ((((gammaUzz * v[28]) - (v[4] * v[35])) - (v[6] * v[36])) - (v[7] * v[37]))) / 2),
+				((((((v[8] - (f * gammaUxx * v[11])) - (2 * f * gammaUxy * v[12])) - (2 * f * gammaUxz * v[13])) - (f * gammaUyy * v[14])) - (2 * f * gammaUyz * v[15])) - (f * gammaUzz * v[16])),
+				((v[9] + (2 * gammaUxx * v[12]) + (2 * math.sqrt(gammaUxx) * v[30]) + (2 * gammaUxy * v[18]) + ((((2 * gammaUxz * v[24]) - (v[3] * v[35])) - (v[5] * v[36])) - (v[6] * v[37]))) / 2),
+				((v[10] + (2 * gammaUxx * v[13]) + (2 * math.sqrt(gammaUxx) * v[31]) + (2 * gammaUxy * v[19]) + ((((2 * gammaUxz * v[25]) - (v[4] * v[35])) - (v[6] * v[36])) - (v[7] * v[37]))) / 2),
+				((gammaUxx * v[14]) + (math.sqrt(gammaUxx) * v[32]) + (gammaUxy * v[20]) + (gammaUxz * v[26])),
+				((gammaUxx * v[15]) + (math.sqrt(gammaUxx) * v[33]) + (gammaUxy * v[21]) + (gammaUxz * v[27])),
+				((gammaUxx * v[16]) + (math.sqrt(gammaUxx) * v[34]) + (gammaUxy * v[22]) + (gammaUxz * v[28])),
+				(-(((((((((((((((((((((((((((v[35] - (math.sqrt(f) * (gammaUxx ^ (3 / 2)) * v[29])) - (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxy * v[30])) - (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxz * v[31])) - (math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyy * v[32])) - (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyz * v[33])) - (math.sqrt(f) * math.sqrt(gammaUxx) * gammaUzz * v[34])) - (gammaUxx * v[8])) - ((gammaUxx ^ 2) * v[11])) - (2 * gammaUxx * gammaUxy * v[12])) - (gammaUxx * gammaUxy * v[17])) - (2 * gammaUxx * gammaUxz * v[13])) - (gammaUxx * gammaUxz * v[23])) - (gammaUxy * v[9])) - (2 * (gammaUxy ^ 2) * v[18])) - (2 * gammaUxy * gammaUxz * v[19])) - (gammaUxz * v[10])) - (2 * (gammaUxz ^ 2) * v[25])) - (2 * gammaUxz * gammaUxy * v[24])) - (gammaUyy * gammaUxx * v[14])) - (gammaUyy * gammaUxy * v[20])) - (gammaUyy * gammaUxz * v[26])) - (2 * gammaUyz * gammaUxx * v[15])) - (2 * gammaUyz * gammaUxy * v[21])) - (2 * gammaUyz * gammaUxz * v[27])) - (gammaUzz * gammaUxx * v[16])) - (gammaUzz * gammaUxy * v[22])) - (gammaUzz * gammaUxz * v[28])))
+			}
+		end
+	end
 end
 
 function ADM3D:eigenRightTransform(solver, avgQ, v)
@@ -309,50 +453,134 @@ function ADM3D:eigenRightTransform(solver, avgQ, v)
 	local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(avgQ, 17, 22)
 	local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(avgQ, 23, 28)
 	local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = unpack(avgQ, 29, 34)
-	local V_x, V_y, V_z = unpack(avgQ, 35, 37)
+	--local V_x, V_y, V_z = unpack(avgQ, 35, 37)
 	local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33sym.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
 	local f = self.calc.f(alpha)
 
 	-- right eigenvectors in x:
-	return {
-		v[7],
-		v[8],
-		v[9],
-		v[10],
-		v[11],
-		v[12],
-		v[13],
-		((((4 * v[28] * gammaUxx) - v[37]) + v[1] + (2 * gammaUxy * v[14]) + (4 * gammaUxy * v[29]) + (2 * gammaUxz * v[15]) + (4 * gammaUxz * v[30])) / (-(2 * gammaUxx))),
-		v[14],
-		v[15],
-		((-((4 * v[28] * gammaUxx) + ((2 * v[31] * gammaUxx) - v[37]) + v[1] + (2 * gammaUxy * v[14]) + (2 * gammaUxy * v[16] * gammaUxx * f) + (4 * gammaUxy * v[29]) + ((((2 * gammaUxy * v[32] * f) - (2 * gammaUxy * f * v[14])) - (4 * gammaUxy * f * v[29])) - (2 * gammaUxy * v[2] * f)) + (2 * gammaUxz * v[15]) + (2 * gammaUxz * v[22] * gammaUxx * f) + (4 * gammaUxz * v[30]) + ((((2 * gammaUxz * v[33] * f) - (2 * gammaUxz * f * v[15])) - (4 * gammaUxz * f * v[30])) - (2 * gammaUxz * v[3] * f)) + ((gammaUyy * v[34] * f) - (gammaUyy * v[4] * f)) + ((2 * gammaUyz * v[35] * f) - (2 * gammaUyz * v[5] * f)) + ((gammaUzz * v[36] * f) - (gammaUzz * v[6] * f)))) / (2 * (gammaUxx ^ 2) * f)),
-		(((v[14] - (v[16] * gammaUxx)) + (((2 * v[29]) - v[32]) - (2 * gammaUxz * v[18])) + ((((2 * gammaUxz * v[23]) - (gammaUyy * v[19])) - (2 * gammaUyz * v[20])) - (gammaUzz * v[21])) + v[2]) / (-(2 * gammaUxx))),
-		(((v[15] - (v[22] * gammaUxx)) + ((2 * v[30]) - v[33]) + (((((2 * gammaUxy * v[18]) - (2 * gammaUxy * v[23])) - (gammaUyy * v[25])) - (2 * gammaUyz * v[26])) - (gammaUzz * v[27])) + v[3]) / (-(2 * gammaUxx))),
-		((((v[34] - (2 * gammaUxy * v[19])) - (2 * gammaUxz * v[25])) - v[4]) / (2 * gammaUxx)),
-		((((v[35] - (2 * gammaUxy * v[20])) - (2 * gammaUxz * v[26])) - v[5]) / (2 * gammaUxx)),
-		((((v[36] - (2 * gammaUxy * v[21])) - (2 * gammaUxz * v[27])) - v[6]) / (2 * gammaUxx)),
-		v[16],
-		v[17],
-		v[18],
-		v[19],
-		v[20],
-		v[21],
-		v[22],
-		v[23],
-		v[24],
-		v[25],
-		v[26],
-		v[27],
-		((v[37] + ((((((((((v[1] - (2 * gammaUxy * v[32] * math.sqrt(f))) - (2 * gammaUxy * v[2] * math.sqrt(f))) - (2 * gammaUxz * v[33] * math.sqrt(f))) - (2 * gammaUxz * v[3] * math.sqrt(f))) - (gammaUyy * v[34] * math.sqrt(f))) - (gammaUyy * v[4] * math.sqrt(f))) - (2 * gammaUyz * v[35] * math.sqrt(f))) - (2 * gammaUyz * v[5] * math.sqrt(f))) - (gammaUzz * v[36] * math.sqrt(f))) - (gammaUzz * v[6] * math.sqrt(f)))) / (2 * math.sqrt(f) * (gammaUxx ^ (3 / 2)))),
-		((v[32] + v[2]) / (2 * math.sqrt(gammaUxx))),
-		((v[33] + v[3]) / (2 * math.sqrt(gammaUxx))),
-		((v[34] + v[4]) / (2 * math.sqrt(gammaUxx))),
-		((v[35] + v[5]) / (2 * math.sqrt(gammaUxx))),
-		((v[36] + v[6]) / (2 * math.sqrt(gammaUxx))),
-		v[28],
-		v[29],
-		v[30]
-	}
+	if self.useMomentumConstraints then
+		return {
+			v[7],
+			v[8],
+			v[9],
+			v[10],
+			v[11],
+			v[12],
+			v[13],
+			((((4 * v[28] * gammaUxx) - v[37]) + v[1] + (2 * gammaUxy * v[14]) + (4 * gammaUxy * v[29]) + (2 * gammaUxz * v[15]) + (4 * gammaUxz * v[30])) / (-(2 * gammaUxx))),
+			v[14],
+			v[15],
+			((-((4 * v[28] * gammaUxx) + ((2 * v[31] * gammaUxx) - v[37]) + v[1] + (2 * gammaUxy * v[14]) + (2 * gammaUxy * v[16] * gammaUxx * f) + (4 * gammaUxy * v[29]) + ((((2 * gammaUxy * v[32] * f) - (2 * gammaUxy * f * v[14])) - (4 * gammaUxy * f * v[29])) - (2 * gammaUxy * v[2] * f)) + (2 * gammaUxz * v[15]) + (2 * gammaUxz * v[22] * gammaUxx * f) + (4 * gammaUxz * v[30]) + ((((2 * gammaUxz * v[33] * f) - (2 * gammaUxz * f * v[15])) - (4 * gammaUxz * f * v[30])) - (2 * gammaUxz * v[3] * f)) + ((gammaUyy * v[34] * f) - (gammaUyy * v[4] * f)) + ((2 * gammaUyz * v[35] * f) - (2 * gammaUyz * v[5] * f)) + ((gammaUzz * v[36] * f) - (gammaUzz * v[6] * f)))) / (2 * (gammaUxx ^ 2) * f)),
+			(((v[14] - (v[16] * gammaUxx)) + (((2 * v[29]) - v[32]) - (2 * gammaUxz * v[18])) + ((((2 * gammaUxz * v[23]) - (gammaUyy * v[19])) - (2 * gammaUyz * v[20])) - (gammaUzz * v[21])) + v[2]) / (-(2 * gammaUxx))),
+			(((v[15] - (v[22] * gammaUxx)) + ((2 * v[30]) - v[33]) + (((((2 * gammaUxy * v[18]) - (2 * gammaUxy * v[23])) - (gammaUyy * v[25])) - (2 * gammaUyz * v[26])) - (gammaUzz * v[27])) + v[3]) / (-(2 * gammaUxx))),
+			((((v[34] - (2 * gammaUxy * v[19])) - (2 * gammaUxz * v[25])) - v[4]) / (2 * gammaUxx)),
+			((((v[35] - (2 * gammaUxy * v[20])) - (2 * gammaUxz * v[26])) - v[5]) / (2 * gammaUxx)),
+			((((v[36] - (2 * gammaUxy * v[21])) - (2 * gammaUxz * v[27])) - v[6]) / (2 * gammaUxx)),
+			v[16],
+			v[17],
+			v[18],
+			v[19],
+			v[20],
+			v[21],
+			v[22],
+			v[23],
+			v[24],
+			v[25],
+			v[26],
+			v[27],
+			((v[37] + ((((((((((v[1] - (2 * gammaUxy * v[32] * math.sqrt(f))) - (2 * gammaUxy * v[2] * math.sqrt(f))) - (2 * gammaUxz * v[33] * math.sqrt(f))) - (2 * gammaUxz * v[3] * math.sqrt(f))) - (gammaUyy * v[34] * math.sqrt(f))) - (gammaUyy * v[4] * math.sqrt(f))) - (2 * gammaUyz * v[35] * math.sqrt(f))) - (2 * gammaUyz * v[5] * math.sqrt(f))) - (gammaUzz * v[36] * math.sqrt(f))) - (gammaUzz * v[6] * math.sqrt(f)))) / (2 * math.sqrt(f) * (gammaUxx ^ (3 / 2)))),
+			((v[32] + v[2]) / (2 * math.sqrt(gammaUxx))),
+			((v[33] + v[3]) / (2 * math.sqrt(gammaUxx))),
+			((v[34] + v[4]) / (2 * math.sqrt(gammaUxx))),
+			((v[35] + v[5]) / (2 * math.sqrt(gammaUxx))),
+			((v[36] + v[6]) / (2 * math.sqrt(gammaUxx))),
+			v[28],
+			v[29],
+			v[30]
+		}
+	else
+		if self.useContractedGammaLower then
+			return {
+				v[7],
+				v[8],
+				v[9],
+				v[10],
+				v[11],
+				v[12],
+				v[13],
+				v[14],
+				v[15],
+				(((((((v[37] - (4 * v[30] * gammaUzz)) - v[1]) - (2 * gammaUxz * v[14])) - (4 * gammaUxz * v[28])) - (2 * gammaUyz * v[15])) - (4 * gammaUyz * v[29])) / (2 * gammaUzz)),
+				v[16],
+				v[17],
+				v[18],
+				v[19],
+				v[20],
+				v[21],
+				v[22],
+				v[23],
+				v[24],
+				v[25],
+				v[26],
+				v[27],
+				((((v[32] - (2 * gammaUxz * v[16])) - (2 * gammaUyz * v[22])) - v[2]) / (2 * gammaUzz)),
+				((((v[33] - (2 * gammaUxz * v[17])) - (2 * gammaUyz * v[23])) - v[3]) / (2 * gammaUzz)),
+				(((v[14] - (v[21] * gammaUzz)) + ((((((2 * v[28]) - v[34]) - (gammaUxx * v[16])) - (2 * gammaUxy * v[17])) - (gammaUyy * v[19])) - (2 * gammaUyz * v[20])) + (2 * gammaUyz * v[24]) + v[4]) / (-(2 * gammaUzz))),
+				((((v[35] - (2 * gammaUxz * v[19])) - (2 * gammaUyz * v[25])) - v[5]) / (2 * gammaUzz)),
+				((((v[15] - (v[27] * gammaUzz)) - v[36]) + (((2 * v[29]) - (gammaUxx * v[22])) - (2 * gammaUxy * v[23])) + (((2 * gammaUxz * v[20]) - (2 * gammaUxz * v[24])) - (gammaUyy * v[25])) + v[6]) / (-(2 * gammaUzz))),
+				((((((v[37] - (4 * v[30] * gammaUzz)) - (2 * v[31] * gammaUzz)) - v[1]) - (gammaUxx * v[32] * f)) + ((gammaUxx * v[2] * f) - (2 * gammaUxy * v[33] * f)) + (((((2 * gammaUxy * v[3] * f) - (2 * gammaUxz * v[14])) - (2 * gammaUxz * v[21] * gammaUzz * f)) - (4 * gammaUxz * v[28])) - (2 * gammaUxz * v[34] * f)) + (2 * gammaUxz * f * v[14]) + (4 * gammaUxz * f * v[28]) + ((2 * gammaUxz * v[4] * f) - (gammaUyy * v[35] * f)) + (((((gammaUyy * v[5] * f) - (2 * gammaUyz * v[15])) - (2 * gammaUyz * v[27] * gammaUzz * f)) - (2 * gammaUyz * v[36] * f)) - (4 * gammaUyz * v[29])) + (2 * gammaUyz * f * v[15]) + (4 * gammaUyz * f * v[29]) + (2 * gammaUyz * v[6] * f)) / (2 * (gammaUzz ^ 2) * f)),
+				((v[32] + v[2]) / (2 * math.sqrt(gammaUzz))),
+				((v[33] + v[3]) / (2 * math.sqrt(gammaUzz))),
+				((v[34] + v[4]) / (2 * math.sqrt(gammaUzz))),
+				((v[35] + v[5]) / (2 * math.sqrt(gammaUzz))),
+				((v[36] + v[6]) / (2 * math.sqrt(gammaUzz))),
+				((v[37] + ((((((((((v[1] - (gammaUxx * v[32] * math.sqrt(f))) - (gammaUxx * v[2] * math.sqrt(f))) - (2 * gammaUxy * v[33] * math.sqrt(f))) - (2 * gammaUxy * v[3] * math.sqrt(f))) - (2 * gammaUxz * v[34] * math.sqrt(f))) - (2 * gammaUxz * v[4] * math.sqrt(f))) - (gammaUyy * v[35] * math.sqrt(f))) - (gammaUyy * v[5] * math.sqrt(f))) - (2 * gammaUyz * v[36] * math.sqrt(f))) - (2 * gammaUyz * v[6] * math.sqrt(f)))) / (2 * math.sqrt(f) * (gammaUzz ^ (3 / 2)))),
+				(-(((((((2 * v[28]) - (gammaUxx * v[16])) - (2 * gammaUxy * v[17])) - (2 * gammaUxz * v[18])) - (gammaUyy * v[19])) - (2 * gammaUyz * v[20])) - (gammaUzz * v[21]))),
+				(-(((((((2 * v[29]) - (gammaUxx * v[22])) - (2 * gammaUxy * v[23])) - (2 * gammaUxz * v[24])) - (gammaUyy * v[25])) - (2 * gammaUyz * v[26])) - (gammaUzz * v[27]))),
+				(((((((((v[37] - (4 * v[30] * gammaUzz)) - (2 * v[31] * gammaUzz)) - v[1]) - (4 * f * v[30] * gammaUzz)) - (2 * gammaUxz * v[14])) - (4 * gammaUxz * v[28])) - (2 * gammaUyz * v[15])) - (4 * gammaUyz * v[29])) / (2 * f * gammaUzz))
+			}
+		else
+			return {
+				(v[35] + (math.sqrt(f) * (gammaUxx ^ (3 / 2)) * v[29]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxy * v[30]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxz * v[31]) + (math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyy * v[32]) + (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyz * v[33]) + ((((((((((((((((((((((math.sqrt(f) * math.sqrt(gammaUxx) * gammaUzz * v[34]) - (gammaUxx * v[8])) - ((gammaUxx ^ 2) * v[11])) - (2 * gammaUxx * gammaUxy * v[12])) - (gammaUxx * gammaUxy * v[17])) - (2 * gammaUxx * gammaUxz * v[13])) - (gammaUxx * gammaUxz * v[23])) - (gammaUxy * v[9])) - (2 * (gammaUxy ^ 2) * v[18])) - (2 * gammaUxy * gammaUxz * v[19])) - (gammaUxz * v[10])) - (2 * (gammaUxz ^ 2) * v[25])) - (2 * gammaUxz * gammaUxy * v[24])) - (gammaUyy * gammaUxx * v[14])) - (gammaUyy * gammaUxy * v[20])) - (gammaUyy * gammaUxz * v[26])) - (2 * gammaUyz * gammaUxx * v[15])) - (2 * gammaUyz * gammaUxy * v[21])) - (2 * gammaUyz * gammaUxz * v[27])) - (gammaUzz * gammaUxx * v[16])) - (gammaUzz * gammaUxy * v[22])) - (gammaUzz * gammaUxz * v[28]))),
+				((-(v[9] + ((2 * gammaUxx * v[12]) - (2 * math.sqrt(gammaUxx) * v[30])) + (2 * gammaUxy * v[18]) + ((((2 * gammaUxz * v[24]) - (v[3] * v[35])) - (v[5] * v[36])) - (v[6] * v[37])))) / 2),
+				((-(v[10] + ((2 * gammaUxx * v[13]) - (2 * math.sqrt(gammaUxx) * v[31])) + (2 * gammaUxy * v[19]) + ((((2 * gammaUxz * v[25]) - (v[4] * v[35])) - (v[6] * v[36])) - (v[7] * v[37])))) / 2),
+				(-(((gammaUxx * v[14]) - (math.sqrt(gammaUxx) * v[32])) + (gammaUxy * v[20]) + (gammaUxz * v[26]))),
+				(-(((gammaUxx * v[15]) - (math.sqrt(gammaUxx) * v[33])) + (gammaUxy * v[21]) + (gammaUxz * v[27]))),
+				(-(((gammaUxx * v[16]) - (math.sqrt(gammaUxx) * v[34])) + (gammaUxy * v[22]) + (gammaUxz * v[28]))),
+				v[1],
+				v[2],
+				v[3],
+				v[4],
+				v[5],
+				v[6],
+				v[7],
+				v[9],
+				v[10],
+				v[17],
+				v[18],
+				v[19],
+				v[20],
+				v[21],
+				v[22],
+				v[23],
+				v[24],
+				v[25],
+				v[26],
+				v[27],
+				v[28],
+				(((gammaUxx * v[11]) + (2 * gammaUxy * v[12]) + (2 * gammaUxz * v[13]) + (gammaUyy * v[14]) + (2 * gammaUyz * v[15]) + ((((gammaUzz * v[16]) - (v[2] * v[35])) - (v[3] * v[36])) - (v[4] * v[37]))) / 2),
+				(((gammaUxx * v[17]) + (2 * gammaUxy * v[18]) + (2 * gammaUxz * v[19]) + (gammaUyy * v[20]) + (2 * gammaUyz * v[21]) + ((((gammaUzz * v[22]) - (v[3] * v[35])) - (v[5] * v[36])) - (v[6] * v[37]))) / 2),
+				(((gammaUxx * v[23]) + (2 * gammaUxy * v[24]) + (2 * gammaUxz * v[25]) + (gammaUyy * v[26]) + (2 * gammaUyz * v[27]) + ((((gammaUzz * v[28]) - (v[4] * v[35])) - (v[6] * v[36])) - (v[7] * v[37]))) / 2),
+				((((((v[8] - (f * gammaUxx * v[11])) - (2 * f * gammaUxy * v[12])) - (2 * f * gammaUxz * v[13])) - (f * gammaUyy * v[14])) - (2 * f * gammaUyz * v[15])) - (f * gammaUzz * v[16])),
+				((v[9] + (2 * gammaUxx * v[12]) + (2 * math.sqrt(gammaUxx) * v[30]) + (2 * gammaUxy * v[18]) + ((((2 * gammaUxz * v[24]) - (v[3] * v[35])) - (v[5] * v[36])) - (v[6] * v[37]))) / 2),
+				((v[10] + (2 * gammaUxx * v[13]) + (2 * math.sqrt(gammaUxx) * v[31]) + (2 * gammaUxy * v[19]) + ((((2 * gammaUxz * v[25]) - (v[4] * v[35])) - (v[6] * v[36])) - (v[7] * v[37]))) / 2),
+				((gammaUxx * v[14]) + (math.sqrt(gammaUxx) * v[32]) + (gammaUxy * v[20]) + (gammaUxz * v[26])),
+				((gammaUxx * v[15]) + (math.sqrt(gammaUxx) * v[33]) + (gammaUxy * v[21]) + (gammaUxz * v[27])),
+				((gammaUxx * v[16]) + (math.sqrt(gammaUxx) * v[34]) + (gammaUxy * v[22]) + (gammaUxz * v[28])),
+				(-(((((((((((((((((((((((((((v[35] - (math.sqrt(f) * (gammaUxx ^ (3 / 2)) * v[29])) - (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxy * v[30])) - (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUxz * v[31])) - (math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyy * v[32])) - (2 * math.sqrt(f) * math.sqrt(gammaUxx) * gammaUyz * v[33])) - (math.sqrt(f) * math.sqrt(gammaUxx) * gammaUzz * v[34])) - (gammaUxx * v[8])) - ((gammaUxx ^ 2) * v[11])) - (2 * gammaUxx * gammaUxy * v[12])) - (gammaUxx * gammaUxy * v[17])) - (2 * gammaUxx * gammaUxz * v[13])) - (gammaUxx * gammaUxz * v[23])) - (gammaUxy * v[9])) - (2 * (gammaUxy ^ 2) * v[18])) - (2 * gammaUxy * gammaUxz * v[19])) - (gammaUxz * v[10])) - (2 * (gammaUxz ^ 2) * v[25])) - (2 * gammaUxz * gammaUxy * v[24])) - (gammaUyy * gammaUxx * v[14])) - (gammaUyy * gammaUxy * v[20])) - (gammaUyy * gammaUxz * v[26])) - (2 * gammaUyz * gammaUxx * v[15])) - (2 * gammaUyz * gammaUxy * v[21])) - (2 * gammaUyz * gammaUxz * v[27])) - (gammaUzz * gammaUxx * v[16])) - (gammaUzz * gammaUxy * v[22])) - (gammaUzz * gammaUxz * v[28])))
+			}
+		end
+	end
 end
 
 function ADM3D:calcEigenBasis(eigenvalues, rightEigenvectors, leftEigenvectors, fluxMatrix, ...)
@@ -396,6 +624,36 @@ function ADM3D:calcEigenvaluesFromCons(
 		lambdaGauge
 end
 
+function ADM3D:get_V_from_state(q, gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz)
+	if self.useMomentumConstraints then
+		return unpack(q, 35, 37)
+	end
+		
+	local Gamma_x, Gamma_y, Gamma_z
+	if self.useContractedGammaLower then
+		Gamma_x, Gamma_y, Gamma_z = unpack(q, 35, 37)
+	else
+		local gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz = unpack(q, 2, 7)
+		local GammaUx, GammaUy, GammaUz = unpack(q, 35, 37)
+		Gamma_x, Gamma_y, Gamma_z = mat33sym.mul(
+			gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz,
+			GammaUx, GammaUy, GammaUz)
+	end
+	
+	local D = {{unpack(q, 11, 16)}, {unpack(q, 17, 22)}, {unpack(q, 23, 28)}}
+	local gammaU = {gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz}
+	local V_x, V_y, V_z = 0, 0, 0
+	for i=1,3 do
+		for j=1,3 do
+			local gammaUij = sym3x3(gammaU, i, j)
+			V_x = V_x + (sym3x3(D[1], i, j) * gammaUij - Gamma_x) / 2
+			V_y = V_y + (sym3x3(D[2], i, j) * gammaUij - Gamma_y) / 2
+			V_z = V_z + (sym3x3(D[3], i, j) * gammaUij - Gamma_z) / 2
+		end
+	end
+	return V_x, V_y, V_z
+end
+
 function ADM3D:sourceTerm(solver, qs)
 	local source = solver:newState()
 	for i=1,solver.gridsize do
@@ -406,12 +664,12 @@ function ADM3D:sourceTerm(solver, qs)
 		local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(qs[i], 17, 22)
 		local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(qs[i], 23, 28)
 		local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = unpack(qs[i], 29, 34)
-		local V_x, V_y, V_z = unpack(qs[i], 35, 37)
 		local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33sym.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
 		local f = self.calc.f(alpha)
+		
+		local V_x, V_y, V_z = self:get_V_from_state(qs[i], gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz)
 
 		-- constraint variables for K_ij and V_k
-
 
 -- source terms
 local KUL = {
@@ -704,32 +962,41 @@ GU0L[3] + AKL[3] - A_z * trK + K12D23L[3] + KD23L[3] - 2 * K12D12L[3] + 2 * KD12
 		source[i][32] = alpha * SSymLL[4]
 		source[i][33] = alpha * SSymLL[5]
 		source[i][34] = alpha * SSymLL[6]
-		source[i][35] = alpha * PL[1]
-		source[i][36] = alpha * PL[2]
-		source[i][37] = alpha * PL[3]
+		
+		if self.useMomentumConstraints then
+			source[i][35] = alpha * PL[1]
+			source[i][36] = alpha * PL[2]
+			source[i][37] = alpha * PL[3]
+		else
+			-- source terms of Gamma^i ?
+		end
 	end
 	return source
 end
 
--- enforce constraint V_k = (D_kmn - D_mnk) gamma^mn
+-- enforce constraint V_i = D_im^m - D^m_mi
 function ADM3D:postIterate(solver, qs)
 	for i=1,solver.gridsize do
 		local gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz = unpack(qs[i], 2, 7)
 		local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(qs[i], 11, 16)
 		local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(qs[i], 17, 22)
 		local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(qs[i], 23, 28)
-		local V_x, V_y, V_z = unpack(qs[i], 35, 37)
 		local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33sym.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
-	
-		-- [[ direct assign (seems like this would be constantly overwriting the V_k source term contribution
-		qs[i][35] = 
-((gammaUxy * D_xxy) + (gammaUxz * D_xxz) + (gammaUyy * D_xyy) + (2 * gammaUyz * D_xyz) + (((((((gammaUzz * D_xzz) - (gammaUxy * D_yxx)) - (gammaUxz * D_zxx)) - (gammaUyy * D_yxy)) - (gammaUyz * D_zxy)) - (gammaUyz * D_yxz)) - (gammaUzz * D_zxz)))
-		qs[i][36] = 
-((gammaUxx * D_yxx) + (gammaUxy * D_yxy) + (2 * gammaUxz * D_yxz) + (gammaUyz * D_yyz) + (((((((gammaUzz * D_yzz) - (gammaUxx * D_xxy)) - (gammaUxz * D_zxy)) - (gammaUxy * D_xyy)) - (gammaUyz * D_zyy)) - (gammaUxz * D_xyz)) - (gammaUzz * D_zyz)))
-		qs[i][37] = 
-((gammaUxx * D_zxx) + (2 * gammaUxy * D_zxy) + (gammaUxz * D_zxz) + (gammaUyy * D_zyy) + (((((((gammaUyz * D_zyz) - (gammaUxx * D_xxz)) - (gammaUxy * D_yxz)) - (gammaUxy * D_xyz)) - (gammaUyy * D_yyz)) - (gammaUxz * D_xzz)) - (gammaUyz * D_yzz)))
-		--]]
-		--[[ linear projection ... would work fine if the D's weren't intermixed ... but because they are, this is 3 separate linear projections with intermixed terms ...
+
+		local V_x, V_y, V_z = self:get_V_from_state(qs[i], gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz)
+
+		if not self.useMomentumConstraints then
+			-- Gamma_i = 2 d^m_mi - d_im^m
+			-- but evolution should preserve this ... ?
+		else
+			-- direct assign (seems like this would be constantly overwriting the V_k source term contribution
+			if self.momentumConstraintMethod == 'directAssign' then
+				qs[i][35] = ((gammaUxy * D_xxy) + (gammaUxz * D_xxz) + (gammaUyy * D_xyy) + (2 * gammaUyz * D_xyz) + (((((((gammaUzz * D_xzz) - (gammaUxy * D_yxx)) - (gammaUxz * D_zxx)) - (gammaUyy * D_yxy)) - (gammaUyz * D_zxy)) - (gammaUyz * D_yxz)) - (gammaUzz * D_zxz)))
+				qs[i][36] = ((gammaUxx * D_yxx) + (gammaUxy * D_yxy) + (2 * gammaUxz * D_yxz) + (gammaUyz * D_yyz) + (((((((gammaUzz * D_yzz) - (gammaUxx * D_xxy)) - (gammaUxz * D_zxy)) - (gammaUxy * D_xyy)) - (gammaUyz * D_zyy)) - (gammaUxz * D_xyz)) - (gammaUzz * D_zyz)))
+				qs[i][37] = ((gammaUxx * D_zxx) + (2 * gammaUxy * D_zxy) + (gammaUxz * D_zxz) + (gammaUyy * D_zyy) + (((((((gammaUyz * D_zyz) - (gammaUxx * D_xxz)) - (gammaUxy * D_yxz)) - (gammaUxy * D_xyz)) - (gammaUyy * D_yyz)) - (gammaUxz * D_xzz)) - (gammaUyz * D_yzz)))
+			
+			-- linear projection ... would work fine if the D's weren't intermixed ... but because they are, this is 3 separate linear projections with intermixed terms ...
+			elseif self.momentumConstraintMethod == 'linearProject' then
 
 	-- x
 local aDotA = (1 + (2 * (gammaUxy ^ 2)) + (2 * (gammaUxz ^ 2)) + (2 * (gammaUyy ^ 2)) + (6 * (gammaUyz ^ 2)) + (2 * (gammaUzz ^ 2)))
@@ -782,7 +1049,9 @@ qs[i][25] = qs[i][25] + (epsilon * v_a * gammaUxz)
 qs[i][26] = qs[i][26] + (epsilon * v_a * gammaUyy)
 qs[i][27] = qs[i][27] + (epsilon * v_a * gammaUyz)
 qs[i][37] = qs[i][37] + (-(epsilon * v_a))
-		--]]
+
+			end
+		end
 	end
 end
 

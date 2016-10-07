@@ -48,6 +48,7 @@ local Maxwell = require 'maxwell'
 local Euler1D = require 'euler1d'
 local Euler3D = require 'euler3d'
 local MHD = require 'mhd'
+local EMHD = require 'emhd'
 local ADM1D3Var = require'adm1d3var'
 local ADM1D3to5Var = require'adm1d3to5var'
 local ADM1D5Var = require'adm1d5var'
@@ -58,7 +59,7 @@ local ADM3D = require 'adm3d'
 -- setup
 local sims = table()
 
---[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+-- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -106,15 +107,15 @@ do
 	-- [=[ compare different equations/formalisms 
 	-- these two match:
 	--sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
-	--sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
+	sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
 	-- these two match, but differ from the first two:
-	--sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should
+	--sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should (or the others calculate it double what it should be ...)
 	--sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
 	-- this one is similar to the last two, but off by just a bit (and has an asymmetric evolution of alpha)
 	--sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
 	
-	-- ... and plm:
-	sims:insert(RoePLM(table(args, {equation=ADM1D3Var(equationArgs), fluxLimiter=limiter.donorCell})))
+	-- ... and plm (was working before when I was using the Athena paper implementation, but I broke it when trying to use something more simple):
+	--sims:insert(RoePLM(table(args, {equation=ADM1D3Var(equationArgs), fluxLimiter=limiter.donorCell})))
 	--sims:insert(RoePLM(table(args, {equation=ADM1D3to5Var(equationArgs), fluxLimiter=limiter.donorCell})))
 	--sims:insert(RoePLM(table(args, {equation=ADM1D5Var(equationArgs), fluxLimiter=limiter.donorCell})))
 	--sims:insert(RoePLM(table(args, {equation=ADM3D(equationArgs), fluxLimiter=limiter.donorCell})))
@@ -285,10 +286,10 @@ end
 --]]
 
 
--- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+--[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
 	local args = {
-		equation = Euler3D(),
+		equation = Euler1D(),
 		--stopAtTimes = {.1},
 		gridsize = 200,
 		domain = {xmin=-1, xmax=1},
@@ -320,7 +321,7 @@ do
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
 	sims:insert(Roe(args))
-	sims:insert(RoePLM(table(args, {fluxLimiter=limiter.donorCell})))
+	--sims:insert(RoePLM(table(args, {fluxLimiter=limiter.donorCell})))
 	--sims:insert(HLLPLM(args))
 	--sims:insert(Roe(table(args, {equation = require 'euler1d_quasilinear'()})))
 	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
@@ -348,6 +349,9 @@ do
 	
 	-- problem #1 with PLM ... not working
 	--sims:insert(PLMBehavior(require 'srhd1d_roe')(table(args, {stopAtTimes={.4249}, gridsize=400, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
+	
+	-- emhd
+	--sims:insert(Roe(table(args, {equation=EMHD()})))
 	--]=]
 
 	--[=[ compare various flux limiters
@@ -434,20 +438,33 @@ os.exit()
 -- [=[ graphics
 local ffi = require 'ffi'
 local gl = require 'ffi.OpenGL'
-local ig = require 'ffi.imgui'
 local sdl = require 'ffi.sdl'
 local GLTex2D = require 'gl.tex2d'
-local ImGuiApp = require 'imguiapp'
 local Font = require 'gui.font'
 
+-- [[ with ImGui
+local ig = require 'ffi.imgui'
+local ImGuiApp = require 'imguiapp'
 local TestApp = class(ImGuiApp)
+--]]
+--[[ disable ImGui
+local ig = setmetatable({
+}, {
+	__index = function() 
+		return function() end
+	end,
+})
+local GLApp = require 'glapp'
+local TestApp = class(GLApp)
+--]]
+
 
 TestApp.width = 800
 TestApp.height = 600
 TestApp.showFPS = false
 
 function TestApp:initGL(...)
-	TestApp.super.initGL(self, ...)
+	if TestApp.super.initGL then TestApp.super.initGL(self, ...) end
 	self.doIteration = false
 	-- [[ need to get image loading working
 	local fonttex = GLTex2D{
@@ -455,7 +472,12 @@ function TestApp:initGL(...)
 		minFilter = gl.GL_LINEAR_MIPMAP_LINEAR,
 		magFilter = gl.GL_LINEAR,
 	}
-	gl.glGenerateMipmap(gl.GL_TEXTURE_2D)
+	if not pcall(function()
+		gl.glGenerateMipmap(gl.GL_TEXTURE_2D) 
+	end) then
+		gl.glTexParameteri(fonttex.target, gl.GL_TEXTURE_MIN_FILTER, gl.GL_NEAREST)
+		gl.glTexParameteri(fonttex.target, gl.GL_TEXTURE_MAG_FILTER, gl.GL_LINEAR) 
+	end
 	self.font = Font{tex=fonttex}
 	--]]
 end
@@ -1075,8 +1097,12 @@ function TestApp:update(...)
 		end
 		gl.glViewport(0,0,w,h)
 	end	
-	
-	return TestApp.super.update(self, ...)
+
+	if TestApp.super.update then
+		return TestApp.super.update(self, ...)
+	else
+		self:updateGUI()
+	end
 end
 
 TestApp():run()

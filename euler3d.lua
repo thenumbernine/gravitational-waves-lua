@@ -47,8 +47,7 @@ function Euler3D:initCell(sim,i)
 	local rho = x < 0 and 1 or .125
 	local vx, vy, vz = 0, 0, 0
 	local P = x < 0 and 1 or .1
-	local q = {self:calcConsFromPrim(rho, vx, vy, vz, P)}
-	return q
+	return {self:calcConsFromPrim(rho, vx, vy, vz, P)}
 end
 
 function Euler3D:calcConsFromPrim(rho, vx, vy, vz, P)

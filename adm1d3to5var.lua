@@ -84,19 +84,6 @@ function ADM1D3to5Var:calcRoeValues(qL, qR)
 	return alpha, gamma_xx, f
 end
 
-local function buildField(call)
-	return function(self, sim, i, v)
-		local avgQ = {}
-		for j=1,sim.numStates do 
-			avgQ[j] = (sim.qs[i-1][j] + sim.qs[i][j]) / 2
-		end
-		local alpha, gamma_xx, A_x, D_xxx, KTilde_xx = unpack(avgQ)		
-		local f = self.calc.f(alpha)
-		
-		return {call(alpha, f, gamma_xx, A_x, D_xxx, KTilde_xx, unpack(v))}
-	end
-end
-
 function ADM1D3to5Var:calcEigenBasis(lambda, evr, evl, dF_dU, alpha, gamma_xx, f)
 	fill(lambda, self:calcEigenvalues(alpha, gamma_xx))
 	fill(evl, f)
