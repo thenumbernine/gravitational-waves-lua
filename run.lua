@@ -59,7 +59,7 @@ local ADM3D = require 'adm3d'
 -- setup
 local sims = table()
 
--- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+--[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -388,7 +388,7 @@ do
 end
 --]]
 
---[[
+-- [[
 sims:insert(Roe{
 	equation = Maxwell(),
 	gridsize = 200,

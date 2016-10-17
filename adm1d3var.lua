@@ -53,10 +53,6 @@ determinant(eigenvectors);
 invert(eigenvectors);
 /* [wxMaxima: input   end   ] */
 
-
-I need to change this from a 3-var (with two extra)
-to a 5-var, 3-wave with waves no acting on alpha or gamma
-
 --]]
 
 local class = require 'ext.class'
