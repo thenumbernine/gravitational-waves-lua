@@ -117,7 +117,7 @@ function SRHD1D:initCell(solver,i)
 	local P = (self.gamma - 1) * rho * (1e-7 / math.sqrt(1 - vx*vx))
 	-- which is approx. P ~ (gamma - 1) rho sqrt(5) 1e-5 ~ sqrt(5)/3 1e-5 ~ 7.5e-6
 	--]]
-	--[[ relativistic blast wave test problem 1, Marti & Muller 2008, table 5
+	-- [[ relativistic blast wave test problem 1, Marti & Muller 2008, table 5
 	-- also the Marti & Muller rppm code's Schneider et al
 	-- the paper says P=0.00 for rhs, but looking at the rppm code it should probably be 1.66e-6 
 	-- also Odyck problem #1
@@ -134,7 +134,7 @@ function SRHD1D:initCell(solver,i)
 	local vx = 0
 	local P = x < xmid and 1000 or .01
 	--]]
-	-- [[ Marti & Muller 2008 rppm relativistic blast wave interaction
+	--[[ Marti & Muller 2008 rppm relativistic blast wave interaction
 	self.gamma = 7/5
 	local lhs = .9 * solver.domain.xmin + .1 * solver.domain.xmax
 	local rhs = .1 * solver.domain.xmin + .9 * solver.domain.xmax

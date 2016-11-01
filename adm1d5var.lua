@@ -1,6 +1,6 @@
 --[[
-based on http://arxiv.org/pdf/gr-qc/9609015v2.pdf
-which itself doesn't specify the formalism, just the equations.
+based on Alcubierre 1997 "The appearance of coordinate shocks in hyperbolic formalisms in General Relativity" (http://arxiv.org/pdf/gr-qc/9609015v2.pdf)
+which itself doesn't specify the eigenvectors, just the equations and eigenfields.
 If you follow the book, it explains how to re-cast those same equations as the proper formalism (as I use in adm1d3to5var.lua)
 
 
@@ -95,20 +95,24 @@ function ADM1D5Var:calcRoeValues(qL, qR)
 	return alpha, gamma_xx, A_x, D_xxx, K_xx, f
 end
 
--- [[
 function ADM1D5Var:fluxMatrixTransform(solver, m, v)
 	local alpha, gamma_xx, A_x, D_xxx, K_xx, f = table.unpack(m)
 	local v1, v2, v3, v4, v5 = table.unpack(v)
+	-- the alpha and gamma_xx terms are neglected when reconstructing the flux
+	-- ... because the eigenvalue is zero?
 	return {
 		0,
 		0,
-		v1*f*K_xx/gamma_xx - v2*alpha*f*K_xx/gamma_xx^2 + v5*alpha*f/gamma_xx,
-		v1*K_xx + v5*alpha,
-		v1*A_x + v3*alpha
+		--v1*f*K_xx/gamma_xx - v2*alpha*f*K_xx/gamma_xx^2 +
+			v5*alpha*f/gamma_xx,
+		--v1*K_xx  +
+			v5*alpha,
+		--v1*A_x +
+			v3*alpha
 	}
 end
---]]
---[[fixme
+
+--[[ fixme
 function ADM1D5Var:eigenLeftTransform(solver, m, v)
 	local alpha, gamma_xx, A_x, D_xxx, K_xx, f = table.unpack(m)
 	local v1, v2, v3, v4, v5 = table.unpack(v)

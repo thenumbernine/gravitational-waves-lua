@@ -59,7 +59,7 @@ local ADM3D = require 'adm3d'
 -- setup
 local sims = table()
 
---[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+-- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -106,10 +106,10 @@ do
 
 	-- [=[ compare different equations/formalisms 
 	-- these two match:
-	--sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
-	sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
+	sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
+	--sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
 	-- these two match, but differ from the first two:
-	--sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should (or the others calculate it double what it should be ...)
+	sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should (or the others calculate it double what it should be ...)
 	--sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
 	-- this one is similar to the last two, but off by just a bit (and has an asymmetric evolution of alpha)
 	--sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
@@ -320,7 +320,7 @@ do
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
-	sims:insert(Roe(args))
+	--sims:insert(Roe(args))
 	--sims:insert(RoePLM(table(args, {fluxLimiter=limiter.donorCell})))
 	--sims:insert(HLLPLM(args))
 	--sims:insert(Roe(table(args, {equation = require 'euler1d_quasilinear'()})))
@@ -339,7 +339,7 @@ do
 	--sims:insert(RoeImplicitLinearized(table(args, {equation=MHD()})))
 
 	-- srhd Marti & Muller 2003 problem #1
-	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.4249}, gridsize=400, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
+	sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.4249}, gridsize=400, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
 	-- srhd Marti & Muller 2003 problem #2
 	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.43}, gridsize=2000, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
 	-- srhd Marti & Muller 2003 blast wave interaction
@@ -388,7 +388,7 @@ do
 end
 --]]
 
--- [[
+--[[
 sims:insert(Roe{
 	equation = Maxwell(),
 	gridsize = 200,
