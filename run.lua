@@ -59,7 +59,7 @@ local ADM3D = require 'adm3d'
 -- setup
 local sims = table()
 
--- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+--[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -93,8 +93,8 @@ do
 		),
 		--]=]
 		gamma_xx = gamma_xx,	-- gamma_xx
-		-- A_x = d/dx alpha
-		-- D_xxx = 1/2 d/dx gamma_xx
+		-- a_x = d/dx alpha
+		-- d_xxx = 1/2 d/dx gamma_xx
 		K_xx = K_xx,	-- K_xx
 		-- Bona-Masso slicing conditions:
 		f_param = alpha,
@@ -106,10 +106,10 @@ do
 
 	-- [=[ compare different equations/formalisms 
 	-- these two match:
-	sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
-	--sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
+	--sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
+	sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
 	-- these two match, but differ from the first two:
-	sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs A_x half what it should (or the others calculate it double what it should be ...)
+	sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs a_x half what it should (or the others calculate it double what it should be ...)
 	--sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
 	-- this one is similar to the last two, but off by just a bit (and has an asymmetric evolution of alpha)
 	--sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
@@ -286,12 +286,12 @@ end
 --]]
 
 
---[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+-- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
 	local args = {
 		equation = Euler1D(),
 		--stopAtTimes = {.1},
-		gridsize = 200,
+		gridsize = 256,
 		domain = {xmin=-1, xmax=1},
 		boundaryMethod = boundaryMethods.freeFlow,
 		--boundaryMethod = boundaryMethods.freeFlow,
@@ -333,13 +333,13 @@ do
 	--sims:insert(require 'euler1d_dft'(args))
 	
 	-- mhd:
-	--sims:insert(Roe(table(args, {equation=MHD()})))
+	sims:insert(Roe(table(args, {equation=MHD()})))
 	--sims:insert(HLL(table(args, {equation=MHD()})))
 	--sims:insert(RoePLM(table(args, {equation=MHD(), fluxLimiter=limiter.donorCell})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation=MHD()})))
 
 	-- srhd Marti & Muller 2003 problem #1
-	sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.4249}, gridsize=400, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
+	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.4249}, gridsize=400, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
 	-- srhd Marti & Muller 2003 problem #2
 	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.43}, gridsize=2000, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
 	-- srhd Marti & Muller 2003 blast wave interaction
@@ -550,8 +550,8 @@ do
 			),
 			--]=]
 			gamma_xx = gamma_xx,	-- gamma_xx
-			-- A_x = d/dx alpha
-			-- D_xxx = 1/2 d/dx gamma_xx
+			-- a_x = d/dx alpha
+			-- d_xxx = 1/2 d/dx gamma_xx
 			K_xx = K_xx,	-- K_xx
 			-- Bona-Masso slicing conditions:
 			f_param = alpha,

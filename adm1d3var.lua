@@ -1,22 +1,24 @@
 --[[
-based on the book "Introduction to 3+1 Numerical Relativity" and on the paper "Introduction to Numerical Relativity", both by Alcubierre
 
-A_x = (ln alpha),x = alpha,x / alpha
-D_xxx = (ln gamma_xx),x = gamma_xx,x / gamma_xx
+Based on the book "Introduction to 3+1 Numerical Relativity" and on the paper "Introduction to Numerical Relativity", both by Alcubierre
+
+a_x = (ln alpha),x = alpha,x / alpha
+d_xxx = 1/2 gamma_xx,x
+D_g = (ln gamma_xx),x = gamma_xx,x / gamma_xx = 2 d_xxx / gamma_xx
 KTilde_xx = sqrt(gamma_xx) K_xx
 
-alpha,x = A_x alpha
-gamma_xx,x = gamma_xx D_xxx
+alpha,x = a_x alpha
+gamma_xx,x = gamma_xx D_g
 K_xx = KTilde_xx / sqrt(gamma_xx)
 
-A_x,t + (alpha f K_xx),x = 0
-D_xxx,t + (2 alpha K_xx),x = 0
-K_xx,t + (alpha A_x / gamma_xx),x = alpha (K_xx^2 - A_x D_xxx / (2 gamma_xx))
+a_x,t + (alpha f K_xx),x = 0
+D_g,t + (2 alpha K_xx),x = 0
+K_xx,t + (alpha a_x / gamma_xx),x = alpha (K_xx^2 - a_x D_g / (2 gamma_xx))
 
 ...rewritten for KTilde_xx...
-A_x,t + (alpha f KTilde_xx / sqrt(gamma_xx)),x = 0
-D_xxx,t + (2 alpha KTilde_xx / sqrt(gamma_xx)),x = 0
-KTilde_xx,t + (alpha A_x / sqrt(gamma_xx)),x = 0
+a_x,t + (alpha f KTilde_xx / sqrt(gamma_xx)),x = 0
+D_g,t + (2 alpha KTilde_xx / sqrt(gamma_xx)),x = 0
+KTilde_xx,t + (alpha a_x / sqrt(gamma_xx)),x = 0
 
 now we look at eigenvectors ...
 
@@ -103,18 +105,22 @@ do
 	local q = function(self,i) return self.qs[i] end
 	local alpha = q:_(1)
 	local gamma_xx = q:_(2)
-	local A_x = q:_(3)
-	local D_xxx = q:_(4)
+	local a_x = q:_(3)
+	local D_g = q:_(4)
+	local d_xxx = D_g * gamma_xx / 2
 	local KTilde_xx = q:_(5)
 	local K_xx = KTilde_xx / math.sqrt:o(gamma_xx)
+	local K = K_xx / gamma_xx
 	local volume = alpha * math.sqrt:o(gamma_xx)
 	ADM1D3Var:buildGraphInfos{
 		{alpha = alpha},
-		{A_x = A_x},
+		{a_x = a_x},
 		{gamma_xx = gamma_xx},
-		{D_xxx = D_xxx},
+		{d_xxx = d_xxx},
+		{D_g = D_g},
 		{K_xx = K_xx},
 		{KTilde_xx = KTilde_xx},
+		{K = K},
 		{volume = volume},
 	}
 end
@@ -123,11 +129,11 @@ function ADM1D3Var:initCell(sim,i)
 	local x = sim.xs[i]
 	local alpha = self.calc.alpha(x)
 	local gamma_xx = self.calc.gamma_xx(x)
-	local A_x = self.calc.dx_alpha(x) / self.calc.alpha(x)
-	local D_xxx = 1/2 * self.calc.dx_gamma_xx(x)
+	local a_x = self.calc.dx_alpha(x) / self.calc.alpha(x)
+	local D_g = 1/2 * self.calc.dx_gamma_xx(x)
 	local K_xx = self.calc.K_xx(x) 
 	local KTilde_xx = K_xx / math.sqrt(gamma_xx)
-	return {alpha, gamma_xx, A_x, D_xxx, KTilde_xx}
+	return {alpha, gamma_xx, a_x, D_g, KTilde_xx}
 end
 
 function ADM1D3Var:calcEigenvalues(alpha, gamma_xx, f)
@@ -198,7 +204,7 @@ end
 function ADM1D3Var:sourceTerm(sim, qs)
 	local source = sim:newState()
 	for i=1,sim.gridsize do
-		local alpha, gamma_xx, A_x, D_xxx, KTilde_xx = table.unpack(qs[i])
+		local alpha, gamma_xx, a_x, D_g, KTilde_xx = table.unpack(qs[i])
 		local f = self.calc.f(alpha)
 		local dalpha_f = self.calc.dalpha_f(alpha)
 		

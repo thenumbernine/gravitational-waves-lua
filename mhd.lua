@@ -41,6 +41,16 @@ do
 		{H=H},
 		
 		{ETotal=ETotal}, {EKin=EKin}, {EInt=EInt}, {EHydro=EHydro}, {EMag=EMag},
+		{['primitive reconstruction error'] = function(self,i) 
+			local q = self.qs[i]
+			local rho, vx, vy, vz, bx, by, bz, P = self.equation:calcPrimFromCons(table.unpack(q))
+			local q2 = {self.equation:calcConsFromPrim(rho, vx, vy, vz, bx, by, bz, P)}
+			local value = 0
+			for j=1,8 do
+				value = value + math.abs(q[j]-q2[j])
+			end
+			return value
+		end},
 	}
 end
 
@@ -63,6 +73,9 @@ function MHD:initCell(sim,i)
 	--]]
 	--[[ Sod
 	local bx, by, bz = 0, 0, 0	-- zero field works ... sort of.
+	--]]
+	--[[ constant field
+	local bx, by, bz = 1, 0, 0
 	--]]
 	local P = x < 0 and 1 or .1
 	return {self:calcConsFromPrim(rho, vx, vy, vz, bx, by, bz, P)}

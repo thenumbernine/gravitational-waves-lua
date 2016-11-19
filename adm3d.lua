@@ -12,10 +12,10 @@ ADM3D.name = 'ADM3D'
 --[[
 alpha,
 gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz,
-A_x, A_y, A_z,
-D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz,
-D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz,
-D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz,
+a_x, a_y, a_z,
+d_xxx, d_xxy, d_xxz, d_xyy, d_xyz, d_xzz,
+d_yxx, d_yxy, d_yxz, d_yyy, d_yyz, d_yzz,
+d_zxx, d_zxy, d_zxz, d_zyy, d_zyz, d_zzz,
 K_xx, K_xy, K_xz, K_yy, K_yz, K_zz,
 V_x, V_y, V_z,
 --]]
@@ -35,8 +35,8 @@ false means use Gamma^i (doesn't require constraints)
 so gamma^ij_,k gamma_ij = -gamma^ij gamma_ij,k
 --]]
 
---ADM3D.useMomentumConstraints = true	-- advect V_i
-ADM3D.useMomentumConstraints = false	-- advect Gamma^i
+ADM3D.useMomentumConstraints = true	-- advect V_i
+--ADM3D.useMomentumConstraints = false	-- advect Gamma^i
 
 -- if useMomentumConstraints == true
 ADM3D.momentumConstraintMethod = 'directAssign'	--directly assign V_i = d_im^m + d^m_mi.  technically this is ignoring the V_i's altogether ... but this matches the ADM1D5Var solver
@@ -174,7 +174,7 @@ function ADM3D:init(args, ...)
 	end
 	local suffix3 = {'x', 'y', 'z'}
 	local suffix3x3sym = {'xx', 'xy', 'xz', 'yy', 'yz', 'zz'}
-	add{name='A_', index=8, suffix=suffix3}
+	add{name='a_', index=8, suffix=suffix3}
 	
 	if self.useMomentumConstraints then	
 		add{name='V_', index=35, suffix=suffix3}
@@ -187,17 +187,17 @@ function ADM3D:init(args, ...)
 	end
 
 	add{name='gamma_', index=2, suffix=suffix3x3sym}
-	add{name='D_x', index=11, suffix=suffix3x3sym}
-	add{name='D_y', index=17, suffix=suffix3x3sym}
-	add{name='D_z', index=23, suffix=suffix3x3sym}
+	add{name='d_x', index=11, suffix=suffix3x3sym}
+	add{name='d_y', index=17, suffix=suffix3x3sym}
+	add{name='d_z', index=23, suffix=suffix3x3sym}
 	add{name='K_', index=29, suffix=suffix3x3sym}
 
 --[[ match the 1D 3-var layout:
 	getters = table{
 		{alpha = function(self,i) return self.qs[i][1] end},
-		{A_x = function(self,i) return self.qs[i][8] end},
+		{a_x = function(self,i) return self.qs[i][8] end},
 		{gamma_xx = function(self,i) return self.qs[i][2] end},
-		{D_xxx = function(self,i) return self.qs[i][11] end},
+		{d_xxx = function(self,i) return self.qs[i][11] end},
 		{K_xx = function(self,i) return self.qs[i][29] end},
 		{volume = function(self,i) return self.qs[i][1] * math.sqrt(self.qs[i][2]) end},
 	}
@@ -221,19 +221,19 @@ function ADM3D:initCell(solver,i)
 	local z = 0
 	local xs = table{x,y,z}
 	local alpha = self.calc.alpha(x,y,z)
-	local A = self.calc.A:map(function(A_i) return A_i(x,y,z) end)
+	local A = self.calc.A:map(function(a_i) return a_i(x,y,z) end)
 	local gamma = self.calc.gamma:map(function(gamma_ij) return gamma_ij(x,y,z) end)
-	local D = self.calc.D:map(function(D_i) return D_i:map(function(D_ijk) return D_ijk(x,y,z) end) end)
+	local D = self.calc.D:map(function(d_i) return d_i:map(function(d_ijk) return d_ijk(x,y,z) end) end)
 	local gammaU = self.calc.gammaU:map(function(gammaUij) return gammaUij(x,y,z) end)
 
 	local V = self.useMomentumConstraints and range(3):map(function(i)
 		local s = 0
 		for j=1,3 do
 			for k=1,3 do
-				local D_ijk = sym3x3(D[i],j,k)
-				local D_kji = sym3x3(D[k],j,i)
+				local d_ijk = sym3x3(D[i],j,k)
+				local d_kji = sym3x3(D[k],j,i)
 				local gammaUjk = sym3x3(gammaU,j,k)
-				local dg = (D_ijk - D_kji) * gammaUjk
+				local dg = (d_ijk - d_kji) * gammaUjk
 				s = s + dg
 			end
 		end
@@ -244,10 +244,10 @@ function ADM3D:initCell(solver,i)
 		local s = 0
 		for j=1,3 do
 			for k=1,3 do
-				local D_jki = sym3x3(D[j], k, i)
-				local D_ijk = sym3x3(D[i], j, k)
+				local d_jki = sym3x3(D[j], k, i)
+				local d_ijk = sym3x3(D[i], j, k)
 				local gammaUjk = sym3x3(gammaU, j, k)
-				s = s + gammaUjk * (2 * D_jki - D_ijk)
+				s = s + gammaUjk * (2 * d_jki - d_ijk)
 			end
 		end
 		return s
@@ -286,10 +286,10 @@ function ADM3D:fluxMatrixTransform(solver, avgQ, v)
 	return {
 		0,	--alpha
 		0,0,0,0,0,0,	--gamma_ij
-		0,0,0,		-- A_k
-		0,0,0,0,0,0,	-- D_xij
-		0,0,0,0,0,0,	-- D_yij
-		0,0,0,0,0,0,	-- D_zij
+		0,0,0,		-- a_k
+		0,0,0,0,0,0,	-- d_xij
+		0,0,0,0,0,0,	-- d_yij
+		0,0,0,0,0,0,	-- d_zij
 		0,0,0,0,0,0,	-- K_ij
 		0,0,0			-- V_k
 	}
@@ -300,10 +300,10 @@ function ADM3D:eigenLeftTransform(solver, avgQ, v)
 	local alpha = avgQ[1]
 	local gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz = unpack(avgQ, 2, 7)
 	local gamma = mat33sym.det(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
-	local A_x, A_y, A_z = unpack(avgQ, 8, 10)
-	local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(avgQ, 11, 16)
-	local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(avgQ, 17, 22)
-	local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(avgQ, 23, 28)
+	local a_x, a_y, a_z = unpack(avgQ, 8, 10)
+	local d_xxx, d_xxy, d_xxz, d_xyy, d_xyz, d_xzz = unpack(avgQ, 11, 16)
+	local d_yxx, d_yxy, d_yxz, d_yyy, d_yyz, d_yzz = unpack(avgQ, 17, 22)
+	local d_zxx, d_zxy, d_zxz, d_zyy, d_zyz, d_zzz = unpack(avgQ, 23, 28)
 	local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = unpack(avgQ, 29, 34)
 	--local V_x, V_y, V_z = unpack(avgQ, 35, 37)
 	local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33sym.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
@@ -448,10 +448,10 @@ function ADM3D:eigenRightTransform(solver, avgQ, v)
 	local alpha = avgQ[1]
 	local gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz = unpack(avgQ, 2, 7)
 	local gamma = mat33sym.det(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
-	local A_x, A_y, A_z = unpack(avgQ, 8, 10)
-	local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(avgQ, 11, 16)
-	local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(avgQ, 17, 22)
-	local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(avgQ, 23, 28)
+	local a_x, a_y, a_z = unpack(avgQ, 8, 10)
+	local d_xxx, d_xxy, d_xxz, d_xyy, d_xyz, d_xzz = unpack(avgQ, 11, 16)
+	local d_yxx, d_yxy, d_yxz, d_yyy, d_yyz, d_yzz = unpack(avgQ, 17, 22)
+	local d_zxx, d_zxy, d_zxz, d_zyy, d_zyz, d_zzz = unpack(avgQ, 23, 28)
 	local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = unpack(avgQ, 29, 34)
 	--local V_x, V_y, V_z = unpack(avgQ, 35, 37)
 	local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33sym.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
@@ -659,10 +659,10 @@ function ADM3D:sourceTerm(solver, qs)
 	for i=1,solver.gridsize do
 		local alpha = qs[i][1]
 		local gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz = unpack(qs[i], 2, 7)
-		local A_x, A_y, A_z = unpack(qs[i], 8, 10)
-		local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(qs[i], 11, 16)
-		local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(qs[i], 17, 22)
-		local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(qs[i], 23, 28)
+		local a_x, a_y, a_z = unpack(qs[i], 8, 10)
+		local d_xxx, d_xxy, d_xxz, d_xyy, d_xyz, d_xzz = unpack(qs[i], 11, 16)
+		local d_yxx, d_yxy, d_yxz, d_yyy, d_yyz, d_yzz = unpack(qs[i], 17, 22)
+		local d_zxx, d_zxy, d_zxz, d_zyy, d_zyz, d_zzz = unpack(qs[i], 23, 28)
 		local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = unpack(qs[i], 29, 34)
 		local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33sym.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
 		local f = self.calc.f(alpha)
@@ -693,33 +693,33 @@ K_xy * KUL[1][3] + K_yy * KUL[2][3] + K_yz * KUL[3][3],
 K_xz * KUL[1][3] + K_yz * KUL[2][3] + K_zz * KUL[3][3],
 };
 local DLUL = {
-{{D_xxx * gammaUxx + D_xxy * gammaUxy + D_xxz * gammaUxz,
-D_xxy * gammaUxx + D_xyy * gammaUxy + D_xyz * gammaUxz,
-D_xxz * gammaUxx + D_xyz * gammaUxy + D_xzz * gammaUxz,
-},{D_xxx * gammaUxy + D_xxy * gammaUyy + D_xxz * gammaUyz,
-D_xxy * gammaUxy + D_xyy * gammaUyy + D_xyz * gammaUyz,
-D_xxz * gammaUxy + D_xyz * gammaUyy + D_xzz * gammaUyz,
-},{D_xxx * gammaUxz + D_xxy * gammaUyz + D_xxz * gammaUzz,
-D_xxy * gammaUxz + D_xyy * gammaUyz + D_xyz * gammaUzz,
-D_xxz * gammaUxz + D_xyz * gammaUyz + D_xzz * gammaUzz,
-},},{{D_yxx * gammaUxx + D_yxy * gammaUxy + D_yxz * gammaUxz,
-D_yxy * gammaUxx + D_yyy * gammaUxy + D_yyz * gammaUxz,
-D_yxz * gammaUxx + D_yyz * gammaUxy + D_yzz * gammaUxz,
-},{D_yxx * gammaUxy + D_yxy * gammaUyy + D_yxz * gammaUyz,
-D_yxy * gammaUxy + D_yyy * gammaUyy + D_yyz * gammaUyz,
-D_yxz * gammaUxy + D_yyz * gammaUyy + D_yzz * gammaUyz,
-},{D_yxx * gammaUxz + D_yxy * gammaUyz + D_yxz * gammaUzz,
-D_yxy * gammaUxz + D_yyy * gammaUyz + D_yyz * gammaUzz,
-D_yxz * gammaUxz + D_yyz * gammaUyz + D_yzz * gammaUzz,
-},},{{D_zxx * gammaUxx + D_zxy * gammaUxy + D_zxz * gammaUxz,
-D_zxy * gammaUxx + D_zyy * gammaUxy + D_zyz * gammaUxz,
-D_zxz * gammaUxx + D_zyz * gammaUxy + D_zzz * gammaUxz,
-},{D_zxx * gammaUxy + D_zxy * gammaUyy + D_zxz * gammaUyz,
-D_zxy * gammaUxy + D_zyy * gammaUyy + D_zyz * gammaUyz,
-D_zxz * gammaUxy + D_zyz * gammaUyy + D_zzz * gammaUyz,
-},{D_zxx * gammaUxz + D_zxy * gammaUyz + D_zxz * gammaUzz,
-D_zxy * gammaUxz + D_zyy * gammaUyz + D_zyz * gammaUzz,
-D_zxz * gammaUxz + D_zyz * gammaUyz + D_zzz * gammaUzz,
+{{d_xxx * gammaUxx + d_xxy * gammaUxy + d_xxz * gammaUxz,
+d_xxy * gammaUxx + d_xyy * gammaUxy + d_xyz * gammaUxz,
+d_xxz * gammaUxx + d_xyz * gammaUxy + d_xzz * gammaUxz,
+},{d_xxx * gammaUxy + d_xxy * gammaUyy + d_xxz * gammaUyz,
+d_xxy * gammaUxy + d_xyy * gammaUyy + d_xyz * gammaUyz,
+d_xxz * gammaUxy + d_xyz * gammaUyy + d_xzz * gammaUyz,
+},{d_xxx * gammaUxz + d_xxy * gammaUyz + d_xxz * gammaUzz,
+d_xxy * gammaUxz + d_xyy * gammaUyz + d_xyz * gammaUzz,
+d_xxz * gammaUxz + d_xyz * gammaUyz + d_xzz * gammaUzz,
+},},{{d_yxx * gammaUxx + d_yxy * gammaUxy + d_yxz * gammaUxz,
+d_yxy * gammaUxx + d_yyy * gammaUxy + d_yyz * gammaUxz,
+d_yxz * gammaUxx + d_yyz * gammaUxy + d_yzz * gammaUxz,
+},{d_yxx * gammaUxy + d_yxy * gammaUyy + d_yxz * gammaUyz,
+d_yxy * gammaUxy + d_yyy * gammaUyy + d_yyz * gammaUyz,
+d_yxz * gammaUxy + d_yyz * gammaUyy + d_yzz * gammaUyz,
+},{d_yxx * gammaUxz + d_yxy * gammaUyz + d_yxz * gammaUzz,
+d_yxy * gammaUxz + d_yyy * gammaUyz + d_yyz * gammaUzz,
+d_yxz * gammaUxz + d_yyz * gammaUyz + d_yzz * gammaUzz,
+},},{{d_zxx * gammaUxx + d_zxy * gammaUxy + d_zxz * gammaUxz,
+d_zxy * gammaUxx + d_zyy * gammaUxy + d_zyz * gammaUxz,
+d_zxz * gammaUxx + d_zyz * gammaUxy + d_zzz * gammaUxz,
+},{d_zxx * gammaUxy + d_zxy * gammaUyy + d_zxz * gammaUyz,
+d_zxy * gammaUxy + d_zyy * gammaUyy + d_zyz * gammaUyz,
+d_zxz * gammaUxy + d_zyz * gammaUyy + d_zzz * gammaUyz,
+},{d_zxx * gammaUxz + d_zxy * gammaUyz + d_zxz * gammaUzz,
+d_zxy * gammaUxz + d_zyy * gammaUyz + d_zyz * gammaUzz,
+d_zxz * gammaUxz + d_zyz * gammaUyz + d_zzz * gammaUzz,
 },},};
 local D1L = {
 DLUL[1][1][1] + DLUL[1][2][2] + DLUL[1][3][3],
@@ -761,32 +761,32 @@ DLUL[1][3][2] * gammaUxz + DLUL[2][3][2] * gammaUyz + DLUL[3][3][2] * gammaUzz,
 DLUL[1][3][3] * gammaUxz + DLUL[2][3][3] * gammaUyz + DLUL[3][3][3] * gammaUzz,
 },},};
 local D12SymLL = {
-D_xxx * DUUL[1][1][1] + D_xxy * DUUL[1][2][1] + D_xxz * DUUL[1][3][1] + D_yxx * DUUL[2][1][1] + D_yxy * DUUL[2][2][1] + D_yxz * DUUL[2][3][1] + D_zxx * DUUL[3][1][1] + D_zxy * DUUL[3][2][1] + D_zxz * DUUL[3][3][1],
-D_xxy * DUUL[1][1][1] + D_xyy * DUUL[1][2][1] + D_xyz * DUUL[1][3][1] + D_yxy * DUUL[2][1][1] + D_yyy * DUUL[2][2][1] + D_yyz * DUUL[2][3][1] + D_zxy * DUUL[3][1][1] + D_zyy * DUUL[3][2][1] + D_zyz * DUUL[3][3][1],
-D_xxz * DUUL[1][1][1] + D_xyz * DUUL[1][2][1] + D_xzz * DUUL[1][3][1] + D_yxz * DUUL[2][1][1] + D_yyz * DUUL[2][2][1] + D_yzz * DUUL[2][3][1] + D_zxz * DUUL[3][1][1] + D_zyz * DUUL[3][2][1] + D_zzz * DUUL[3][3][1],
-D_xxy * DUUL[1][1][2] + D_xyy * DUUL[1][2][2] + D_xyz * DUUL[1][3][2] + D_yxy * DUUL[2][1][2] + D_yyy * DUUL[2][2][2] + D_yyz * DUUL[2][3][2] + D_zxy * DUUL[3][1][2] + D_zyy * DUUL[3][2][2] + D_zyz * DUUL[3][3][2],
-D_xxz * DUUL[1][1][2] + D_xyz * DUUL[1][2][2] + D_xzz * DUUL[1][3][2] + D_yxz * DUUL[2][1][2] + D_yyz * DUUL[2][2][2] + D_yzz * DUUL[2][3][2] + D_zxz * DUUL[3][1][2] + D_zyz * DUUL[3][2][2] + D_zzz * DUUL[3][3][2],
-D_xxz * DUUL[1][1][3] + D_xyz * DUUL[1][2][3] + D_xzz * DUUL[1][3][3] + D_yxz * DUUL[2][1][3] + D_yyz * DUUL[2][2][3] + D_yzz * DUUL[2][3][3] + D_zxz * DUUL[3][1][3] + D_zyz * DUUL[3][2][3] + D_zzz * DUUL[3][3][3],
+d_xxx * DUUL[1][1][1] + d_xxy * DUUL[1][2][1] + d_xxz * DUUL[1][3][1] + d_yxx * DUUL[2][1][1] + d_yxy * DUUL[2][2][1] + d_yxz * DUUL[2][3][1] + d_zxx * DUUL[3][1][1] + d_zxy * DUUL[3][2][1] + d_zxz * DUUL[3][3][1],
+d_xxy * DUUL[1][1][1] + d_xyy * DUUL[1][2][1] + d_xyz * DUUL[1][3][1] + d_yxy * DUUL[2][1][1] + d_yyy * DUUL[2][2][1] + d_yyz * DUUL[2][3][1] + d_zxy * DUUL[3][1][1] + d_zyy * DUUL[3][2][1] + d_zyz * DUUL[3][3][1],
+d_xxz * DUUL[1][1][1] + d_xyz * DUUL[1][2][1] + d_xzz * DUUL[1][3][1] + d_yxz * DUUL[2][1][1] + d_yyz * DUUL[2][2][1] + d_yzz * DUUL[2][3][1] + d_zxz * DUUL[3][1][1] + d_zyz * DUUL[3][2][1] + d_zzz * DUUL[3][3][1],
+d_xxy * DUUL[1][1][2] + d_xyy * DUUL[1][2][2] + d_xyz * DUUL[1][3][2] + d_yxy * DUUL[2][1][2] + d_yyy * DUUL[2][2][2] + d_yyz * DUUL[2][3][2] + d_zxy * DUUL[3][1][2] + d_zyy * DUUL[3][2][2] + d_zyz * DUUL[3][3][2],
+d_xxz * DUUL[1][1][2] + d_xyz * DUUL[1][2][2] + d_xzz * DUUL[1][3][2] + d_yxz * DUUL[2][1][2] + d_yyz * DUUL[2][2][2] + d_yzz * DUUL[2][3][2] + d_zxz * DUUL[3][1][2] + d_zyz * DUUL[3][2][2] + d_zzz * DUUL[3][3][2],
+d_xxz * DUUL[1][1][3] + d_xyz * DUUL[1][2][3] + d_xzz * DUUL[1][3][3] + d_yxz * DUUL[2][1][3] + d_yyz * DUUL[2][2][3] + d_yzz * DUUL[2][3][3] + d_zxz * DUUL[3][1][3] + d_zyz * DUUL[3][2][3] + d_zzz * DUUL[3][3][3],
 };
 local GammaLSymLL = {
-{D_xxx,
-D_yxx,
-D_zxx,
-((2 * D_yxy) - D_xyy),
-(D_zxy + (D_yxz - D_xyz)),
-((2 * D_zxz) - D_xzz),
-},{((2 * D_xxy) - D_yxx),
-D_xyy,
-(D_zxy + (D_xyz - D_yxz)),
-D_yyy,
-D_zyy,
-((2 * D_zyz) - D_yzz),
-},{((2 * D_xxz) - D_zxx),
-(D_yxz + (D_xyz - D_zxy)),
-D_xzz,
-((2 * D_yyz) - D_zyy),
-D_yzz,
-D_zzz,
+{d_xxx,
+d_yxx,
+d_zxx,
+((2 * d_yxy) - d_xyy),
+(d_zxy + (d_yxz - d_xyz)),
+((2 * d_zxz) - d_xzz),
+},{((2 * d_xxy) - d_yxx),
+d_xyy,
+(d_zxy + (d_xyz - d_yxz)),
+d_yyy,
+d_zyy,
+((2 * d_zyz) - d_yzz),
+},{((2 * d_xxz) - d_zxx),
+(d_yxz + (d_xyz - d_zxy)),
+d_xzz,
+((2 * d_yyz) - d_zyy),
+d_yzz,
+d_zzz,
 },};
 local GammaUSymLL = {
 {gammaUxx * GammaLSymLL[1][1] + gammaUxy * GammaLSymLL[2][1] + gammaUxz * GammaLSymLL[3][1],
@@ -879,9 +879,9 @@ GammaLSymLL[2][1] * GammaLSymUU[3][1] + GammaLSymLL[2][2] * GammaLSymUU[3][2] + 
 GammaLSymLL[3][1] * GammaLSymUU[3][1] + GammaLSymLL[3][2] * GammaLSymUU[3][2] + GammaLSymLL[3][3] * GammaLSymUU[3][3] + GammaLSymLL[3][2] * GammaLSymUU[3][2] + GammaLSymLL[3][4] * GammaLSymUU[3][4] + GammaLSymLL[3][5] * GammaLSymUU[3][5] + GammaLSymLL[3][3] * GammaLSymUU[3][3] + GammaLSymLL[3][5] * GammaLSymUU[3][5] + GammaLSymLL[3][6] * GammaLSymUU[3][6],
 };
 local ADL = {
-A_x - 2 * D3L[1],
-A_y - 2 * D3L[2],
-A_z - 2 * D3L[3],
+a_x - 2 * D3L[1],
+a_y - 2 * D3L[2],
+a_z - 2 * D3L[3],
 };
 local ADU = {
 gammaUxx * ADL[1] + gammaUxy * ADL[2] + gammaUxz * ADL[3],
@@ -889,12 +889,12 @@ gammaUxy * ADL[1] + gammaUyy * ADL[2] + gammaUyz * ADL[3],
 gammaUxz * ADL[1] + gammaUyz * ADL[2] + gammaUzz * ADL[3],
 };
 local ADDSymLL = {
-ADU[1] * (2 * D_xxx) + ADU[2] * (2 * D_xxy) + ADU[3] * (2 * D_xxz),
-ADU[1] * (D_xxy + D_yxx) + ADU[2] * (D_xyy + D_yxy) + ADU[3] * (D_xyz + D_yxz),
-ADU[1] * (D_xxz + D_zxx) + ADU[2] * (D_xyz + D_zxy) + ADU[3] * (D_xzz + D_zxz),
-ADU[1] * (2 * D_yxy) + ADU[2] * (2 * D_yyy) + ADU[3] * (2 * D_yyz),
-ADU[1] * (D_yxz + D_zxy) + ADU[2] * (D_yyz + D_zyy) + ADU[3] * (D_yzz + D_zyz),
-ADU[1] * (2 * D_zxz) + ADU[2] * (2 * D_zyz) + ADU[3] * (2 * D_zzz),
+ADU[1] * (2 * d_xxx) + ADU[2] * (2 * d_xxy) + ADU[3] * (2 * d_xxz),
+ADU[1] * (d_xxy + d_yxx) + ADU[2] * (d_xyy + d_yxy) + ADU[3] * (d_xyz + d_yxz),
+ADU[1] * (d_xxz + d_zxx) + ADU[2] * (d_xyz + d_zxy) + ADU[3] * (d_xzz + d_zxz),
+ADU[1] * (2 * d_yxy) + ADU[2] * (2 * d_yyy) + ADU[3] * (2 * d_yyz),
+ADU[1] * (d_yxz + d_zxy) + ADU[2] * (d_yyz + d_zyy) + ADU[3] * (d_yzz + d_zyz),
+ADU[1] * (2 * d_zxz) + ADU[2] * (2 * d_zyz) + ADU[3] * (2 * d_zzz),
 };
 local R4SymLL = {
 0,
@@ -905,12 +905,12 @@ local R4SymLL = {
 0,
 };
 local SSymLL = {
--R4SymLL[1] + trK * K_xx - 2 * KSqSymLL[1] + 4 * D12SymLL[1] + Gamma31SymLL[1] - Gamma11SymLL[1] + ADDSymLL[1] + (A_x * ((2 * V_x) - D1L[1])),
--R4SymLL[2] + trK * K_xy - 2 * KSqSymLL[2] + 4 * D12SymLL[2] + Gamma31SymLL[2] - Gamma11SymLL[2] + ADDSymLL[2] + ((((2 * A_y * V_x) - (A_y * D1L[1])) + ((2 * A_x * V_y) - (A_x * D1L[2]))) / 2),
--R4SymLL[3] + trK * K_xz - 2 * KSqSymLL[3] + 4 * D12SymLL[3] + Gamma31SymLL[3] - Gamma11SymLL[3] + ADDSymLL[3] + ((((2 * A_z * V_x) - (A_z * D1L[1])) + ((2 * A_x * V_z) - (A_x * D1L[3]))) / 2),
--R4SymLL[4] + trK * K_yy - 2 * KSqSymLL[4] + 4 * D12SymLL[4] + Gamma31SymLL[4] - Gamma11SymLL[4] + ADDSymLL[4] + (A_y * ((2 * V_y) - D1L[2])),
--R4SymLL[5] + trK * K_yz - 2 * KSqSymLL[5] + 4 * D12SymLL[5] + Gamma31SymLL[5] - Gamma11SymLL[5] + ADDSymLL[5] + ((((2 * A_z * V_y) - (A_z * D1L[2])) + ((2 * A_y * V_z) - (A_y * D1L[3]))) / 2),
--R4SymLL[6] + trK * K_zz - 2 * KSqSymLL[6] + 4 * D12SymLL[6] + Gamma31SymLL[6] - Gamma11SymLL[6] + ADDSymLL[6] + (A_z * ((2 * V_z) - D1L[3])),
+-R4SymLL[1] + trK * K_xx - 2 * KSqSymLL[1] + 4 * D12SymLL[1] + Gamma31SymLL[1] - Gamma11SymLL[1] + ADDSymLL[1] + (a_x * ((2 * V_x) - D1L[1])),
+-R4SymLL[2] + trK * K_xy - 2 * KSqSymLL[2] + 4 * D12SymLL[2] + Gamma31SymLL[2] - Gamma11SymLL[2] + ADDSymLL[2] + ((((2 * a_y * V_x) - (a_y * D1L[1])) + ((2 * a_x * V_y) - (a_x * D1L[2]))) / 2),
+-R4SymLL[3] + trK * K_xz - 2 * KSqSymLL[3] + 4 * D12SymLL[3] + Gamma31SymLL[3] - Gamma11SymLL[3] + ADDSymLL[3] + ((((2 * a_z * V_x) - (a_z * D1L[1])) + ((2 * a_x * V_z) - (a_x * D1L[3]))) / 2),
+-R4SymLL[4] + trK * K_yy - 2 * KSqSymLL[4] + 4 * D12SymLL[4] + Gamma31SymLL[4] - Gamma11SymLL[4] + ADDSymLL[4] + (a_y * ((2 * V_y) - D1L[2])),
+-R4SymLL[5] + trK * K_yz - 2 * KSqSymLL[5] + 4 * D12SymLL[5] + Gamma31SymLL[5] - Gamma11SymLL[5] + ADDSymLL[5] + ((((2 * a_z * V_y) - (a_z * D1L[2])) + ((2 * a_y * V_z) - (a_y * D1L[3]))) / 2),
+-R4SymLL[6] + trK * K_zz - 2 * KSqSymLL[6] + 4 * D12SymLL[6] + Gamma31SymLL[6] - Gamma11SymLL[6] + ADDSymLL[6] + (a_z * ((2 * V_z) - D1L[3])),
 };
 local GU0L = {
 0,
@@ -918,9 +918,9 @@ local GU0L = {
 0,
 };
 local AKL = {
-A_x * KUL[1][1] + A_y * KUL[2][1] + A_z * KUL[3][1],
-A_x * KUL[1][2] + A_y * KUL[2][2] + A_z * KUL[3][2],
-A_x * KUL[1][3] + A_y * KUL[2][3] + A_z * KUL[3][3],
+a_x * KUL[1][1] + a_y * KUL[2][1] + a_z * KUL[3][1],
+a_x * KUL[1][2] + a_y * KUL[2][2] + a_z * KUL[3][2],
+a_x * KUL[1][3] + a_y * KUL[2][3] + a_z * KUL[3][3],
 };
 local K12D23L = {
 KUL[1][1] * DLUL[1][1][1] +KUL[1][2] * DLUL[1][2][1] +KUL[1][3] * DLUL[1][3][1] + KUL[2][1] * DLUL[1][1][2] +KUL[2][2] * DLUL[1][2][2] +KUL[2][3] * DLUL[1][3][2] + KUL[3][1] * DLUL[1][1][3] +KUL[3][2] * DLUL[1][2][3] +KUL[3][3] * DLUL[1][3][3],
@@ -943,9 +943,9 @@ KUL[1][2] * D3L[1] + KUL[2][2] * D3L[2] + KUL[3][2] * D3L[3],
 KUL[1][3] * D3L[1] + KUL[2][3] * D3L[2] + KUL[3][3] * D3L[3],
 };
 local PL = {
-GU0L[1] + AKL[1] - A_x * trK + K12D23L[1] + KD23L[1] - 2 * K12D12L[1] + 2 * KD12L[1],
-GU0L[2] + AKL[2] - A_y * trK + K12D23L[2] + KD23L[2] - 2 * K12D12L[2] + 2 * KD12L[2],
-GU0L[3] + AKL[3] - A_z * trK + K12D23L[3] + KD23L[3] - 2 * K12D12L[3] + 2 * KD12L[3],
+GU0L[1] + AKL[1] - a_x * trK + K12D23L[1] + KD23L[1] - 2 * K12D12L[1] + 2 * KD12L[1],
+GU0L[2] + AKL[2] - a_y * trK + K12D23L[2] + KD23L[2] - 2 * K12D12L[2] + 2 * KD12L[2],
+GU0L[3] + AKL[3] - a_z * trK + K12D23L[3] + KD23L[3] - 2 * K12D12L[3] + 2 * KD12L[3],
 };
 
 
@@ -974,13 +974,13 @@ GU0L[3] + AKL[3] - A_z * trK + K12D23L[3] + KD23L[3] - 2 * K12D12L[3] + 2 * KD12
 	return source
 end
 
--- enforce constraint V_i = D_im^m - D^m_mi
+-- enforce constraint V_i = d_im^m - D^m_mi
 function ADM3D:postIterate(solver, qs)
 	for i=1,solver.gridsize do
 		local gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz = unpack(qs[i], 2, 7)
-		local D_xxx, D_xxy, D_xxz, D_xyy, D_xyz, D_xzz = unpack(qs[i], 11, 16)
-		local D_yxx, D_yxy, D_yxz, D_yyy, D_yyz, D_yzz = unpack(qs[i], 17, 22)
-		local D_zxx, D_zxy, D_zxz, D_zyy, D_zyz, D_zzz = unpack(qs[i], 23, 28)
+		local d_xxx, d_xxy, d_xxz, d_xyy, d_xyz, d_xzz = unpack(qs[i], 11, 16)
+		local d_yxx, d_yxy, d_yxz, d_yyy, d_yyz, d_yzz = unpack(qs[i], 17, 22)
+		local d_zxx, d_zxy, d_zxz, d_zyy, d_zyz, d_zzz = unpack(qs[i], 23, 28)
 		local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33sym.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
 
 		local V_x, V_y, V_z = self:get_V_from_state(qs[i], gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz)
@@ -991,16 +991,16 @@ function ADM3D:postIterate(solver, qs)
 		else
 			-- direct assign (seems like this would be constantly overwriting the V_k source term contribution
 			if self.momentumConstraintMethod == 'directAssign' then
-				qs[i][35] = ((gammaUxy * D_xxy) + (gammaUxz * D_xxz) + (gammaUyy * D_xyy) + (2 * gammaUyz * D_xyz) + (((((((gammaUzz * D_xzz) - (gammaUxy * D_yxx)) - (gammaUxz * D_zxx)) - (gammaUyy * D_yxy)) - (gammaUyz * D_zxy)) - (gammaUyz * D_yxz)) - (gammaUzz * D_zxz)))
-				qs[i][36] = ((gammaUxx * D_yxx) + (gammaUxy * D_yxy) + (2 * gammaUxz * D_yxz) + (gammaUyz * D_yyz) + (((((((gammaUzz * D_yzz) - (gammaUxx * D_xxy)) - (gammaUxz * D_zxy)) - (gammaUxy * D_xyy)) - (gammaUyz * D_zyy)) - (gammaUxz * D_xyz)) - (gammaUzz * D_zyz)))
-				qs[i][37] = ((gammaUxx * D_zxx) + (2 * gammaUxy * D_zxy) + (gammaUxz * D_zxz) + (gammaUyy * D_zyy) + (((((((gammaUyz * D_zyz) - (gammaUxx * D_xxz)) - (gammaUxy * D_yxz)) - (gammaUxy * D_xyz)) - (gammaUyy * D_yyz)) - (gammaUxz * D_xzz)) - (gammaUyz * D_yzz)))
+				qs[i][35] = ((gammaUxy * d_xxy) + (gammaUxz * d_xxz) + (gammaUyy * d_xyy) + (2 * gammaUyz * d_xyz) + (((((((gammaUzz * d_xzz) - (gammaUxy * d_yxx)) - (gammaUxz * d_zxx)) - (gammaUyy * d_yxy)) - (gammaUyz * d_zxy)) - (gammaUyz * d_yxz)) - (gammaUzz * d_zxz)))
+				qs[i][36] = ((gammaUxx * d_yxx) + (gammaUxy * d_yxy) + (2 * gammaUxz * d_yxz) + (gammaUyz * d_yyz) + (((((((gammaUzz * d_yzz) - (gammaUxx * d_xxy)) - (gammaUxz * d_zxy)) - (gammaUxy * d_xyy)) - (gammaUyz * d_zyy)) - (gammaUxz * d_xyz)) - (gammaUzz * d_zyz)))
+				qs[i][37] = ((gammaUxx * d_zxx) + (2 * gammaUxy * d_zxy) + (gammaUxz * d_zxz) + (gammaUyy * d_zyy) + (((((((gammaUyz * d_zyz) - (gammaUxx * d_xxz)) - (gammaUxy * d_yxz)) - (gammaUxy * d_xyz)) - (gammaUyy * d_yyz)) - (gammaUxz * d_xzz)) - (gammaUyz * d_yzz)))
 			
 			-- linear projection ... would work fine if the D's weren't intermixed ... but because they are, this is 3 separate linear projections with intermixed terms ...
 			elseif self.momentumConstraintMethod == 'linearProject' then
 
 	-- x
 local aDotA = (1 + (2 * (gammaUxy ^ 2)) + (2 * (gammaUxz ^ 2)) + (2 * (gammaUyy ^ 2)) + (6 * (gammaUyz ^ 2)) + (2 * (gammaUzz ^ 2)))
-local vDotA = ((((((-(gammaUxy * D_xxy)) - (gammaUxz * D_xxz)) - (gammaUyy * D_xyy)) - (2 * gammaUyz * D_xyz)) - (gammaUzz * D_xzz)) + (gammaUxy * D_yxx) + (gammaUyy * D_yxy) + (gammaUyz * D_yxz) + (gammaUxz * D_zxx) + (gammaUyz * D_zxy) + (gammaUzz * D_zxz) + V_x)
+local vDotA = ((((((-(gammaUxy * d_xxy)) - (gammaUxz * d_xxz)) - (gammaUyy * d_xyy)) - (2 * gammaUyz * d_xyz)) - (gammaUzz * d_xzz)) + (gammaUxy * d_yxx) + (gammaUyy * d_yxy) + (gammaUyz * d_yxz) + (gammaUxz * d_zxx) + (gammaUyz * d_zxy) + (gammaUzz * d_zxz) + V_x)
 local v_a = vDotA / aDotA
 local epsilon = 1/100
 qs[i][12] = qs[i][12] + (epsilon * v_a * gammaUxy)
@@ -1017,7 +1017,7 @@ qs[i][25] = qs[i][25] + (-(epsilon * v_a * gammaUzz))
 qs[i][35] = qs[i][35] + (-(epsilon * v_a))
 	-- y
 local aDotA = (1 + (2 * (gammaUxx ^ 2)) + (2 * (gammaUxy ^ 2)) + (6 * (gammaUxz ^ 2)) + (2 * (gammaUyz ^ 2)) + (2 * (gammaUzz ^ 2)))
-local vDotA = ((gammaUxx * D_xxy) + (gammaUxy * D_xyy) + ((((((gammaUxz * D_xyz) - (gammaUxx * D_yxx)) - (gammaUxy * D_yxy)) - (2 * gammaUxz * D_yxz)) - (gammaUyz * D_yyz)) - (gammaUzz * D_yzz)) + (gammaUxz * D_zxy) + (gammaUyz * D_zyy) + (gammaUzz * D_zyz) + V_y)
+local vDotA = ((gammaUxx * d_xxy) + (gammaUxy * d_xyy) + ((((((gammaUxz * d_xyz) - (gammaUxx * d_yxx)) - (gammaUxy * d_yxy)) - (2 * gammaUxz * d_yxz)) - (gammaUyz * d_yyz)) - (gammaUzz * d_yzz)) + (gammaUxz * d_zxy) + (gammaUyz * d_zyy) + (gammaUzz * d_zyz) + V_y)
 local v_a = vDotA / aDotA
 local epsilon = 1/100
 qs[i][12] = qs[i][12] + (-(epsilon * v_a * gammaUxx))
@@ -1034,7 +1034,7 @@ qs[i][27] = qs[i][27] + (-(epsilon * v_a * gammaUzz))
 qs[i][36] = qs[i][36] + (-(epsilon * v_a))
 	-- z
 local aDotA = (1 + (2 * (gammaUxx ^ 2)) + (6 * (gammaUxy ^ 2)) + (2 * (gammaUxz ^ 2)) + (2 * (gammaUyy ^ 2)) + (2 * (gammaUyz ^ 2)))
-local vDotA = ((gammaUxx * D_xxz) + (gammaUxy * D_xyz) + (gammaUxz * D_xzz) + (gammaUxy * D_yxz) + (gammaUyy * D_yyz) + ((((((gammaUyz * D_yzz) - (gammaUxx * D_zxx)) - (2 * gammaUxy * D_zxy)) - (gammaUxz * D_zxz)) - (gammaUyy * D_zyy)) - (gammaUyz * D_zyz)) + V_z)
+local vDotA = ((gammaUxx * d_xxz) + (gammaUxy * d_xyz) + (gammaUxz * d_xzz) + (gammaUxy * d_yxz) + (gammaUyy * d_yyz) + ((((((gammaUyz * d_yzz) - (gammaUxx * d_zxx)) - (2 * gammaUxy * d_zxy)) - (gammaUxz * d_zxz)) - (gammaUyy * d_zyy)) - (gammaUyz * d_zyz)) + V_z)
 local v_a = vDotA / aDotA
 local epsilon = 1/100
 qs[i][13] = qs[i][13] + (-(epsilon * v_a * gammaUxx))
