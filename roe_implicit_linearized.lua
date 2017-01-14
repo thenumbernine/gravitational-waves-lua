@@ -41,7 +41,7 @@ function RoeImplicitLinearized:step(dt)
 
 	local linearSolverArgs = {
 		--maxiter = 1000,
-		x0 = qs:clone(),
+		x = qs:clone(),
 		epsilon = self.linearSolverEpsilon, 
 		maxiter = self.linearSolverMaxIter,
 		restart = self.linearSolverRestart,

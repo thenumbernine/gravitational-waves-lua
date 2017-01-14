@@ -28,7 +28,7 @@ function EulerBackwardEulerLinear:iterate()
 	local q = self.qs
 	self.qs = self.linearSolver{
 		b = q:clone(),
-		x0 = q:clone(),
+		x = q:clone(),
 		A = function(x)
 			local y = x:clone()
 			for i=1,self.gridsize do

@@ -57,8 +57,8 @@ local table = require 'ext.table'
 local Roe = require 'roe'
 local HLL = require 'hll'
 local matrix = require 'matrix'
-local solveQR = require 'LinearSolvers.solveQR'
-local solveLUP = require 'LinearSolvers.solveLUP'
+local solveQR = require 'solver.solve_qr'
+local solveLUP = require 'solver.solve_lup'
 local Euler1DSS = class(Roe)
 --local Euler1DSS = class(HLL)
 

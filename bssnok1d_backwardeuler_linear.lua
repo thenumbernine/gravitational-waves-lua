@@ -126,7 +126,7 @@ function BSSNOK1DBackwardEulerLinear:step(dt, getLeft, getRight)
 	local qs = self.qs
 	self.qs = self.linearSolver{
 		b = qs:clone(),
-		x0 = qs:clone(),
+		x = qs:clone(),
 		A = function(qs)
 			qs = qs - dt * calc_dq_dt(qs)
 			--self.boundaryMethod(qs)
