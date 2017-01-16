@@ -185,7 +185,9 @@ function MHD:calcRoeValues(qL, qR)
 	local bz = (sqrtRhoR * bzL + sqrtRhoL * bzR) * invDenom
 	
 	local hTotal = (sqrtRhoL * hTotalL + sqrtRhoR * hTotalR) * invDenom
-	local X = .5*((byL - byR)^2 + (bzL - bzR)^2)/((sqrtRhoL + sqrtRhoR)^2)
+	local dby = byL - byR
+	local dbz = bzL - bzR
+	local X = .5*(dby * dby + dbz * dbz) * invDenom * invDenom
 	local Y = .5*(rhoL + rhoR)/rho
 	
 	return rho, vx, vy, vz, bx, by, bz, hTotal, X, Y
@@ -353,9 +355,11 @@ function MHD:calcCellCenterRoeValues(solver, i)
 end
 
 local function permute8to7(v1,v2,v3,v4,v5,v6,v7,v8)
+	-- rho, mx, my, mz, ETotal, by, bz
 	return v1,v2,v3,v4,v8,v6,v7
 end
 local function permute7to8(v1,v2,v3,v4,v5,v6,v7)
+	-- rho, mx, my, mz, bx, by, bz, ETotal
 	return v1,v2,v3,v4,0,v6,v7,v5
 end
 

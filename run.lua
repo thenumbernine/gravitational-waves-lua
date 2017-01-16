@@ -336,7 +336,7 @@ do
 	sims:insert(Roe(table(args, {equation=MHD()})))
 	--sims:insert(HLL(table(args, {equation=MHD()})))
 	--sims:insert(RoePLM(table(args, {equation=MHD(), fluxLimiter=limiter.donorCell})))
-	sims:insert(RoeImplicitLinearized(table(args, {equation=MHD()})))
+	--sims:insert(RoeImplicitLinearized(table(args, {equation=MHD()})))
 
 	-- srhd Marti & Muller 2003 problem #1
 	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.4249}, gridsize=400, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
