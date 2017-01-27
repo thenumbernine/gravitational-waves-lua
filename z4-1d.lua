@@ -86,8 +86,8 @@ K_xx,t = - alpha a_x,x
 		- 2 alpha Theta K_xx
 		- alpha S_xx
 		+ 1/2 alpha (S_xx / gamma_xx - tau) gamma_xx
-Theta,t = -1/2 alpha Z_x gamma_xx,x / gamma_xx^2
-		+ alpha Z_x,x / gamma_xx
+Theta,t = alpha Z_x,x / gamma_xx
+		- alpha Z_x d_xxx / gamma_xx^2
 		- alpha Theta K_xx / gamma_xx
 		- alpha tau
 		- alpha a_x Z_x / gamma_xx
@@ -95,6 +95,54 @@ Z_x,t = alpha Theta,x
 		- 2 alpha Z_x K_xx / gamma_xx
 		- alpha S_x
 		- alpha Theta a_x
+
+
+as a matrix:
+
+[ alpha		]	[	0,	0,	0,		0,	0,					0,			0					] [ alpha		]		[ -f alpha^2 (K_xx / gamma_xx - m Theta ]
+[ gamma_xx	]	[	0,	0,	0,		0,	0,					0,			0					] [ gamma_xx	] 		[ -2 alpha K_xx ]
+[ a_x		]	[	0,	0,	0,		0,	f alpha / gamma_xx,	-f alpha m,	0					] [ a_x			]		[ -alpha a_x (f' alpha + f) (K_xx / gamma_xx - m Theta) + 2 f alpha K_xx d_xxx / gamma_xx^2	]
+[ d_xxx		] =	[	0,	0,	0,		0,	alpha,				0,			0					] [ d_xxx		]	=	[ -alpha a_x K_xx	]
+[ K_xx		]	[	0,	0,	alpha,	0,	0,					0,			-2 alpha			] [ K_xx		]		[ alpha (- a_x^2 + d_xxx (a_x - 2 Z_x) / gamma_xx - K_xx (K_xx / gamma_xx + 2 Theta) - 1/2 (S_xx + tau gamma_xx) ]
+[ Theta		]	[	0,	0,	0,		0,	0,					0,			-alpha / gamma_xx	] [ Theta		]		[ -alpha ((Z_x (a_x + d_xxx / gamma_xx) + Theta K_xx) / gamma_xx + tau)	]
+[ Z_x		]	[	0,	0,	0,		0,	0,					-alpha,		0					] [ Z_x			],x 	[ -alpha (2 Z_x K_xx / gamma_xx + Theta a_x + S_x) ]
+
+V_x = -Z_x in 1D
+
+eigenvalue = 0:
+eigenfields: alpha, gamma_ij, a_p, d_pij, a_k - f d_k + f m V_k
+1D: alpha, gamma_xx, a_x - f d_xxx / gamma_xx - f m Z_x
+
+eigenvalue = +- alpha
+eigenfields: (K_ij - n_i n_j K) +- (lambda^n_ij - n_i n_j tr lambda^n)
+		Theta +- V^n
+1D: 	K_xx - K_xx / gamma_xx +- lambda^x_xx -+ tr lambda^x
+		Theta -+ Z_x / gamma_xx
+
+eigenvalue = +- alpha sqrt(f)
+eigenfields: sqrt(f) (tr K - mu Theta) +- (a^n + (2 - mu) V^n)
+1D: sqrt(f) (K_xx / gamma_xx - mu Theta) +- (a_x / gamma_xx - (2 - mu) Z_x / gamma_xx)
+
+hmm, there's 9 here, which means 2 of them don't apply to the 1D case ...
+
+let's see what the eigenvalues of the linear system give:
+
+eigenvalues:
+matrix([-(alpha*sqrt(f))/sqrt(g_xx),0,0,0,0],[0,-alpha*sqrt(g_xx),0,0,0],[0,0,0,0,0],[0,0,0,alpha*sqrt(g_xx),0],[0,0,0,0,(alpha*sqrt(f))/sqrt(g_xx)])
+
+right eigenvectors:
+matrix([f,f*g_xx^2*m-2*f,0,f*g_xx^2*m-2*f,f],[g_xx,f*g_xx*m-2*g_xx,1,f*g_xx*m-2*g_xx,g_xx],[-sqrt(f)*sqrt(g_xx),sqrt(g_xx)*(2*g_xx-f*g_xx*m),0,sqrt(g_xx)*(f*g_xx*m-2*g_xx),sqrt(f)*sqrt(g_xx)],[0,sqrt(g_xx)*(g_xx^2-f),0,sqrt(g_xx)*(f-g_xx^2),0],[0,g_xx^2-f,0,g_xx^2-f,0])
+
+left eigenvectors:
+matrix([1/(2*f),0,-1/(2*sqrt(f)*sqrt(g_xx)),-(sqrt(g_xx)*(f*m-2))/(sqrt(f)*(2*g_xx^2-2*f)),-(g_xx^2*m-2)/(2*g_xx^2-2*f)],[0,0,0,1/(sqrt(g_xx)*(2*g_xx^2-2*f)),1/(2*g_xx^2-2*f)],[-g_xx/f,1,0,0,g_xx*m],[0,0,0,-1/(sqrt(g_xx)*(2*g_xx^2-2*f)),1/(2*g_xx^2-2*f)],[1/(2*f),0,1/(2*sqrt(f)*sqrt(g_xx)),(sqrt(g_xx)*(f*m-2))/(sqrt(f)*(2*g_xx^2-2*f)),-(g_xx^2*m-2)/(2*g_xx^2-2*f)])
+
+eigenfields (left eigenvectors times state):
+matrix([-(sqrt(g_xx)*(Z_x*f*g_xx^2*m-a_x*g_xx^2+(a_x-2*Z_x)*f)+sqrt(f)*(Theta*f*g_xx*m+K_xx*g_xx^2-2*Theta*g_xx-K_xx*f))/sqrt(g_xx)],[(Z_x*f*sqrt(g_xx)+Theta*f)/sqrt(g_xx)],[Z_x*f*g_xx*m-a_x*g_xx+d_xxx*f],[(Z_x*f*sqrt(g_xx)-Theta*f)/sqrt(g_xx)],[-(sqrt(g_xx)*(Z_x*f*g_xx^2*m-a_x*g_xx^2+(a_x-2*Z_x)*f)+sqrt(f)*(-Theta*f*g_xx*m-K_xx*g_xx^2+2*Theta*g_xx+K_xx*f))/sqrt(g_xx)])
+
+hmm, this isn't getting the light-cone (+- alpha) eigenvalues at all, and is instead getting +- alpha sqrt(f / gamma_xx)
+hmm, Alcubierre has no eigenvalues for Z4, but for Bona-Masso ADM it has gauge as alpha sqrt(f / gamma_xx) and light as alpha / sqrt(gamma_xx)
+	... while the Z4 paper says alpha sqrt(f) is gauge waves and alpha is light cone 
+
 --]]
 
 local class = require 'ext.class'
@@ -105,6 +153,11 @@ Z41D.name = 'Z4-1D'
 
 Z41D.numStates = 7
 Z41D.numWaves = 5	-- no waves for alpha and gamma_xx, which are purely source-driven
+
+local m = 2	-- "for f=1 one must have m=2"
+local tau = 0
+local S_x = 0
+local S_xx = 0
 
 -- initial conditions
 function Z41D:init(args, ...)
@@ -182,4 +235,91 @@ function Z41D:initCell(sim,i)
 	return {alpha, gamma_xx, a_x, d_xxx, K_xx, Theta, Z_x}
 end
 
+function Z41D:calcEigenvalues(alpha, gamma_xx, f)
+	local f = self.calc.f(alpha)
+	local sqrt_gamma_xx = math.sqrt(gamma_xx)
+	local lambda1 = alpha * math.sqrt(f) / sqrt_gamma_xx
+	local lambda2 = alpha * sqrt_gamma_xx
+	return -lambda1, -lambda2, 0, lambda2, lambda1
+end
 
+-- returns averaging of variables used for interface eigenbasis
+function Z41D:calcRoeValues(qL, qR)
+	local alpha = (qL[1] + qR[1]) / 2
+	local gamma_xx = (qL[2] + qR[2]) / 2
+	local f = self.calc.f(alpha)
+	return alpha, gamma_xx, f	
+end
+
+function Z41D:calcEigenBasis(lambda, evr, evl, dF_dU, alpha, gamma_xx, f)
+	fill(lambda, self:calcEigenvalues(alpha, gamma_xx, f))
+	fill(evl, f, gamma_xx)
+	fill(evr, f, gamma_xx)
+	if dF_dU then fill(dF_dU, alpha, gamma_xx, f) end
+end
+
+function Z41D:fluxMatrixTransform(solver, A, v)
+	local alpha, gamma_xx, f = table.unpack(A)
+	local _, _, v1, v2, v3, v4, v5 = table.unpack(v)	-- skip alpha, gamma_xx, and transform the rest: a_x, d_xxx, K_xx, Theta, Z_x
+	return {
+		0,
+		0,
+		(alpha*f*v3)/gamma_xx-alpha*f*m*v4,
+		alpha*v3,
+		alpha*v1-2*alpha*v5,
+		-alpha*gamma_xx*v5,
+		-alpha*v4,
+	}
+end
+
+function Z41D:eigenLeftTransform(solver, evL, v)
+	local f, gamma_xx = table.unpack(evL)
+	local _, _, v1, v2, v3, v4, v5 = table.unpack(v)	-- skip alpha, gamma_xx, and transform the rest: a_x, d_xxx, K_xx, Theta, Z_x
+	return {
+		-((gamma_xx^2*m-2)*v5)/(2*gamma_xx^2-2*f)-(math.sqrt(gamma_xx)*(f*m-2)*v4)/(math.sqrt(f)*(2*gamma_xx^2-2*f))-v3/(2*math.sqrt(f)*math.sqrt(gamma_xx))+v1/(2*f),
+		v5/(2*gamma_xx^2-2*f)+v4/(math.sqrt(gamma_xx)*(2*gamma_xx^2-2*f)),
+		gamma_xx*m*v5+v2-(gamma_xx*v1)/f,
+		v5/(2*gamma_xx^2-2*f)-v4/(math.sqrt(gamma_xx)*(2*gamma_xx^2-2*f)),
+		-((gamma_xx^2*m-2)*v5)/(2*gamma_xx^2-2*f)+(math.sqrt(gamma_xx)*(f*m-2)*v4)/(math.sqrt(f)*(2*gamma_xx^2-2*f))+v3/(2*math.sqrt(f)*math.sqrt(gamma_xx))+v1/(2*f),
+	}
+end
+
+function Z41D:eigenRightTransform(solver, evR, v)
+	local f, gamma_xx = table.unpack(evR)
+	local v1, v2, v3, v4, v5 = table.unpack(v)
+	return {
+		0,
+		0,
+		f*v5+(f*gamma_xx^2*m-2*f)*v4+(f*gamma_xx^2*m-2*f)*v2+f*v1,
+		gamma_xx*v5+(f*gamma_xx*m-2*gamma_xx)*v4+v3+(f*gamma_xx*m-2*gamma_xx)*v2+gamma_xx*v1,
+		math.sqrt(f)*math.sqrt(gamma_xx)*v5+math.sqrt(gamma_xx)*(f*gamma_xx*m-2*gamma_xx)*v4+math.sqrt(gamma_xx)*(2*gamma_xx-f*gamma_xx*m)*v2-math.sqrt(f)*math.sqrt(gamma_xx)*v1,
+		math.sqrt(gamma_xx)*(f-gamma_xx^2)*v4+math.sqrt(gamma_xx)*(gamma_xx^2-f)*v2,
+		(gamma_xx^2-f)*v4+(gamma_xx^2-f)*v2,
+	}
+end
+
+function Z41D:calcCellMinMaxEigenvalues(sim, i)
+	local alpha, gamma_xx = table.unpack(sim.qs[i])
+	local f = self.calc.f(alpha)
+	return firstAndLast(self:calcEigenvalues(alpha, gamma_xx, f))
+end
+
+function Z41D:sourceTerm(sim, qs)
+	local source = sim:newState()
+	for i=1,sim.gridsize do
+		local alpha, gamma_xx, a_x, d_xxx, K_xx, Theta, Z_x = table.unpack(qs[i])
+		local f = self.calc.f(alpha)
+		local dalpha_f = self.calc.dalpha_f(alpha)
+		
+		source[i][1] = -f * alpha * alpha * (K_xx / gamma_xx - m * Theta)
+		source[i][2] = -2 * alpha * K_xx
+		--source[i][3] = -alpha * a_x * (dalpha_f * alpha + f) * (K_xx / gamma_xx - m * Theta) + 2 * f * alpha * K_xx * d_xxx / (gamma_xx * gamma_xx)
+		--source[i][4] = -alpha * a_x * K_xx
+		source[i][5] = alpha * (-a_x * a_x + d_xxx * (a_x - 2 * Z_x) / gamma_xx - K_xx * (K_xx / gamma_xx + 2 * Theta) - 1/2 * (S_xx + tau * gamma_xx))
+		--source[i][6] = -alpha * ((Z_x * (a_x + d_xxx / gamma_xx) + Theta * K_xx) / gamma_xx + tau)
+		--source[i][7] = -alpha * (2 * Z_x * K_xx / gamma_xx + Theta * a_x + S_x)
+	end
+	return source
+end
+
+return Z41D
