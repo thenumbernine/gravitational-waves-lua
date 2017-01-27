@@ -130,7 +130,7 @@ function ADM1D3Var:initCell(sim,i)
 	local alpha = self.calc.alpha(x)
 	local gamma_xx = self.calc.gamma_xx(x)
 	local a_x = self.calc.dx_alpha(x) / self.calc.alpha(x)
-	local D_g = 1/2 * self.calc.dx_gamma_xx(x)
+	local D_g = self.calc.dx_gamma_xx(x) / self.calc.gamma_xx(x)
 	local K_xx = self.calc.K_xx(x) 
 	local KTilde_xx = K_xx / math.sqrt(gamma_xx)
 	return {alpha, gamma_xx, a_x, D_g, KTilde_xx}

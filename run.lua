@@ -59,7 +59,7 @@ local ADM3D = require 'adm3d'
 -- setup
 local sims = table()
 
---[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+-- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -106,7 +106,7 @@ do
 
 	-- [=[ compare different equations/formalisms 
 	-- these two match:
-	--sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
+	sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
 	sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
 	-- these two match, but differ from the first two:
 	sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs a_x half what it should (or the others calculate it double what it should be ...)
@@ -122,6 +122,7 @@ do
 	--sims:insert(RoePLM(table(args, {equation=BSSNOK1D(equationArgs), fluxLimiter=limiter.donorCell})))
 	
 	-- and here's the start of my looking into implicit solvers.
+	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D3Var(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D3to5Var(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D5Var(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM3D(equationArgs)})))
@@ -286,7 +287,7 @@ end
 --]]
 
 
--- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+--[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
 	local args = {
 		equation = Euler1D(),
@@ -333,7 +334,7 @@ do
 	--sims:insert(require 'euler1d_dft'(args))
 	
 	-- mhd:
-	sims:insert(Roe(table(args, {equation=MHD()})))
+	--sims:insert(Roe(table(args, {equation=MHD()})))
 	--sims:insert(HLL(table(args, {equation=MHD()})))
 	--sims:insert(RoePLM(table(args, {equation=MHD(), fluxLimiter=limiter.donorCell})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation=MHD()})))
