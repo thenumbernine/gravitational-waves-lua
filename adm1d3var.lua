@@ -3,7 +3,7 @@
 Based on the book "Introduction to 3+1 Numerical Relativity" and on the paper "Introduction to Numerical Relativity", both by Alcubierre
 
 a_x = (ln alpha),x = alpha,x / alpha
-d_xxx = 1/2 gamma_xx,x
+d_xxx = 1/2 gamma_xx,x = 1/2 gamma_xx D_g
 D_g = (ln gamma_xx),x = gamma_xx,x / gamma_xx = 2 d_xxx / gamma_xx
 KTilde_xx = sqrt(gamma_xx) K_xx
 

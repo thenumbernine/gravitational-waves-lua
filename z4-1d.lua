@@ -139,7 +139,7 @@ matrix([1/(2*f),0,-1/(2*sqrt(f)*sqrt(g_xx)),-(sqrt(g_xx)*(f*m-2))/(sqrt(f)*(2*g_
 eigenfields (left eigenvectors times state):
 matrix([-(sqrt(g_xx)*(Z_x*f*g_xx^2*m-a_x*g_xx^2+(a_x-2*Z_x)*f)+sqrt(f)*(Theta*f*g_xx*m+K_xx*g_xx^2-2*Theta*g_xx-K_xx*f))/sqrt(g_xx)],[(Z_x*f*sqrt(g_xx)+Theta*f)/sqrt(g_xx)],[Z_x*f*g_xx*m-a_x*g_xx+d_xxx*f],[(Z_x*f*sqrt(g_xx)-Theta*f)/sqrt(g_xx)],[-(sqrt(g_xx)*(Z_x*f*g_xx^2*m-a_x*g_xx^2+(a_x-2*Z_x)*f)+sqrt(f)*(-Theta*f*g_xx*m-K_xx*g_xx^2+2*Theta*g_xx+K_xx*f))/sqrt(g_xx)])
 
-hmm, this isn't getting the light-cone (+- alpha) eigenvalues at all, and is instead getting +- alpha sqrt(f / gamma_xx)
+hmm, this isn't getting the light-cone (+- alpha) eigenvalues at all, and is instead getting +- alpha sqrt(f / gamma_xx) and the expected +- alpha sqrt(gamma_xx)
 hmm, Alcubierre has no eigenvalues for Z4, but for Bona-Masso ADM it has gauge as alpha sqrt(f / gamma_xx) and light as alpha / sqrt(gamma_xx)
 	... while the Z4 paper says alpha sqrt(f) is gauge waves and alpha is light cone 
 
