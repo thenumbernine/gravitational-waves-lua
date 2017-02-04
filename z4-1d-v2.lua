@@ -277,17 +277,17 @@ end
 function Z41Dv2:sourceTerm(sim, qs)
 	local source = sim:newState()
 	for i=1,sim.gridsize do
-		local alpha, gamma_xx, a_x, d_xxx, K_xx, Theta, Z_x = table.unpack(qs[i])
+		local alpha, gamma_xx, a_x, D_g, KTilde_xx, Theta, Z_x = table.unpack(qs[i])
 		local f = self.calc.f(alpha)
 		local dalpha_f = self.calc.dalpha_f(alpha)
-		
-		source[i][1] = -f * alpha * alpha * (K_xx / gamma_xx - m * Theta)
-		source[i][2] = -2 * alpha * K_xx
-		--source[i][3] = -alpha * a_x * (dalpha_f * alpha + f) * (K_xx / gamma_xx - m * Theta) + 2 * f * alpha * K_xx * d_xxx / (gamma_xx * gamma_xx)
-		--source[i][4] = -alpha * a_x * K_xx
-		source[i][5] = alpha * (-a_x * a_x + d_xxx * (a_x - 2 * Z_x) / gamma_xx - K_xx * (K_xx / gamma_xx + 2 * Theta) - 1/2 * (S_xx + tau * gamma_xx))
-		--source[i][6] = -alpha * ((Z_x * (a_x + d_xxx / gamma_xx) + Theta * K_xx) / gamma_xx + tau)
-		--source[i][7] = -alpha * (2 * Z_x * K_xx / gamma_xx + Theta * a_x + S_x)
+
+		source[i][1] = -f * alpha^2 * (KTilde_xx / gamma_xx^1.5 - m * Theta)
+		source[i][2] = -2 * alpha * KTilde_xx / gamma_xx^.5
+		source[i][3] = alpha * ((1.5 * f * D_g - a_x * (dalpha_f * alpha + f)) * KTilde_xx / gamma_xx^1.5 + a_x * (dalpha_f * alpha + f) * m * Theta)
+		source[i][4] = (3 * D_g - 2 * a_x) * alpha * KTilde_xx / gamma_xx^1.5
+		source[i][5] = alpha * math.sqrt(gamma_xx) * (.5 * D_g * a_x - a_x^2 - D_g * Z_x - 2 * KTilde_xx / gamma_xx * (KTilde_xx / gamma_xx + Theta) - .5 * S_xx - .5 * tau * gamma_xx)
+		source[i][6] = -alpha * (Theta * KTilde_xx / gamma_xx^1.5 + (a_x + .5 * D_g) * Z_x / gamma_xx + tau)
+		source[i][7] = -alpha * (2 * Z_x * KTilde_xx / gamma_xx^1.5 + S_x + Theta * a_x)
 	end
 	return source
 end
