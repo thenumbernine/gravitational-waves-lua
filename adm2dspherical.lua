@@ -170,63 +170,70 @@ function ADM2DSpherical:initCell(sim,i)
 	local A_r = self.calc_dr_alpha(r)
 	local D_rrr = self.calc_dr_gamma_rr(r)/2
 	local D_rhh = self.calc_dr_gamma_hh(r)/2
-	local K_rr = -self.calc_d2r_h(r) / sqrt(gamma_rr)
-	local K_hh = -r * self.calc_dr_h(r) / sqrt(gamma_rr)
+	local K_rr = -self.calc_d2r_h(r) / math.sqrt(gamma_rr)
+	local K_hh = -r * self.calc_dr_h(r) / math.sqrt(gamma_rr)
 	local V_r = D_rhh / gamma_hh
 	return {alpha, gamma_rr, gamma_hh, A_r, D_rrr, D_rhh, K_rr, K_hh, V_r}
 end
 
-function ADM2DSpherical:calcInterfaceEigenBasis(sim,i,qL,qR)
+function ADM2DSpherical:calcRoeValues(qL, qR)
 	local avgQ = {}
 	for j=1,self.numStates do
 		avgQ[j] = (qL[j] + qR[j]) / 2
 	end
-	
-	local alpha, gamma_rr, gamma_hh, A_r, D_rrr, D_rhh, K_rr, K_hh, V_r = unpack(avgQ)
-	local x = sim.ixs[i]
+	return x, table.unpack(avgQ)
+end
+
+function ADM2DSpherical:calcEigenBasis(lambda, evr, evl, dF_dU, x, alpha, gamma_rr, gamma_hh, A_r, D_rrr, D_rhh, K_rr, K_hh, V_r)
 	local f = self.calc_f(alpha)
 	local tr_K = K_rr / gamma_rr + K_hh / gamma_hh
 
-	local l1 = alpha / sqrt(gamma_rr)
-	local l2 = alpha * sqrt(f / gamma_rr)
-	sim.eigenvalues[i] = {-l2, -l1, 0, 0, 0, 0, 0, l1, l2}
+	local l1 = alpha / math.sqrt(gamma_rr)
+	local l2 = alpha * math.sqrt(f / gamma_rr)
+	fill(lambda, -l2, -l1, 0, 0, 0, 0, 0, l1, l2)
 
 	-- row-major, math-indexed
 	local lambdaUr_rr = A_r + 2 * V_r - 2 * D_rhh / gamma_hh
 	local lambdaUr_hh = D_rhh / gamma_rr
-	sim.fluxMatrix[i] = {
-		{0,0,0,0,0,0,0,0,0},
-		{0,0,0,0,0,0,0,0,0},
-		{0,0,0,0,0,0,0,0,0},
-		{f * tr_K, -alpha * f * K_rr/gamma_rr^2, -alpha * f * K_hh/gamma_hh^2, 0, 0, 0, alpha * f / gamma_rr, alpha * f / gamma_hh, 0},
-		{K_rr, 0, 0, 0, 0, 0, alpha, 0, 0},
-		{K_hh, 0, 0, 0, 0, 0, 0, alpha, 0},
-		{lambdaUr_rr, 0, 2 * alpha * D_rhh/gamma_hh^2, alpha, 0, -2 * alpha/gamma_hh, 0, 0, 2 * alpha},
-		{lambdaUr_hh, -alpha/gamma_rr^2, 0, 0, 0, alpha/gamma_rr, 0, 0, 0},
-		{0,0,0,0,0,0,0,0,0},
-	}
-	sim.rightEigenvectors[i] = {
-		{0,0,1,0,0,0,0,0,0},
-		{0,0,0,1,0,0,0,0,0},
-		{0,0,0,0,1,0,0,0,0},
-		{-1/2,0,0,0,0,-2,0,0,1/2},
-		{-gamma_rr/(2*f),gamma_rr/(2*gamma_hh),0,0,0,-(2*gamma_rr)/f,-1/f,-gamma_rr/(2*gamma_hh),gamma_rr/(2*f)},
-		{0,-1/2,0,0,0,0,0,1/2,0},
-		{.5*sqrt(gamma_rr/f),-sqrt(gamma_rr)/(2*gamma_hh),0,0,0,0,0,-sqrt(gamma_rr)/(2*gamma_hh),.5*sqrt(gamma_rr/f)},
-		{0,1/(2*sqrt(gamma_rr)),0,0,0,0,0,1/(2*sqrt(gamma_rr)),0},
-		{0,0,0,0,0,1,0,0,0}
-	}
-	sim.leftEigenvectors[i] = {
-		{0, 0, 0, -1, 0, 0, sqrt(f/gamma_rr), sqrt(f*gamma_rr)/gamma_hh, -2},
-		{0, 0, 0, 0, 0, -1, 0, sqrt(gamma_rr), 0},
-		{1, 0, 0, 0, 0, 0, 0, 0, 0}, 
-		{0, 1, 0, 0, 0, 0, 0, 0, 0}, 
-		{0, 0, 1, 0, 0, 0, 0, 0, 0}, 
-		{0, 0, 0, 0, 0, 0, 0, 0, 1}, 
-		{0, 0, 0, gamma_rr, -f, -f*gamma_rr/gamma_hh, 0, 0, 0}, 
-		{0, 0, 0, 0, 0, 1, 0, sqrt(gamma_rr), 0},
-		{0, 0, 0, 1, 0, 0, sqrt(f/gamma_rr), sqrt(f*gamma_rr)/gamma_hh, 2}	
-	}
+	if dF_dU then
+		fill(dF_dU, 
+			{0,0,0,0,0,0,0,0,0},
+			{0,0,0,0,0,0,0,0,0},
+			{0,0,0,0,0,0,0,0,0},
+			{f * tr_K, -alpha * f * K_rr/gamma_rr^2, -alpha * f * K_hh/gamma_hh^2, 0, 0, 0, alpha * f / gamma_rr, alpha * f / gamma_hh, 0},
+			{K_rr, 0, 0, 0, 0, 0, alpha, 0, 0},
+			{K_hh, 0, 0, 0, 0, 0, 0, alpha, 0},
+			{lambdaUr_rr, 0, 2 * alpha * D_rhh/gamma_hh^2, alpha, 0, -2 * alpha/gamma_hh, 0, 0, 2 * alpha},
+			{lambdaUr_hh, -alpha/gamma_rr^2, 0, 0, 0, alpha/gamma_rr, 0, 0, 0},
+			{0,0,0,0,0,0,0,0,0}
+		)
+	end
+	if evr then
+		fill(evr, 
+			{0,0,1,0,0,0,0,0,0},
+			{0,0,0,1,0,0,0,0,0},
+			{0,0,0,0,1,0,0,0,0},
+			{-1/2,0,0,0,0,-2,0,0,1/2},
+			{-gamma_rr/(2*f),gamma_rr/(2*gamma_hh),0,0,0,-(2*gamma_rr)/f,-1/f,-gamma_rr/(2*gamma_hh),gamma_rr/(2*f)},
+			{0,-1/2,0,0,0,0,0,1/2,0},
+			{.5*math.sqrt(gamma_rr/f),-math.sqrt(gamma_rr)/(2*gamma_hh),0,0,0,0,0,-math.sqrt(gamma_rr)/(2*gamma_hh),.5*math.sqrt(gamma_rr/f)},
+			{0,1/(2*math.sqrt(gamma_rr)),0,0,0,0,0,1/(2*math.sqrt(gamma_rr)),0},
+			{0,0,0,0,0,1,0,0,0}
+		)
+	end
+	if evl then
+		fill(evl, 
+			{0, 0, 0, -1, 0, 0, math.sqrt(f/gamma_rr), math.sqrt(f*gamma_rr)/gamma_hh, -2},
+			{0, 0, 0, 0, 0, -1, 0, math.sqrt(gamma_rr), 0},
+			{1, 0, 0, 0, 0, 0, 0, 0, 0}, 
+			{0, 1, 0, 0, 0, 0, 0, 0, 0}, 
+			{0, 0, 1, 0, 0, 0, 0, 0, 0}, 
+			{0, 0, 0, 0, 0, 0, 0, 0, 1}, 
+			{0, 0, 0, gamma_rr, -f, -f*gamma_rr/gamma_hh, 0, 0, 0}, 
+			{0, 0, 0, 0, 0, 1, 0, math.sqrt(gamma_rr), 0},
+			{0, 0, 0, 1, 0, 0, math.sqrt(f/gamma_rr), math.sqrt(f*gamma_rr)/gamma_hh, 2}	
+		)
+	end
 end
 
 function ADM2DSpherical:calcEigenvaluesFromCons(alpha, gamma_rr, ...) 
@@ -265,7 +272,7 @@ function ADM2DSpherical:postIterate(sim, qs)
 		qs[i][9] = 2 * qs[i][6] / qs[i][3]
 		--]]
 		-- [[ geometric renormalization
-		local c = abs(2 * qs[i][6] / (qs[i][3] * qs[i][9]))^(1/3)
+		local c = math.abs(2 * qs[i][6] / (qs[i][3] * qs[i][9]))^(1/3)
 		qs[i][3] = qs[i][3] * c
 		qs[i][6] = qs[i][6] / c
 		qs[i][9] = qs[i][9] * c

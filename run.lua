@@ -61,7 +61,7 @@ local Z41Dv2 = require 'z4-1d-v2'
 -- setup
 local sims = table()
 
--- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+--[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -116,8 +116,8 @@ do
 	-- this one is similar to the last two, but off by just a bit (and has an asymmetric evolution of alpha)
 	--sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = Z41D(equationArgs)})))
-	sims:insert(Roe(table(args, {equation = Z41Dv2(equationArgs)})))
-
+	--sims:insert(Roe(table(args, {equation = Z41Dv2(equationArgs)})))
+	
 	-- ... and plm (was working before when I was using the Athena paper implementation, but I broke it when trying to use something more simple):
 	--sims:insert(RoePLM(table(args, {equation=ADM1D3Var(equationArgs), fluxLimiter=limiter.donorCell})))
 	--sims:insert(RoePLM(table(args, {equation=ADM1D3to5Var(equationArgs), fluxLimiter=limiter.donorCell})))
@@ -148,7 +148,7 @@ do
 end
 --]]
 
---[[	1D profile of 2D spherical Gaussian curve perturbation / coordinate shock wave
+-- [[	1D profile of 2D spherical Gaussian curve perturbation / coordinate shock wave
 do
 	-- r - eta(rs) = M ln(((rs + eta(r)) / (rs - eta(rs)))
 	-- eta(rs) = sqrt(rs^2 - 2 M rs)

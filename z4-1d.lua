@@ -313,11 +313,11 @@ function Z41D:sourceTerm(sim, qs)
 		
 		source[i][1] = -f * alpha * alpha * (K_xx / gamma_xx - m * Theta)
 		source[i][2] = -2 * alpha * K_xx
-		--source[i][3] = -alpha * a_x * (dalpha_f * alpha + f) * (K_xx / gamma_xx - m * Theta) + 2 * f * alpha * K_xx * d_xxx / (gamma_xx * gamma_xx)
-		--source[i][4] = -alpha * a_x * K_xx
+		source[i][3] = -alpha * a_x * (dalpha_f * alpha + f) * (K_xx / gamma_xx - m * Theta) + 2 * f * alpha * K_xx * d_xxx / (gamma_xx * gamma_xx)
+		source[i][4] = -alpha * a_x * K_xx
 		source[i][5] = alpha * (-a_x * a_x + d_xxx * (a_x - 2 * Z_x) / gamma_xx - K_xx * (K_xx / gamma_xx + 2 * Theta) - 1/2 * (S_xx + tau * gamma_xx))
-		--source[i][6] = -alpha * ((Z_x * (a_x + d_xxx / gamma_xx) + Theta * K_xx) / gamma_xx + tau)
-		--source[i][7] = -alpha * (2 * Z_x * K_xx / gamma_xx + Theta * a_x + S_x)
+		source[i][6] = -alpha * ((Z_x * (a_x + d_xxx / gamma_xx) + Theta * K_xx) / gamma_xx + tau)
+		source[i][7] = -alpha * (2 * Z_x * K_xx / gamma_xx + Theta * a_x + S_x)
 	end
 	return source
 end
