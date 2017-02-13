@@ -1,5 +1,6 @@
 --[[
 3-var system extrapolated to 5-vars so the integration of alpha and gamma_xx are not separate
+I think this is no longer any different from ADM1D3Var 
 --]]
 
 local class = require 'ext.class'
@@ -53,8 +54,8 @@ do
 	local a_x = q:_(3)
 	local D_g = q:_(4)
 	local d_xxx = D_g * gamma_xx / 2
-	local KTilde_xx = q:_(5)
-	local K_xx = KTilde_xx / math.sqrt:o(gamma_xx)
+	local KTilde = q:_(5)
+	local K_xx = KTilde * math.sqrt:o(gamma_xx)
 	local K = K_xx / gamma_xx
 	local volume = alpha * math.sqrt:o(gamma_xx)
 	ADM1D3to5Var:buildGraphInfos{
@@ -64,7 +65,7 @@ do
 		{d_xxx = d_xxx},
 		{D_g = D_g},
 		{K_xx = K_xx},
-		{KTilde_xx = KTilde_xx},
+		{KTilde = KTilde},
 		{K = K},
 		{volume = volume},
 	}
@@ -77,8 +78,8 @@ function ADM1D3to5Var:initCell(sim,i)
 	local a_x = self.calc.dx_alpha(x) / self.calc.alpha(x)
 	local D_g = self.calc.dx_gamma_xx(x) / self.calc.gamma_xx(x)
 	local K_xx = self.calc.K_xx(x)
-	local KTilde_xx = K_xx / math.sqrt(gamma_xx)
-	return {alpha, gamma_xx, a_x, D_g, KTilde_xx}
+	local KTilde = K_xx / math.sqrt(gamma_xx)
+	return {alpha, gamma_xx, a_x, D_g, KTilde}
 end
 
 function ADM1D3to5Var:calcRoeValues(qL, qR)
@@ -144,19 +145,23 @@ function ADM1D3to5Var:calcEigenvalues(alpha, gamma_xx)
 	return -lambda, 0, 0, 0, lambda
 end
 
-function ADM1D3to5Var:calcEigenvaluesFromCons(alpha, gamma_xx, a_x, D_g, KTilde_xx)
+function ADM1D3to5Var:calcEigenvaluesFromCons(alpha, gamma_xx, a_x, D_g, KTilde)
 	return self:calcEigenvalues(alpha, gamma_xx)
 end
 
 function ADM1D3to5Var:sourceTerm(sim, qs)
 	local source = sim:newState()
 	for i=1,sim.gridsize do
-		local alpha, gamma_xx, a_x, D_g, KTilde_xx = unpack(qs[i])
+		local alpha, gamma_xx, a_x, D_g, KTilde = unpack(qs[i])
 		local f = self.calc.f(alpha)
 		local dalpha_f = self.calc.dalpha_f(alpha)
+		local K = KTilde / math.sqrt(gamma_xx)
 		
-		source[i][1] = -alpha * alpha * f * KTilde_xx / (gamma_xx * math.sqrt(gamma_xx))
-		source[i][2] = -2 * alpha * KTilde_xx / math.sqrt(gamma_xx)
+		source[i][1] = -alpha * alpha * f * K
+		source[i][2] = -2 * alpha * gamma_xx * K
+		source[i][3] = ((1/2 * D_g - a_x) * f - alpha * dalpha_f * a_x) * alpha * K
+		source[i][4] = (1/2 * D_g - a_x) * 2 * alpha * K
+		source[i][5] = (1/2 * D_g - a_x) * a_x * alpha / math.sqrt(gamma_xx)
 	end
 	return source
 end

@@ -13,12 +13,89 @@ state vector: [alpha gamma_xx a_x d_xxx K_xx]	<- even though alpha and gamma_xx 
 fluxes vector: alpha K_xx * [0, 0, f/gamma_xx, 1, a_x/K_xx]
 source vector: alpha / gamma_xx * [-alpha f K_xx, -2 K_xx gamma_xx, 0, 0, a_x d_xxx - K_xx^2]
 
-alpha,t + (0),x = -alpha^2 f K_xx / gamma_xx
-gamma_xx,t + (0),x = -2 alpha K_xx
-a_x,t + (alpha K_xx f / gamma_xx),x = 0
+alpha,t = -alpha^2 f K_xx / gamma_xx
+gamma_xx,t = -2 alpha K_xx
+a_x,t + (alpha f K_xx / gamma_xx),x = 0
 d_xxx,t + (alpha K_xx),x = 0
 K_xx,t + (alpha a_x),x = alpha / gamma_xx (a_x d_xxx - K_xx^2)
 
+verify K_xx,t from the K,t equation in "Toy 1+1" chapter of Alcubierre's book
+K,t + (alpha a_x / gamma_xx),x = alpha (K^2 - a_x D_g / (2 gamma_xx))
+(K_xx / gamma_xx),t + (alpha a_x / gamma_xx),x = alpha (K^2 - a_x D_g / (2 gamma_xx))
+K_xx,t / gamma_xx - K_xx gamma_xx,t / gamma_xx^2 + (alpha a_x / gamma_xx),x = alpha (K^2 - a_x D_g / (2 gamma_xx))
+K_xx,t + gamma_xx (alpha a_x / gamma_xx),x = alpha (-gamma_xx K^2 - 1/2 a_x D_g)
+K_xx,t + gamma_xx (alpha a_x / gamma_xx),x + gamma_xx,x alpha a_x / gamma_xx
+	= alpha (-gamma_xx K^2 - 1/2 a_x D_g) + gamma_xx,x alpha a_x / gamma_xx
+K_xx,t + (alpha a_x),x = alpha / gamma_xx (a_x d_xxx - K_xx^2)
+check.
+
+...linearized
+
+a_x,t + alpha,x f K_xx / gamma_xx
+	+ alpha f' alpha,x K_xx / gamma_xx
+	+ alpha f K_xx,x / gamma_xx
+	- alpha f K_xx gamma_xx,x / gamma_xx^2 = 0
+a_x,t + alpha f K_xx,x / gamma_xx
+	= ((2 d_xxx / gamma_xx - a_x) f - alpha f' a_x) alpha K_xx / gamma_xx 
+
+d_xxx,t + alpha,x K_xx + alpha K_xx,x = 0
+d_xxx,t + alpha K_xx,x = -alpha a_x K_xx 
+
+K_xx,t + alpha,x a_x + alpha a_x,x = alpha / gamma_xx (a_x d_xxx - K_xx^2)
+K_xx,t + alpha a_x,x = alpha ((d_xxx / gamma_xx - a_x) a_x - K_xx^2 / gamma_xx)
+
+... as a matrix:
+[ a_x ]   [ 0,    0, alpha f / gamma_xx ][ a_x ]   [((2 d_xxx / gamma_xx - a_x) f - alpha f' a_x) alpha K_xx / gamma_xx 
+[d_xxx] + [ 0,    0,    alpha           ][d_xxx] = [-alpha a_x K_xx
+[ K_xx]   [alpha, 0,      0             ][ K_xx],x [alpha ((d_xxx / gamma_xx - a_x) a_x - K_xx^2 / gamma_xx)
+
+
+	Maxima to verify linearization and source terms: 
+depends([alpha, gamma_xx, a_x, d_xxx, K_xx], x);
+depends(f, alpha);
+F : transpose(matrix([
+	alpha * f * K_xx / gamma_xx,
+	alpha * K_xx,
+	alpha * a_x
+]));
+/* here is the flux, differentiated, to start linearization */
+diff(F, x)$ ratsimp(%);
+/* here is the derivatives substituted for the first-order variables */
+subst([diff(alpha,x)=alpha*a_x, diff(gamma_xx,x)=2*d_xxx], %)$ ratsimp(%);
+/* here are the derivatives removed, leaving the negative source */
+subst([diff(a_x,x)=0,diff(K_xx,x)=0], %)$ ratsimp(%);
+/* here I'm subtracing them from the flux source to get the linearized source */
+S - %$ ratsimp(%);
+
+	then to find the eigenvectors:
+
+
+load("eigen");
+assume(alpha>0, f>0);
+A : matrix([0, 0, alpha*f/gamma_xx], [0, 0, alpha], [alpha, 0, 0]);
+results : eigenvectors(A);
+lambdas : diag_matrix(results[1][1][1], results[1][1][3], results[1][1][2]);
+	matrix(
+		[-(alpha*sqrt(f))/sqrt(gamma_xx),0,0],
+		[0,0,0],
+		[0,0,(alpha*sqrt(f))/sqrt(gamma_xx)]
+	)
+evR : transpose(matrix(                                                 
+     results[2][1][1] * f,
+     results[2][3][1],
+     results[2][2][1] * f
+));
+	matrix(
+		[f,0,f],
+		[gamma_xx,1,gamma_xx],
+		[-sqrt(f)*sqrt(gamma_xx),0,sqrt(f)*sqrt(gamma_xx)]
+	)
+invert(evR)$ ratsimp(%)$ evL : %;
+	matrix(
+		[1/(2*f),0,-1/(2*sqrt(f)*sqrt(gamma_xx))],
+		[-gamma_xx/f,1,0],
+		[1/(2*f),0,1/(2*sqrt(f)*sqrt(gamma_xx))]
+	)
 --]]
 
 local class = require 'ext.class'
@@ -72,7 +149,7 @@ do
 	local d_xxx = q:_(4)
 	local D_g = 2 * d_xxx / gamma_xx
 	local K_xx = q:_(5)
-	local KTilde_xx = K_xx * math.sqrt:o(gamma_xx)
+	local KTilde = K_xx / math.sqrt:o(gamma_xx)
 	local K = K_xx / gamma_xx
 	local volume = alpha * math.sqrt:o(gamma_xx)
 	ADM1D5Var:buildGraphInfos{
@@ -82,7 +159,7 @@ do
 		{d_xxx = d_xxx},
 		{D_g = D_g},
 		{K_xx = K_xx},
-		{KTilde_xx = KTilde_xx},
+		{KTilde = KTilde},
 		{K = K},
 		{volume = volume},
 	}
@@ -110,14 +187,16 @@ function ADM1D5Var:fluxMatrixTransform(solver, m, v)
 	-- the alpha and gamma_xx terms are neglected when reconstructing the flux
 	-- ... because the eigenvalue is zero?
 	return {
+	--[[ i think these were favoring derivatives over source terms:
+		v1*f*K_xx/gamma_xx - v2*alpha*f*K_xx/gamma_xx^2 + v5*alpha*f/gamma_xx,
+		v1*K_xx + v5*alpha,
+		v1*a_x + v3*alpha
+	--]]
 		0,
 		0,
-		--v1*f*K_xx/gamma_xx - v2*alpha*f*K_xx/gamma_xx^2 +
-			v5*alpha*f/gamma_xx,
-		--v1*K_xx  +
-			v5*alpha,
-		--v1*a_x +
-			v3*alpha
+		v5*alpha*f/gamma_xx,
+		v5*alpha,
+		v3*alpha
 	}
 end
 
@@ -205,9 +284,18 @@ function ADM1D5Var:sourceTerm(sim, qs)
 	for i=1,sim.gridsize do
 		local alpha, gamma_xx, a_x, d_xxx, K_xx = unpack(qs[i])
 		local f = self.calc.f(alpha)
-		source[i][1] = -alpha * alpha * f * K_xx / gamma_xx
+		local dalpha_f = self.calc.dalpha_f(alpha)
+		local K = K_xx / gamma_xx
+
+		source[i][1] = -alpha * alpha * f * K
 		source[i][2] = -2 * alpha * K_xx
 		source[i][5] = alpha / gamma_xx * (a_x * d_xxx - K_xx * K_xx)
+
+--[[
+		source[i][3] = ((2 * d_xxx / gamma_xx - a_x) * f - alpha * dalpha_f * a_x) * alpha * K
+		source[i][4] = -alpha * a_x * K_xx
+		source[i][5] = alpha * ((d_xxx / gamma_xx - a_x) * a_x - K_xx * K_xx / gamma_xx)
+--]]	
 	end
 	return source
 end

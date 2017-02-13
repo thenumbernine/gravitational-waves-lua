@@ -61,7 +61,7 @@ local Z41Dv2 = require 'z4-1d-v2'
 -- setup
 local sims = table()
 
---[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+-- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -100,15 +100,17 @@ do
 		K_xx = K_xx,	-- K_xx
 		-- Bona-Masso slicing conditions:
 		f_param = alpha,
-		--f = 1,
-		--f = 1.69,
 		--f = .49,
-		f = 1 + kappa/alpha^2,
+		--f = .5,
+		f = 1,
+		--f = 1.5,
+		--f = 1.69,
+		--f = 1 + kappa/alpha^2,
 	}
 
 	-- [=[ compare different equations/formalisms 
 	-- these two match:
-	--sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
+	sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
 	--sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
 	-- these two match, but differ from the first two:
 	sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs a_x half what it should (or the others calculate it double what it should be ...)
@@ -148,7 +150,7 @@ do
 end
 --]]
 
--- [[	1D profile of 2D spherical Gaussian curve perturbation / coordinate shock wave
+--[[	1D profile of 2D spherical Gaussian curve perturbation / coordinate shock wave
 do
 	-- r - eta(rs) = M ln(((rs + eta(r)) / (rs - eta(rs)))
 	-- eta(rs) = sqrt(rs^2 - 2 M rs)
