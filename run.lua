@@ -50,7 +50,6 @@ local Euler3D = require 'euler3d'
 local MHD = require 'mhd'
 local EMHD = require 'emhd'
 local ADM1D3Var = require'adm1d3var'
-local ADM1D3to5Var = require'adm1d3to5var'
 local ADM1D5Var = require'adm1d5var'
 local BSSNOK1D = require 'bssnok1d'
 local ADM2DSpherical = require'adm2dspherical'
@@ -110,8 +109,7 @@ do
 
 	-- [=[ compare different equations/formalisms 
 	-- these two match:
-	sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))		-- \_ these two are identical
-	--sims:insert(Roe(table(args, {equation = ADM1D3to5Var(equationArgs)})))	-- /
+	sims:insert(Roe(table(args, {equation = ADM1D3Var(equationArgs)})))
 	-- these two match, but differ from the first two:
 	sims:insert(Roe(table(args, {equation = ADM1D5Var(equationArgs)})))		--> this one, for 1st iter, calcs a_x half what it should (or the others calculate it double what it should be ...)
 	--sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
@@ -122,7 +120,6 @@ do
 	
 	-- ... and plm (was working before when I was using the Athena paper implementation, but I broke it when trying to use something more simple):
 	--sims:insert(RoePLM(table(args, {equation=ADM1D3Var(equationArgs), fluxLimiter=limiter.donorCell})))
-	--sims:insert(RoePLM(table(args, {equation=ADM1D3to5Var(equationArgs), fluxLimiter=limiter.donorCell})))
 	--sims:insert(RoePLM(table(args, {equation=ADM1D5Var(equationArgs), fluxLimiter=limiter.donorCell})))
 	--sims:insert(RoePLM(table(args, {equation=ADM3D(equationArgs), fluxLimiter=limiter.donorCell})))
 	--sims:insert(RoePLM(table(args, {equation=BSSNOK1D(equationArgs), fluxLimiter=limiter.donorCell})))
@@ -131,7 +128,6 @@ do
 	
 	-- and here's the start of my looking into implicit solvers.
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D3Var(equationArgs)})))
-	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D3to5Var(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1D5Var(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM3D(equationArgs)})))
 	--sims:insert(require'bssnok1d_backwardeuler_linear'(table(args, equationArgs)))
@@ -672,14 +668,12 @@ do
 		-- equations that only work with Roe:
 		{name='SRHD Roe', gen=function(args) return require 'srhd1d_roe'(table(args, {equation=require'srhd1d'()})) end},
 		{name='ADM 1D 3-var Roe', gen=function(args) return Roe(table(args, {equation=ADM1D3Var(numRel1DArgs)})) end},
-		{name='ADM 1D 3-to-5-var Roe', gen=function(args) return Roe(table(args, {equation=ADM1D3to5Var(numRel1DArgs)})) end},
 		{name='ADM 1D 5-var Roe', gen=function(args) return Roe(table(args, {equation=ADM1D5Var(numRel1DArgs)})) end},
 		{name='BSSNOK 1D Roe', gen=function(args) return Roe(table(args, {equation=BSSNOK1D(numRel1DArgs)})) end},
 		{name='ADM 2D Spherical Roe', gen=function(args) return Roe(table(args, {equation=ADM2DSpherical(numRel2DSphericalArgs)})) end},
 		{name='ADM 3D Roe', gen=function(args) return Roe(table(args, {equation=ADM3D(numRel3DArgs)})) end},
 			-- ... and their implicit linearized versions ...
 		{name='ADM 1D 3-var RoeImplicitLinearized', gen=function(args) return RoeImplicitLinearized(table(args, {equation=ADM1D3Var(numRel1DArgs)})) end},
-		{name='ADM 1D 3-to-5-var RoeImplicitLinearized', gen=function(args) return RoeImplicitLinearized(table(args, {equation=ADM1D3to5Var(numRel1DArgs)})) end},
 		{name='ADM 1D 5-var RoeImplicitLinearized', gen=function(args) return RoeImplicitLinearized(table(args, {equation=ADM1D5Var(numRel1DArgs)})) end},
 		{name='BSSNOK 1D RoeImplicitLinearized', gen=function(args) return RoeImplicitLinearized(table(args, {equation=BSSNOK1D(numRel1DArgs)})) end},
 		{name='ADM 2D Spherical RoeImplicitLinearized', gen=function(args) return RoeImplicitLinearized(table(args, {equation=ADM2DSpherical(numRel2DSphericalArgs)})) end},
@@ -1118,4 +1112,3 @@ end
 
 TestApp():run()
 --]=]
-

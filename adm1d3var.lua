@@ -288,7 +288,6 @@ function ADM1D3Var:eigenRightTransform(solver, m, v)
 	}
 end
 
-
 function ADM1D3Var:calcCellMinMaxEigenvalues(sim, i)
 	local alpha, gamma_xx = table.unpack(sim.qs[i])
 	local f = self.calc.f(alpha)
