@@ -4,7 +4,7 @@ Made for getting some numerical relativity demos working
 Requires my lua-ext, symmath-lua, and optionally lua-glapp, and the Malkia UFO ffi lua files for the OpenGL display.
 There's a text-based version you can uncomment that will run it to the command-line if you don't want to bother set up the GL stuff.
 
-adm1d3var.lua is based on formalism described in Alcubierre's "Introduction to 3+1 Numerical Relativity" in the Toy 1+1 example chapter.
+adm1d_v1.lua is based on formalism described in Alcubierre's "Introduction to 3+1 Numerical Relativity" in the Toy 1+1 example chapter.
 Specifically, a 3-variable hyperbolic system with lapse (alpha) and metric (g) separated from the state variable computations.
 
 adm1d5var.lua is a hyperbolic sim based on Alcubierre's "The appearance of coordinate shocks in hyperbolic formalisms of General Relativity"
@@ -24,17 +24,7 @@ bssnok1d.lua is a hodge-podge of the BSSNOK partial wrt time and the hyperbolic 
 
 mhd.lua is based on "ATHENA: A NEW CODE FOR ASTROPHYSICAL MHD" 2008 by Stone, Gardiner, Teuben, Hawley, and Simon
 
-
-
 and then I started adding attempts at implicit solvers.
 the backward-euler conj.res. implicit and the backward-euler newton+conj.res. implicit don't work so great at the moment.
 the roe+backward-euler conj.res. implicit is stable for a while, but with some errors at boundary conditions (which probably what makes it explode... I hope)
-
-
-
-TODO
-
-- f = 1 + 1/alpha^2 no longer behaves correctly, even diverges in the 5-var system
-- why are the adm1d5var coordinate shock waves going so fast compared to the adm1d3var and adm1d3to5var?
-- in the 3var and 3to5var system a bump persists in the alpha, and influences the D and g variables... why is it there?
 
