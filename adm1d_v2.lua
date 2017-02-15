@@ -102,12 +102,13 @@ local class = require 'ext.class'
 local table = require 'ext.table'
 local Equation = require 'equation'
 
-local ADM1D5Var = class(Equation)
-ADM1D5Var.name = 'ADM 1D 5-Var'
+local ADM1Dv2 = class(Equation)
+ADM1Dv2.name = 'ADM 1D v.2'
 
-ADM1D5Var.numStates = 5 
+ADM1Dv2.numStates = 5
+ADM1Dv2.numWaves = 3
 
-function ADM1D5Var:init(args, ...)
+function ADM1Dv2:init(args, ...)
 
 	local symmath = require 'symmath'
 	local function makesym(field)
@@ -152,7 +153,7 @@ do
 	local KTilde = K_xx / math.sqrt:o(gamma_xx)
 	local K = K_xx / gamma_xx
 	local volume = alpha * math.sqrt:o(gamma_xx)
-	ADM1D5Var:buildGraphInfos{
+	ADM1Dv2:buildGraphInfos{
 		{alpha = alpha},
 		{a_x = a_x},
 		{gamma_xx = gamma_xx},
@@ -165,7 +166,7 @@ do
 	}
 end
 
-function ADM1D5Var:initCell(sim,i)
+function ADM1Dv2:initCell(sim,i)
 	local x = sim.xs[i]
 	local alpha = self.calc.alpha(x)
 	local gamma_xx = self.calc.gamma_xx(x)
@@ -175,23 +176,29 @@ function ADM1D5Var:initCell(sim,i)
 	return {alpha, gamma_xx, a_x, d_xxx, K_xx}
 end
 
-function ADM1D5Var:calcRoeValues(qL, qR)
-	local alpha, gamma_xx, a_x, d_xxx, K_xx = ADM1D5Var.super.calcRoeValues(self, qL, qR)
+function ADM1Dv2:calcEigenvalues(alpha, gamma_xx, f)
+	local f = self.calc.f(alpha)
+	local lambda = alpha * math.sqrt(f / gamma_xx)
+	return -lambda, 0, lambda
+end
+
+function ADM1Dv2:calcRoeValues(qL, qR)
+	local alpha, gamma_xx, a_x, d_xxx, K_xx = ADM1Dv2.super.calcRoeValues(self, qL, qR)
 	local f = self.calc.f(alpha)
 	return alpha, gamma_xx, a_x, d_xxx, K_xx, f
 end
 
-function ADM1D5Var:fluxMatrixTransform(solver, m, v)
-	local alpha, gamma_xx, a_x, d_xxx, K_xx, f = table.unpack(m)
+function ADM1Dv2:calcEigenBasis(lambdas, evr, evl, dF_dU, alpha, gamma_xx, a_x, d_xxx, K_xx, f)
+	fill(lambdas, self:calcEigenvalues(alpha, gamma_xx, f)) 
+	fill(evl, alpha, gamma_xx, f) 
+	fill(evr, alpha, gamma_xx, f)
+	if dF_dU then fill(dF_dU, alpha, gamma_xx, f) end
+end	
+
+function ADM1Dv2:fluxMatrixTransform(solver, m, v)
+	local alpha, gamma_xx, f = table.unpack(m)
 	local v1, v2, v3, v4, v5 = table.unpack(v)
-	-- the alpha and gamma_xx terms are neglected when reconstructing the flux
-	-- ... because the eigenvalue is zero?
 	return {
-	--[[ i think these were favoring derivatives over source terms:
-		v1*f*K_xx/gamma_xx - v2*alpha*f*K_xx/gamma_xx^2 + v5*alpha*f/gamma_xx,
-		v1*K_xx + v5*alpha,
-		v1*a_x + v3*alpha
-	--]]
 		0,
 		0,
 		v5*alpha*f/gamma_xx,
@@ -200,86 +207,35 @@ function ADM1D5Var:fluxMatrixTransform(solver, m, v)
 	}
 end
 
---[[ fixme
-function ADM1D5Var:eigenLeftTransform(solver, m, v)
-	local alpha, gamma_xx, a_x, d_xxx, K_xx, f = table.unpack(m)
-	local v1, v2, v3, v4, v5 = table.unpack(v)
+function ADM1Dv2:eigenLeftTransform(solver, m, v)
+	local alpha, gamma_xx, f = table.unpack(m)
+	local _, _, v1, v2, v3 = table.unpack(v)
 	return {
-		v1 * (gamma_xx * a_x / f - K_xx * math.sqrt(gamma_xx / f)) / (2 * alpha) + v3 * gamma_xx / (2 * f) - v5 * .5 * math.sqrt(gamma_xx / f),
-		v1 / alpha,
-		-v1 * (gamma_xx * a_x) / (alpha * f) - v3 * gamma_xx / f + v4,
-		v2,
-		v1 * (gamma_xx * a_x / f + K_xx * math.sqrt(gamma_xx / f)) / (2 * alpha) + v3 * gamma_xx / (2 * f) + v5 * .5 * math.sqrt(gamma_xx / f)
+		.5 * (v1 / math.sqrt(f / gamma_xx) - v3),
+		v2 - v1 * gamma_xx / f,
+		.5 * (v1 / math.sqrt(f / gamma_xx) + v3)
 	}
 end
---]]
 
-function ADM1D5Var:calcMaxEigenvalue(alpha, gamma_xx)
+function ADM1Dv2:eigenRightTransform(solver, m, v)
+	local alpha, gamma_xx, f = table.unpack(m)
+	local v1, v2, v3 = table.unpack(v)
+	return {
+		0,
+		0,
+		(v1 + v3) * math.sqrt(f / gamma_xx),
+		(v1 + v3) / math.sqrt(f / gamma_xx) + v2,
+		v3 - v1
+	}
+end
+
+function ADM1Dv2:calcCellMinMaxEigenvalues(sim, i)
+	local alpha, gamma_xx = table.unpack(sim.qs[i])
 	local f = self.calc.f(alpha)
-	local lambda = alpha * math.sqrt(f / gamma_xx)
-	return lambda
+	return firstAndLast(self:calcEigenvalues(alpha, gamma_xx, f))
 end
 
-function ADM1D5Var:calcEigenvaluesFromCons(alpha, gamma_xx, a_x, d_xxx, K_xx, f)
-	local lambda = self:calcMaxEigenvalue(alpha, gamma_xx)
-	return -lambda, 0, 0, 0, lambda
-end
-
-function ADM1D5Var:calcEigenBasis(lambdas, evr, evl, dF_dU, alpha, gamma_xx, a_x, d_xxx, K_xx, f)
-	local sqrt_f = math.sqrt(f)
-	local sqrt_g = math.sqrt(gamma_xx)
-	local lambda = alpha * sqrt_f / sqrt_g 
-	fill(lambdas, -lambda, 0, 0, 0, lambda)
-	
-	-- row-major, math-indexed
-	if dF_dU then
-		fill(dF_dU, alpha, gamma_xx, a_x, d_xxx, K_xx, f)
-		--[[
-		fill(dF_dU,
-			{0,0,0,0,0},
-			{0,0,0,0,0},
-			{f*K_xx/gamma_xx, -alpha*f*K_xx/gamma_xx^2, 0,0, alpha*f/gamma_xx},
-			{K_xx,0,0,0,alpha},
-			{a_x,0,alpha,0,0}
-		)
-		--]]
-	end
-	--[[ where did I get this from? probably eigenvector decomposition on the flux
-	fill(evr,	
-		{0,			alpha,	0,	0,	0			},	-- alpha
-		{0,			0,		0,	1,	0			},	-- gamma_xx
-		{f/gamma_xx,		-a_x,		0,	0,	f/gamma_xx			},	-- a_x
-		{1,			0,		1,	0,	1			},	-- d_xxx
-		{-sqrt_f/sqrt_g,-K_xx,		0,	0,	sqrt_f/sqrt_g	}	-- K_xx
-	)
-	fill(evl,
-		{(gamma_xx * a_x / f - K_xx * math.sqrt(gamma_xx / f)) / (2 * alpha), 0, gamma_xx / (2 * f), 0, -.5 * math.sqrt(gamma_xx / f)}, 
-		{1 / alpha, 0, 0, 0, 0}, 
-		{-(gamma_xx * a_x) / (alpha * f), 0, -gamma_xx / f, 1, 0}, 
-		{0, 1, 0, 0, 0}, 
-		{(gamma_xx * a_x / f + K_xx * math.sqrt(gamma_xx / f)) / (2 * alpha), 0, gamma_xx / (2 * f), 0, .5 * math.sqrt(gamma_xx / f)} 
-	)
-	-- note that because we have zero eigenvalues that the eigendecomposition cannot reconstruct the flux matrix
-	--]]
-	-- [[ here's from the left eigenvectors
-	fill(evl,
-		{0, 0, -1/sqrt_g, 0, sqrt_f/gamma_xx},	-- math.sqrt(f) K_xx / gamma_xx - a_x / math.sqrt(gamma_xx)
-		{1, 0, 0, 0, 0},								-- alpha
-		{0, 1, 0, 0, 0},								-- gamma_xx
-		{0, 0, 1, -f/gamma_xx, 0},						-- a_x - f d_xxx / gamma_xx
-		{0, 0, 1/sqrt_g, 0, sqrt_f/gamma_xx}	-- math.sqrt(f) K_xx / gamma_xx + a_x / math.sqrt(gamma_xx)
-	)
-	fill(evr,	
-		{0, 1, 0, 0, 0},
-		{0, 0, 1, 0, 0},
-		{-.5 * sqrt_g, 0, 0, 0, .5 * sqrt_g},
-		{-.5 * sqrt_g * gamma_xx / f, 0, 0, -gamma_xx / f, .5 * sqrt_g * gamma_xx / f},
-		{.5 * gamma_xx / sqrt_f, 0, 0, 0, .5 * gamma_xx / sqrt_f}
-	)
-	--]]
-end	
-
-function ADM1D5Var:sourceTerm(sim, qs)
+function ADM1Dv2:sourceTerm(sim, qs)
 	local source = sim:newState()
 	for i=1,sim.gridsize do
 		local alpha, gamma_xx, a_x, d_xxx, K_xx = unpack(qs[i])
@@ -290,14 +246,15 @@ function ADM1D5Var:sourceTerm(sim, qs)
 		source[i][1] = -alpha * alpha * f * K
 		source[i][2] = -2 * alpha * K_xx
 		source[i][5] = alpha / gamma_xx * (a_x * d_xxx - K_xx * K_xx)
-
+-- terms that mysteriously disappear when you compare the linearized flux matrix terms moved to source, vs the source that Alcubierre uses in his 1997 paper
+-- adding these neglected terms back in make things blow up
 --[[
 		source[i][3] = ((2 * d_xxx / gamma_xx - a_x) * f - alpha * dalpha_f * a_x) * alpha * K
 		source[i][4] = -alpha * a_x * K_xx
-		source[i][5] = alpha * ((d_xxx / gamma_xx - a_x) * a_x - K_xx * K_xx / gamma_xx)
---]]	
+		source[i][5] = source[i][5] - alpha * a_x * a_x
+--]]
 	end
 	return source
 end
 
-return ADM1D5Var
+return ADM1Dv2

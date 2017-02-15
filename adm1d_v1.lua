@@ -154,14 +154,14 @@ invert(eigenvectors);
 local class = require 'ext.class'
 local Equation = require 'equation'
 
-local ADM1D3Var = class(Equation)
-ADM1D3Var.name = 'ADM 1D 3-Var'
+local ADM1Dv1 = class(Equation)
+ADM1Dv1.name = 'ADM 1D v.1'
 
-ADM1D3Var.numStates = 5
-ADM1D3Var.numWaves = 3
+ADM1Dv1.numStates = 5
+ADM1Dv1.numWaves = 3
 
 -- initial conditions
-function ADM1D3Var:init(args, ...)
+function ADM1Dv1:init(args, ...)
 
 	local symmath = require 'symmath'
 	local function makesym(field)
@@ -206,7 +206,9 @@ do
 	local K_xx = KTilde * math.sqrt:o(gamma_xx)
 	local K = K_xx / gamma_xx
 	local volume = alpha * math.sqrt:o(gamma_xx)
-	ADM1D3Var:buildGraphInfos{
+	local f = function(self, i) return self.equation.calc.f(self.qs[i][1]) end
+	local dalpha_f = function(self, i) return self.equation.calc.dalpha_f(self.qs[i][1]) end
+	ADM1Dv1:buildGraphInfos{
 		{alpha = alpha},
 		{a_x = a_x},
 		{gamma_xx = gamma_xx},
@@ -215,11 +217,13 @@ do
 		{K_xx = K_xx},
 		{KTilde = KTilde},
 		{K = K},
+		{f = f},
+		{dalpha_f = dalpha_f},
 		{volume = volume},
 	}
 end
 
-function ADM1D3Var:initCell(sim,i)
+function ADM1Dv1:initCell(sim,i)
 	local x = sim.xs[i]
 	local alpha = self.calc.alpha(x)
 	local gamma_xx = self.calc.gamma_xx(x)
@@ -230,20 +234,20 @@ function ADM1D3Var:initCell(sim,i)
 	return {alpha, gamma_xx, a_x, D_g, KTilde}
 end
 
-function ADM1D3Var:calcEigenvalues(alpha, gamma_xx, f)
+function ADM1Dv1:calcEigenvalues(alpha, gamma_xx, f)
 	local lambda = alpha * math.sqrt(f / gamma_xx)
 	return -lambda, 0, lambda
 end
 
 -- arithmetic
-function ADM1D3Var:calcRoeValues(qL, qR)
+function ADM1Dv1:calcRoeValues(qL, qR)
 	local alpha = (qL[1] + qR[1]) / 2
 	local gamma_xx = (qL[2] + qR[2]) / 2
 	local f = self.calc.f(alpha)
 	return alpha, gamma_xx, f
 end
 
-function ADM1D3Var:calcEigenBasis(lambda, evr, evl, dF_dU, alpha, gamma_xx, f)
+function ADM1Dv1:calcEigenBasis(lambda, evr, evl, dF_dU, alpha, gamma_xx, f)
 	-- store eigenvalues
 	fill(lambda, self:calcEigenvalues(alpha, gamma_xx, f))
 	-- store information needed to build left and right eigenvectors
@@ -254,7 +258,7 @@ function ADM1D3Var:calcEigenBasis(lambda, evr, evl, dF_dU, alpha, gamma_xx, f)
 end
 
 -- how can the flux depend on gamma_xx and alpha but not the eigenvectors?
-function ADM1D3Var:fluxMatrixTransform(solver, m, v)
+function ADM1Dv1:fluxMatrixTransform(solver, m, v)
 	local alpha, gamma_xx, f = table.unpack(m)
 	local _, _, v1, v2, v3 = table.unpack(v)
 	return {
@@ -266,7 +270,7 @@ function ADM1D3Var:fluxMatrixTransform(solver, m, v)
 	}
 end
 
-function ADM1D3Var:eigenLeftTransform(solver, m, v)
+function ADM1Dv1:eigenLeftTransform(solver, m, v)
 	local f = table.unpack(m)
 	local _, _, v1, v2, v3 = table.unpack(v)
 	return {
@@ -276,7 +280,7 @@ function ADM1D3Var:eigenLeftTransform(solver, m, v)
 	}
 end
 
-function ADM1D3Var:eigenRightTransform(solver, m, v)
+function ADM1Dv1:eigenRightTransform(solver, m, v)
 	local f = table.unpack(m)
 	local v1, v2, v3 = table.unpack(v)
 	return {
@@ -288,13 +292,13 @@ function ADM1D3Var:eigenRightTransform(solver, m, v)
 	}
 end
 
-function ADM1D3Var:calcCellMinMaxEigenvalues(sim, i)
+function ADM1Dv1:calcCellMinMaxEigenvalues(sim, i)
 	local alpha, gamma_xx = table.unpack(sim.qs[i])
 	local f = self.calc.f(alpha)
 	return firstAndLast(self:calcEigenvalues(alpha, gamma_xx, f))
 end
 
-function ADM1D3Var:sourceTerm(sim, qs)
+function ADM1Dv1:sourceTerm(sim, qs)
 	local source = sim:newState()
 	for i=1,sim.gridsize do
 		local alpha, gamma_xx, a_x, D_g, KTilde = table.unpack(qs[i])
@@ -311,4 +315,4 @@ function ADM1D3Var:sourceTerm(sim, qs)
 	return source
 end
 
-return ADM1D3Var
+return ADM1Dv1
