@@ -1,16 +1,20 @@
 --[[
 same as Z4 except using the 1D ADM's 
-	D_g = (ln gamma_xx),x = gamma_xx,x / gamma_xx
-	and KTilde_xx = sqrt(gamma_xx) K_xx
+	D_g = (ln gamma_xx),x = gamma_xx,x / gamma_xx = 2 d_xxx / gamma_xx
+	and KTilde = K_xx / sqrt(gamma_xx) = sqrt(gamma_xx) K
 
-alpha,t = -f alpha^2 (tr K - m Theta)
+alpha,t = -f alpha^2 (K - m Theta)
 	= -f alpha^2 (K_xx / gamma_xx - m Theta)
+
 gamma_xx,t = -2 alpha K_xx
+
 a_x,t = - f alpha K_xx,x / gamma_xx 
 		+ f alpha m Theta,x 
 		- alpha a_x (f' alpha + f) (K_xx / gamma_xx - m Theta)
 		+ 2 f alpha K_xx d_xxx / gamma_xx^2
+
 d_xxx,t = -alpha K_xx,x - alpha a_x K_xx
+
 K_xx,t = - alpha a_x,x 
 		+ 2 alpha Z_x,x 
 		- alpha a_x^2 
@@ -20,34 +24,35 @@ K_xx,t = - alpha a_x,x
 		- 2 alpha Theta K_xx
 		- alpha S_xx
 		+ 1/2 alpha (S_xx / gamma_xx - tau) gamma_xx
+
 Theta,t = alpha Z_x,x / gamma_xx
 		- alpha Z_x d_xxx / gamma_xx^2
 		- alpha Theta K_xx / gamma_xx
 		- alpha tau
 		- alpha a_x Z_x / gamma_xx
+
 Z_x,t = alpha Theta,x
 		- 2 alpha Z_x K_xx / gamma_xx
 		- alpha S_x
 		- alpha Theta a_x
 
-so D_g,t = (ln gamma_xx),xt
-	= (gamma_xx,x / gamma_xx),t
-	= (gamma_xx,t),x / gamma_xx - gamma_xx,x gamma_xx,t / gamma_xx^2
-	= -2 (alpha K_xx),x / gamma_xx + 2 D_g alpha KTilde_xx / gamma_xx^1.5
-	= -2 (alpha,x K_xx + alpha K_xx,x) / gamma_xx + 2 D_g alpha KTilde_xx / gamma_xx^1.5
-	= - 2 alpha (KTilde_xx / sqrt(gamma_xx)),x / gamma_xx 
-		- 2 a_x alpha KTilde_xx / gamma_xx^1.5 
-		+ 2 D_g alpha KTilde_xx / gamma_xx^1.5
-	= - 2 alpha (KTilde_xx,x / sqrt(gamma_xx) - .5 KTilde_xx gamma_xx,x / gamma_xx^1.5) / gamma_xx 
-		- 2 a_x alpha KTilde_xx / gamma_xx^1.5 
-		+ 2 D_g alpha KTilde_xx / gamma_xx^1.5
-	= -2 alpha KTilde_xx,x / gamma_xx^1.5 
-		+ (3 D_g - 2 a_x) alpha KTilde_xx / gamma_xx^1.5
+substitue vars...
 
-and KTilde_xx,t = (sqrt(gamma_xx) K_xx),t
-	= .5 gamma_xx,t K_xx / sqrt(gamma_xx) + sqrt(gamma_xx) K_xx,t
-	= (-2 alpha K_xx) K_xx / (2 sqrt(gamma_xx)) + sqrt(gamma_xx) (
-		- alpha a_x,x 
+alpha,t = -f alpha^2 (K - m Theta)
+gamma_xx,t = -2 alpha K_xx
+a_x,t + f alpha KTilde,x / sqrt(gamma_xx) 
+	- f alpha m Theta,x 
+	= alpha (1/2 f K D_g - a_x (f' alpha + f) (K - m Theta))
+D_g,t = (ln gamma_xx),xt
+	= (gamma_xx,x / gamma_xx),t
+	= gamma_xx,tx / gamma_xx - gamma_xx,x gamma_xx,t / gamma_xx^2
+	= (-2 alpha K_xx),x / gamma_xx - gamma_xx,x (-2 alpha K_xx) / gamma_xx^2
+	= -2 alpha (KTilde sqrt(gamma_xx)),x / gamma_xx + 2 alpha K D_g - 2 alpha a_x K 
+	= -2 alpha KTilde,x / sqrt(gamma_xx) + alpha K (D_g - 2 a_x)
+D_g,t + 2 alpha KTilde,x / sqrt(gamma_xx) = alpha K (D_g - 2 a_x)
+KTilde,t = (K_xx / sqrt(gamma_xx)),t
+	= K_xx,t / sqrt(gamma_xx) - 1/2 K_xx gamma_xx,t / gamma_xx^(3/2)
+	= (- alpha a_x,x 
 		+ 2 alpha Z_x,x 
 		- alpha a_x^2 
 		+ alpha d_xxx a_x / gamma_xx
@@ -55,62 +60,80 @@ and KTilde_xx,t = (sqrt(gamma_xx) K_xx),t
 		- alpha K_xx^2 / gamma_xx
 		- 2 alpha Theta K_xx
 		- alpha S_xx
-		+ 1/2 alpha (S_xx / gamma_xx - tau) gamma_xx)
-	= - alpha sqrt(gamma_xx) a_x,x
-		+ 2 alpha sqrt(gamma_xx) Z_x,x
-		- 2 alpha KTilde_xx^2 / gamma_xx^1.5
-		- alpha a_x^2 sqrt(gamma_xx)
-		+ .5 alpha D_g a_x sqrt(gamma_xx)
-		- alpha D_g Z_x sqrt(gamma_xx)
-		- 2 alpha Theta KTilde_xx / gamma_xx^.5
-		- .5 alpha S_xx gamma_xx^.5 
-		- .5 alpha tau gamma_xx^1.5
+		+ 1/2 alpha (S_xx / gamma_xx - tau) gamma_xx) / sqrt(gamma_xx)
+		- 1/2 K_xx (-2 alpha K_xx) / gamma_xx^(3/2)
+KTilde,t + alpha a_x,x / sqrt(gamma_xx)
+	- 2 alpha Z_x,x / sqrt(gamma_xx)
+	= alpha (
+		(	1/2 D_g a_x
+			- a_x^2
+			- D_g Z_x
+			- 1/2 S_xx
+			- 1/2 tau gamma_xx
+		) / sqrt(gamma_xx)
+		- 2 Theta KTilde)
 
-alpha,t = -f alpha^2 (KTilde_xx / gamma_xx^1.5 - m Theta)
+Theta,t - alpha Z_x,x / gamma_xx = -alpha ((1/2 D_g + a_x) Z_x / gamma_xx + Theta K + tau)
 
-gamma_xx,t = -2 alpha KTilde_xx / gamma_xx^.5
+Z_x,t - alpha Theta,x = -alpha (2 Z_x K + S_x + Theta a_x)
 
-a_x,t = - f alpha K_xx,x / gamma_xx
-		+ f alpha m Theta,x
-		+ f alpha KTilde_xx D_g / gamma_xx^1.5
-		- alpha a_x (f' alpha + f) (KTilde_xx / gamma_xx^1.5 - m Theta)
-	= -f alpha KTilde_xx,x / gamma_xx^1.5 
-		+ f alpha m Theta,x
-		+ 1.5 f alpha D_g KTilde_xx / gamma_xx^1.5
-		- alpha a_x (f' alpha + f) (KTilde_xx / gamma_xx^1.5 - m Theta)
-
-Theta,t = alpha Z_x,x / gamma_xx
-		- 1/2 alpha Z_x D_g / gamma_xx
-		- alpha Theta KTilde_xx / gamma_xx^1.5
-		- alpha a_x Z_x / gamma_xx
-		- alpha tau
-
-Z_x,t = alpha Theta,x
-		- 2 alpha Z_x KTilde_xx / gamma_xx^1.5
-		- alpha S_x
-		- alpha Theta a_x
 
 
 All together as a matrix:
 
-[alpha		]	[	0	0	0						0	0						0			0						][alpha		]	[ -f alpha^2 (KTilde_xx / gamma_xx^1.5 - m Theta)																							]
-[gamma_xx	]	[	0	0	0						0	0						0			0						][gamma_xx	]	[ -2 alpha KTilde_xx / gamma_xx^.5																											]
-[a_x		]	[	0	0	0						0	f alpha / gamma_xx^1.5	-f alpha m	0						][a_x		]	[ alpha ((1.5 f D_g - a_x (f' alpha + f)) KTilde_xx / gamma_xx^1.5 + a_x (f' alpha + f) m Theta)											]
-[D_g		] + [	0	0	0						0	2 alpha / gamma_xx^1.5	0			0						][D_g		] = [ (3 D_g - 2 a_x) alpha KTilde_xx / gamma_xx^1.5																							]
-[KTilde_xx	]	[	0	0	alpha sqrt(gamma_xx)	0	0						0			-2 alpha sqrt(gamma_xx) ][KTilde_xx	]	[ alpha sqrt(gamma_xx) (.5 D_g a_x - a_x^2 - D_g Z_x - 2 KTilde_xx / gamma_xx (KTilde_xx / gamma_xx + Theta) - .5 S_xx - .5 tau gamma_xx)	]
-[Theta		]	[	0	0	0						0	0						0			-alpha / gamma_xx		][Theta		]	[ -alpha (Theta KTilde_xx / gamma_xx^1.5 + (a_x + 1/2 D_g) Z_x / gamma_xx + tau)															]
-[Z_x		]	[	0	0	0						0	0						-alpha		0						][Z_x		],x	[ -alpha (2 Z_x KTilde_xx / gamma_xx^1.5 + S_x + Theta a_x)																					]
+[alpha		]	[	0	0	0						0	0							0			0							][alpha		]	[ -f alpha^2 (K - m Theta)
+[gamma_xx	]	[	0	0	0						0	0							0			0							][gamma_xx	]	[ -2 alpha K_xx
+[a_x		]	[	0	0	0						0	f alpha / sqrt(gamma_xx)	-f alpha m	0							][a_x		]	[ alpha (1/2 f K D_g - a_x (f' alpha + f) (K - m Theta))
+[D_g		] + [	0	0	0						0	2 alpha / sqrt(gamma_xx)	0			0							][D_g		] = [ alpha K (D_g - 2 a_x)
+[KTilde		]	[	0	0	alpha / sqrt(gamma_xx)	0	0							0			-2 alpha / sqrt(gamma_xx)	][KTilde	]	[ alpha ( (1/2 D_g - a_x) a_x - D_g Z_x - 1/2 S_xx - 1/2 tau gamma_xx - 2 Theta K_xx) / sqrt(gamma_xx)
+[Theta		]	[	0	0	0						0	0							0			-alpha / gamma_xx			][Theta		]	[ -alpha ((1/2 D_g + a_x) Z_x / gamma_xx + Theta K + tau)
+[Z_x		]	[	0	0	0						0	0							-alpha		0							][Z_x		],x	[ -alpha (2 Z_x K + S_x + Theta a_x)
 
-gets results:
+
+load("eigen");
+assume(alpha>0, f>0, gamma_xx>0);
+A : matrix([0, 0, f * alpha / sqrt(gamma_xx), - f * alpha * m, 0],
+[0, 0, 2 * alpha / sqrt(gamma_xx), 0, 0],
+[alpha / sqrt(gamma_xx), 0, 0, 0, -2 * alpha / sqrt(gamma_xx)],
+[0, 0, 0, 0, -alpha / gamma_xx],
+[0, 0, 0, -alpha, 0]);
+results : eigenvectors(A);
+lambdas : diag_matrix(results[1][1][1], results[1][1][3], results[1][1][5], results[1][1][4], results[1][1][2]);
+transpose(matrix(
+        results[2][1][1]*f,
+        results[2][3][1]*f*(m-2),
+        results[2][5][1],
+        results[2][4][1]*f*(m-2),
+        results[2][2][1]*f))$
+ratsimp(%)$
+evR : %;
+evR$ invert(%)$ ratsimp(%)$ evL:%;
+evR . lambdas . evL - A$ ratsimp(%);
 
 eigenvalues:
-matrix([-(alpha*sqrt(f))/sqrt(g_xx),0,0,0,0],[0,-alpha/sqrt(g_xx),0,0,0],[0,0,0,0,0],[0,0,0,alpha/sqrt(g_xx),0],[0,0,0,0,(alpha*sqrt(f))/sqrt(g_xx)])
+matrix(
+	[-(alpha*sqrt(f))/sqrt(gamma_xx),0,0,0,0],
+	[0,-alpha/sqrt(gamma_xx),0,0,0],
+	[0,0,0,0,0],
+	[0,0,0,alpha/sqrt(gamma_xx),0],
+	[0,0,0,0,(alpha*sqrt(f))/sqrt(gamma_xx)])
 
 right eigenvectors:
-matrix([f,f*m-2*f,0,f*m-2*f,f],[2*g_xx^3,2*f*g_xx^3*m-4*g_xx^3,1,2*f*g_xx^3*m-4*g_xx^3,2*g_xx^3],[-sqrt(f)*g_xx,2*g_xx-f*g_xx*m,0,f*g_xx*m-2*g_xx,sqrt(f)*g_xx],[0,-(f-1)/sqrt(g_xx),0,(f-1)/sqrt(g_xx),0],[0,1-f,0,1-f,0])
+matrix(
+	[f,f*m-2*f,0,f*m-2*f,f],
+	[2,2*f*m-4,1,2*f*m-4,2],
+	[-sqrt(f),2-f*m,0,f*m-2,sqrt(f)],
+	[0,-(f-1)/sqrt(gamma_xx),0,(f-1)/sqrt(gamma_xx),0],
+	[0,1-f,0,1-f,0])
 
 left eigenvectors:
-matrix([1/(2*f),0,-1/(2*sqrt(f)*g_xx),(f*g_xx*m-2*g_xx)/(sqrt(f)*(2*f-2)*sqrt(g_xx)),(m-2)/(2*f-2)],[0,0,0,-sqrt(g_xx)/(2*f-2),-1/(2*f-2)],[-(2*g_xx^3)/f,1,0,0,2*g_xx^3*m],[0,0,0,sqrt(g_xx)/(2*f-2),-1/(2*f-2)],[1/(2*f),0,1/(2*sqrt(f)*g_xx),-(f*g_xx*m-2*g_xx)/(sqrt(f)*(2*f-2)*sqrt(g_xx)),(m-2)/(2*f-2)])
+matrix(
+	[1/(2*f),0,-1/(2*sqrt(f)),(sqrt(gamma_xx)*(f*m-2))/(sqrt(f)*(2*f-2)),(m-2)/(2*f-2)],
+	[0,0,0,-sqrt(gamma_xx)/(2*f-2),-1/(2*f-2)],
+	[-2/f,1,0,0,2*m],
+	[0,0,0,sqrt(gamma_xx)/(2*f-2),-1/(2*f-2)],
+	[1/(2*f),0,1/(2*sqrt(f)),-(sqrt(gamma_xx)*(f*m-2))/(sqrt(f)*(2*f-2)),(m-2)/(2*f-2)])
+
 --]]
 
 
@@ -170,8 +193,8 @@ do
 	local a_x = q:_(3)
 	local D_g = q:_(4)
 	local d_xxx = gamma_xx * D_g / 2
-	local KTilde_xx = q:_(5)
-	local K_xx = KTilde_xx / math.sqrt:o(gamma_xx)
+	local KTilde = q:_(5)
+	local K_xx = KTilde * math.sqrt:o(gamma_xx)
 	local K = K_xx / gamma_xx
 	local volume = alpha * math.sqrt:o(gamma_xx)
 	local Theta = q:_(6)
@@ -183,7 +206,7 @@ do
 		{d_xxx = d_xxx},
 		{D_g = D_g},
 		{K_xx = K_xx},
-		{KTilde_xx = KTilde_xx},
+		{KTilde = KTilde},
 		{K = K},
 		{Theta = Theta},
 		{Z_x = Z_x},
@@ -198,11 +221,11 @@ function Z41Dv2:initCell(sim,i)
 	local a_x = self.calc.dx_alpha(x) / self.calc.alpha(x)
 	local D_g = self.calc.dx_gamma_xx(x) / self.calc.gamma_xx(x)
 	local K_xx = self.calc.K_xx(x) 
-	local KTilde_xx = K_xx / math.sqrt(gamma_xx)
+	local KTilde = K_xx / math.sqrt(gamma_xx)
 	-- what is Theta and Z_i initialized to?
 	local Theta = 0	
 	local Z_x = 0
-	return {alpha, gamma_xx, a_x, D_g, KTilde_xx, Theta, Z_x}
+	return {alpha, gamma_xx, a_x, D_g, KTilde, Theta, Z_x}
 end
 
 function Z41Dv2:calcEigenvalues(alpha, gamma_xx, f)
@@ -246,11 +269,11 @@ function Z41Dv2:eigenLeftTransform(solver, evL, v)
 	local f, gamma_xx = table.unpack(evL)
 	local _, _, v1, v2, v3, v4, v5 = table.unpack(v)	-- skip alpha, gamma_xx, and transform the rest: a_x, d_xxx, K_xx, Theta, Z_x
 	return {
-		((m-2)*v5)/(2*f-2)+((f*gamma_xx*m-2*gamma_xx)*v4)/(math.sqrt(f)*(2*f-2)*math.sqrt(gamma_xx))-v3/(2*math.sqrt(f)*gamma_xx)+v1/(2*f),
+		((m-2)*v5)/(2*f-2)+(math.sqrt(gamma_xx)*(f*m-2)*v4)/(math.sqrt(f)*(2*f-2))-v3/(2*math.sqrt(f))+v1/(2*f),
 		-v5/(2*f-2)-(math.sqrt(gamma_xx)*v4)/(2*f-2),
-		2*gamma_xx^3*m*v5+v2-(2*gamma_xx^3*v1)/f,
+		2*m*v5+v2-(2*v1)/f,
 		(math.sqrt(gamma_xx)*v4)/(2*f-2)-v5/(2*f-2),
-		((m-2)*v5)/(2*f-2)-((f*gamma_xx*m-2*gamma_xx)*v4)/(math.sqrt(f)*(2*f-2)*math.sqrt(gamma_xx))+v3/(2*math.sqrt(f)*gamma_xx)+v1/(2*f),
+		((m-2)*v5)/(2*f-2)-(math.sqrt(gamma_xx)*(f*m-2)*v4)/(math.sqrt(f)*(2*f-2))+v3/(2*math.sqrt(f))+v1/(2*f)
 	}
 end
 
@@ -261,10 +284,10 @@ function Z41Dv2:eigenRightTransform(solver, evR, v)
 		0,
 		0,
 		f*v5+(f*m-2*f)*v4+(f*m-2*f)*v2+f*v1,
-		2*gamma_xx^3*v5+(2*f*gamma_xx^3*m-4*gamma_xx^3)*v4+v3+(2*f*gamma_xx^3*m-4*gamma_xx^3)*v2+2*gamma_xx^3*v1,
-		math.sqrt(f)*(gamma_xx*v5-gamma_xx*v1)+(f*gamma_xx*m-2*gamma_xx)*v4+(2*gamma_xx-f*gamma_xx*m)*v2,
-		((f-1)*v4+(1-f)*v2)/math.sqrt(gamma_xx),
-		(1-f)*v4+(1-f)*v2
+		2*v5+(2*f*m-4)*v4+v3+(2*f*m-4)*v2+2*v1,
+		math.sqrt(f)*v5+(f*m-2)*v4+(2-f*m)*v2-math.sqrt(f)*v1,
+		((f-1)*v4)/math.sqrt(gamma_xx)+((1-f)*v2)/math.sqrt(gamma_xx),
+		(1-f)*v4+(1-f)*v2,
 	}
 end
 
@@ -277,17 +300,20 @@ end
 function Z41Dv2:sourceTerm(sim, qs)
 	local source = sim:newState()
 	for i=1,sim.gridsize do
-		local alpha, gamma_xx, a_x, D_g, KTilde_xx, Theta, Z_x = table.unpack(qs[i])
+		local alpha, gamma_xx, a_x, D_g, KTilde, Theta, Z_x = table.unpack(qs[i])
 		local f = self.calc.f(alpha)
 		local dalpha_f = self.calc.dalpha_f(alpha)
+		local sqrt_gamma_xx = math.sqrt(gamma_xx)
+		local K_xx = KTilde * sqrt_gamma_xx 
+		local K = K_xx / gamma_xx
 
-		source[i][1] = -f * alpha^2 * (KTilde_xx / gamma_xx^1.5 - m * Theta)
-		source[i][2] = -2 * alpha * KTilde_xx / gamma_xx^.5
-		source[i][3] = alpha * ((1.5 * f * D_g - a_x * (dalpha_f * alpha + f)) * KTilde_xx / gamma_xx^1.5 + a_x * (dalpha_f * alpha + f) * m * Theta)
-		source[i][4] = (3 * D_g - 2 * a_x) * alpha * KTilde_xx / gamma_xx^1.5
-		source[i][5] = alpha * math.sqrt(gamma_xx) * (.5 * D_g * a_x - a_x^2 - D_g * Z_x - 2 * KTilde_xx / gamma_xx * (KTilde_xx / gamma_xx + Theta) - .5 * S_xx - .5 * tau * gamma_xx)
-		source[i][6] = -alpha * (Theta * KTilde_xx / gamma_xx^1.5 + (a_x + .5 * D_g) * Z_x / gamma_xx + tau)
-		source[i][7] = -alpha * (2 * Z_x * KTilde_xx / gamma_xx^1.5 + S_x + Theta * a_x)
+		source[i][1] = -f * alpha^2 * (K - m * Theta)
+		source[i][2] = -2 * alpha * K_xx
+		source[i][3] = alpha * (.5 * f * K * D_g - a_x * (dalpha_f * alpha + f) * (K - m * Theta))
+		source[i][4] = alpha * K * (D_g - 2 * a_x)
+		source[i][5] = alpha * ((.5 * D_g - a_x) * a_x - D_g * Z_x - .5 * S_xx - .5 * tau * gamma_xx - 2 * Theta * K_xx) / sqrt_gamma_xx
+		source[i][6] = -alpha * ((.5 * D_g + a_x) * Z_x / gamma_xx + Theta * K + tau)
+		source[i][7] = -alpha * (2 * Z_x * K + S_x + Theta * a_x)
 	end
 	return source
 end
