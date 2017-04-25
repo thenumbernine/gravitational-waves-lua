@@ -287,6 +287,14 @@ function Roe:calcFluxes(dt)
 	for i=2,self.gridsize do
 		self:calcFluxAtInterface(dt, i)
 	end
+	
+	-- this eliminates the flux within the ghost cells
+	-- which is especially useful for the implicit solvers
+	-- but that wasn't really causing any trouble anyways
+	for j=1,self.numStates do
+		self.fluxes[1][j] = self.fluxes[2][j]
+		self.fluxes[self.gridsize+1][j] = self.fluxes[self.gridsize][j]
+	end
 end
 
 return Roe

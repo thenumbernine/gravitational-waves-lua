@@ -26,7 +26,7 @@ function RoeImplicitLinearized:step(dt)
 		local oldQs = rawget(self, 'qs')
 		self.qs = qs
 
-		-- this is only the flux deriv... right?  or does it include the source term as well?
+		-- this includes the source terms 
 		local dq_dt = self:calcDerivFromFluxes(dt)
 		if self.equation.sourceTerm then
 			dq_dt = dq_dt + self.equation:sourceTerm(self, qs)
@@ -38,7 +38,6 @@ function RoeImplicitLinearized:step(dt)
 
 -- [[ implicit via some linear solver
 	local qs = self.qs
-
 	local linearSolverArgs = {
 		--maxiter = 1000,
 		x = qs:clone(),
@@ -59,8 +58,8 @@ function RoeImplicitLinearized:step(dt)
 		end)(),
 		--]=]
 		-- logging:
-		errorCallback = self.errorLogging and function(err, convergenceIteration)
-			print(self.t, convergenceIteration, err)
+		errorCallback = self.errorLogging and function(err, iter, x, rLenSq, bLenSq)
+			print('t',self.t, 'iter',iter, 'err',err, 'rLenSq',rLenSq, 'bLenSq',bLenSq)
 		end,
 	}
 
@@ -75,7 +74,8 @@ function RoeImplicitLinearized:step(dt)
 		-- then the matrix should be computed before invoking the iterative solver
 		-- which means the matrix coeffiicents shouldn't be changing per-iteration
 		-- which means calc_dq_dt() should be based on the initial state and not the iterative state
-		qs = qs - dt * calc_dq_dt(self.qs)
+		local dq_dt = calc_dq_dt(self.qs)
+		qs = qs - dt * dq_dt 
 		-- ... but 
 		--qs = qs - dt * calc_dq_dt(qs)
 		--self.boundaryMethod(qs)
@@ -96,9 +96,6 @@ function RoeImplicitLinearized:step(dt)
 	--]=]
 
 	self.qs = self.linearSolver(linearSolverArgs)
-	if self.errorLogging then
-		print()
-	end
 --]]
 --[[ explicit - forward Euler - for debugging
 	self.qs = self.qs + dt * calc_dq_dt(self.qs)

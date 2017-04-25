@@ -109,13 +109,13 @@ do
 
 	-- [=[ compare different equations/formalisms 
 	-- these two match:
-	--sims:insert(Roe(table(args, {equation = ADM1Dv1(equationArgs)})))
+	sims:insert(Roe(table(args, {equation = ADM1Dv1(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = ADM1Dv2(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
 	-- this one is similar to the last two, but off by just a bit (and has an asymmetric evolution of alpha)
 	--sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = Z41D(equationArgs)})))
-	sims:insert(Roe(table(args, {equation = Z41Dv2(equationArgs)})))
+	--sims:insert(Roe(table(args, {equation = Z41Dv2(equationArgs)})))
 	
 	-- ... and plm (was working before when I was using the Athena paper implementation, but I broke it when trying to use something more simple):
 	--sims:insert(RoePLM(table(args, {equation=ADM1Dv1(equationArgs), fluxLimiter=limiter.donorCell})))
@@ -126,7 +126,7 @@ do
 	--sims:insert(RoePLM(table(args, {equation=Z41Dv2(equationArgs), fluxLimiter=limiter.donorCell})))
 	
 	-- and here's the start of my looking into implicit solvers.
-	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1Dv1(equationArgs)})))
+	sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1Dv1(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1Dv2(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM3D(equationArgs)})))
 	--sims:insert(require'bssnok1d_backwardeuler_linear'(table(args, equationArgs)))
@@ -300,7 +300,7 @@ do
 		gridsize = 256,
 		domain = {xmin=-1, xmax=1},
 		boundaryMethod = boundaryMethods.freeFlow,
-		--boundaryMethod = boundaryMethods.freeFlow,
+		--boundaryMethod = boundaryMethods.mirror,
 		--linearSolver = require 'linearsolvers'.jacobi,
 		--linearSolver = require 'linearsolvers'.conjgrad,
 		--linearSolver = require 'linearsolvers'.conjres,
@@ -339,10 +339,11 @@ do
 	--sims:insert(require 'euler1d_dft'(args))
 	
 	-- mhd:
-	--sims:insert(Roe(table(args, {equation=MHD()})))
+	-- (doesn't work with mirror boundary conditions)
+	--sims:insert(Roe(table(args, {equation=MHD()})))	
 	--sims:insert(HLL(table(args, {equation=MHD()})))
 	--sims:insert(RoePLM(table(args, {equation=MHD(), fluxLimiter=limiter.donorCell})))
-	--sims:insert(RoeImplicitLinearized(table(args, {equation=MHD()})))
+	sims:insert(RoeImplicitLinearized(table(args, {equation=MHD()})))
 
 	-- srhd Marti & Muller 2003 problem #1
 	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.4249}, gridsize=400, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
@@ -443,7 +444,7 @@ os.exit()
 
 -- [=[ graphics
 local ffi = require 'ffi'
-local gl = require 'ffi.OpenGL'
+local gl = require 'gl'
 local sdl = require 'ffi.sdl'
 local GLTex2D = require 'gl.tex2d'
 local Font = require 'gui.font'
