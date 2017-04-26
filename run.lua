@@ -113,7 +113,7 @@ do
 	--sims:insert(Roe(table(args, {equation = ADM1Dv2(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
 	-- this one is similar to the last two, but off by just a bit (and has an asymmetric evolution of alpha)
-	--sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
+	sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = Z41D(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = Z41Dv2(equationArgs)})))
 	
@@ -131,7 +131,7 @@ do
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM3D(equationArgs)})))
 	--sims:insert(require'bssnok1d_backwardeuler_linear'(table(args, equationArgs)))
 	--sims:insert(require'bssnok1d_original_backwardeuler_linear'(table(args, equationArgs)))
-	sims:insert(require'bssnok1d_original_fe'(table(args, equationArgs)))
+	--sims:insert(require'bssnok1d_original_fe'(table(args, equationArgs)))
 	--sims:insert(require'bssnok1d_backwardeuler_newton'(args))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = Z41D(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = Z41Dv2(equationArgs)})))
