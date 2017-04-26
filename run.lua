@@ -126,11 +126,12 @@ do
 	--sims:insert(RoePLM(table(args, {equation=Z41Dv2(equationArgs), fluxLimiter=limiter.donorCell})))
 	
 	-- and here's the start of my looking into implicit solvers.
-	sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1Dv1(equationArgs)})))
+	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1Dv1(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1Dv2(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM3D(equationArgs)})))
 	--sims:insert(require'bssnok1d_backwardeuler_linear'(table(args, equationArgs)))
 	--sims:insert(require'bssnok1d_original_backwardeuler_linear'(table(args, equationArgs)))
+	sims:insert(require'bssnok1d_original_fe'(table(args, equationArgs)))
 	--sims:insert(require'bssnok1d_backwardeuler_newton'(args))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = Z41D(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = Z41Dv2(equationArgs)})))
