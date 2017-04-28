@@ -309,7 +309,7 @@ function BSSNOK1D:initCell(sim,i)
 	-- hyperbolic variables:
 	local a_x = self.calc.a_x(x)
 	local Phi_x = self.calc.Phi_x(x)
-	local dTilde_xxx = self.calc.dTilde_xxx(x)	
+	--local dTilde_xxx = self.calc.dTilde_xxx(x)	
 	return {alpha, phi, K, ATilde_xx, a_x, Phi_x}
 end
 
