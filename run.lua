@@ -56,6 +56,7 @@ local ADM2DSpherical = require'adm2dspherical'
 local ADM3D = require 'adm3d'
 local Z41D = require 'z4-1d'
 local Z41Dv2 = require 'z4-1d-v2'
+local Z43D = require 'z4-3d'
 
 -- setup
 local sims = table()
@@ -109,13 +110,14 @@ do
 
 	-- [=[ compare different equations/formalisms 
 	-- these two match:
-	sims:insert(Roe(table(args, {equation = ADM1Dv1(equationArgs)})))
+	--sims:insert(Roe(table(args, {equation = ADM1Dv1(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = ADM1Dv2(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
 	-- this one is similar to the last two, but off by just a bit (and has an asymmetric evolution of alpha)
-	sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
+	--sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = Z41D(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = Z41Dv2(equationArgs)})))
+	sims:insert(Roe(table(args, {equation = Z43D(equationArgs)})))
 	
 	-- ... and plm (was working before when I was using the Athena paper implementation, but I broke it when trying to use something more simple):
 	--sims:insert(RoePLM(table(args, {equation=ADM1Dv1(equationArgs), fluxLimiter=limiter.donorCell})))
