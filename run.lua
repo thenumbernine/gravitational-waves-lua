@@ -61,7 +61,7 @@ local Z43D = require 'z4-3d'
 -- setup
 local sims = table()
 
--- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+--[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -395,6 +395,19 @@ do
 	sims:insert(Roe(table(args, {integrator=integrators.ForwardEuler()})))
 	sims:insert(Roe(table(args, {integrator=integrators.RungeKutta4()})))
 	--]=]
+end
+--]]
+
+-- [[
+do
+	local args = {
+		gridsize = 256,
+		domain = {xmin=.1, xmax=4},
+		boundaryMethod = boundaryMethods.freeFlow,	-- TODO freeflow on the left, fixed at 0 on the right.
+		integrator = integrators.RungeKutta4,
+		--integrator = integrators.BackwardEuler,
+	}
+	sims:insert(require 'nls-sim'(args))
 end
 --]]
 

@@ -10,6 +10,10 @@ local SolverFV = class(Solver)
 function SolverFV:init(args)
 	SolverFV.super.init(self, args)
 	
+	self.fluxLimiter = assert(args.fluxLimiter)
+	
+	self.name = self.name .. ' flux lim.=' .. self.fluxLimiter.name
+	
 	self.fluxes = {}
 end
 

@@ -16,8 +16,22 @@ function RungeKutta4:integrate(qs, dt, dq_dts)
 	return qs + dt / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
 end
 
+local BackwardEuler = class()
+BackwardEuler.name = 'BE'
+function BackwardEuler:integrate(qs, dt, dq_dts)
+	return require 'solver.gmres'{
+		A = function(u)
+			return u - dt * dq_dts(qs)
+		end,
+		x = qs:clone(),
+		b = qs:clone(),
+		clone = qs.clone,
+		dot = qs.dot,
+	}
+end
+
 return {
 	ForwardEuler = ForwardEuler,
 	RungeKutta4 = RungeKutta4,
+	BackwardEuler = BackwardEuler,
 }
-

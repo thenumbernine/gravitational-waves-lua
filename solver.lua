@@ -13,12 +13,10 @@ function Solver:init(args)
 	self.gridsize = assert(args.gridsize)
 	self.domain = assert(args.domain)
 	self.boundaryMethod = assert(args.boundaryMethod)
-	self.fluxLimiter = assert(args.fluxLimiter)
 
 	self.integrator = args.integrator or integrators.ForwardEuler()
 	
 	self.name = self.name .. ' int.=' .. self.integrator.name 
-	self.name = self.name .. ' flux lim.=' .. self.fluxLimiter.name
 
 	self.t0 = args.t or 0
 	self.iteration = args.iteration or 0
