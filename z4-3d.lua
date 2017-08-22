@@ -570,7 +570,32 @@ function Z43D:calcEigenvaluesFromCons(
 end
 
 function Z43D:sourceTerm(solver, qs)
-	error"you need a source term"
+	local source = solver:newState()
+	for i=1,solver.gridsize do
+		local alpha = qs[i][1]
+		local gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz = unpack(qs[i], 2, 7)
+		local a_x, a_y, a_z = unpack(qs[i], 8, 10)
+		local d_xxx, d_xxy, d_xxz, d_xyy, d_xyz, d_xzz = unpack(qs[i], 11, 16)
+		local d_yxx, d_yxy, d_yxz, d_yyy, d_yyz, d_yzz = unpack(qs[i], 17, 22)
+		local d_zxx, d_zxy, d_zxz, d_zyy, d_zyz, d_zzz = unpack(qs[i], 23, 28)
+		local K_xx, K_xy, K_xz, K_yy, K_yz, K_zz = unpack(qs[i], 29, 34)
+		local Theta = qs[i][35]
+		local Z_x, Z_y, Z_z = unpack(qs[i], 36, 38)
+		local gammaUxx, gammaUxy, gammaUxz, gammaUyy, gammaUyz, gammaUzz = mat33sym.inv(gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz)
+		local f = self.calc.f(alpha)
+		local K = K_xx * gammaUxx + K_yy * gammaUyy + K_zz * gammaUzz + 2 * (K_xy * gammaUxy + K_xz * gammaUxz + K_yz * gammaUyz)
+		
+		source[i][1] = -alpha * alpha * f * K
+		source[i][2] = -2 * alpha * K_xx
+		source[i][3] = -2 * alpha * K_xy
+		source[i][4] = -2 * alpha * K_xz
+		source[i][5] = -2 * alpha * K_yy
+		source[i][6] = -2 * alpha * K_yz
+		source[i][7] = -2 * alpha * K_zz
+	
+		-- how about the other source terms?
+	end
+	return source
 end
 
 return Z43D 
