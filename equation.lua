@@ -2,8 +2,6 @@ local class = require 'ext.class'
 
 local Equation = class()
 
-Equation.State = require 'state' 
-
 -- note this is to be used on the child class object
 -- so 'self' is the subclass.  or the object.  either works.
 function Equation:buildGraphInfos(getters)

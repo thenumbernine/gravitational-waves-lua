@@ -33,6 +33,7 @@ local symmath = require 'symmath'
 -- solvers:
 local HLL = require 'hll'
 local Roe = require 'roe'
+local WENO5 = require 'weno5'
 
 local MUSCLBehavior = require 'muscl'
 local RoeMUSCL = MUSCLBehavior(Roe)
@@ -295,7 +296,7 @@ end
 --]]
 
 
---[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+-- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
 	local args = {
 		equation = Euler1D(),
@@ -329,7 +330,8 @@ do
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
-	--sims:insert(Roe(args))
+	sims:insert(Roe(args))
+	--sims:insert(WENO5(args))
 	--sims:insert(RoePLM(table(args, {fluxLimiter=limiter.donorCell})))
 	--sims:insert(HLLPLM(args))
 	--sims:insert(Roe(table(args, {equation = require 'euler1d_quasilinear'()})))
@@ -346,7 +348,7 @@ do
 	--sims:insert(Roe(table(args, {equation=MHD()})))	
 	--sims:insert(HLL(table(args, {equation=MHD()})))
 	--sims:insert(RoePLM(table(args, {equation=MHD(), fluxLimiter=limiter.donorCell})))
-	sims:insert(RoeImplicitLinearized(table(args, {equation=MHD()})))
+	--sims:insert(RoeImplicitLinearized(table(args, {equation=MHD()})))
 
 	-- srhd Marti & Muller 2003 problem #1
 	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.4249}, gridsize=400, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
@@ -398,7 +400,7 @@ do
 end
 --]]
 
--- [[
+--[[
 do
 	local args = {
 		gridsize = 256,

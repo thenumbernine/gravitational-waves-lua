@@ -31,8 +31,9 @@ function Solver:init(args)
 	self.qs = self:newState()
 end
 
+local matrix = require 'matrix'
 function Solver:newState()
-	return self.equation.State(self.gridsize, self.numStates)
+	return matrix.zeros(self.gridsize, self.numStates)
 end
 
 function Solver:reset()
