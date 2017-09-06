@@ -173,16 +173,6 @@ function Roe:calcInterfaceEigenBasis()
 	end
 end
 
--- get the q at the left side of the interface
-function Roe:get_qL(i)
-	return self.qs[i-1]
-end
-
--- get the q at the right side of the interface
-function Roe:get_qR(i)
-	return self.qs[i]
-end
-
 function Roe:calcDeltaQTildes()
 	for i=2,self.gridsize do
 		local qL = self:get_qL(i)

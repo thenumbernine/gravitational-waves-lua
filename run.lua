@@ -1,7 +1,5 @@
 #!/usr/bin/env luajit
 
---DEBUG_PPM=true
-
 require 'ext'
 
 -- stack operations
@@ -42,6 +40,10 @@ local HLLMUSCL = MUSCLBehavior(HLL)
 local PLMBehavior = require 'plm'
 local RoePLM = PLMBehavior(Roe)
 local HLLPLM = PLMBehavior(HLL)
+
+local PPMBehavior = require 'ppm'
+local RoePPM = PPMBehavior(Roe)
+local HLLPPM = PPMBehavior(HLL)
 
 local RoeImplicitLinearized = require 'roe_implicit_linearized'
 -- equations:
@@ -121,12 +123,12 @@ do
 	sims:insert(Roe(table(args, {equation = Z43D(equationArgs)})))
 	
 	-- ... and plm (was working before when I was using the Athena paper implementation, but I broke it when trying to use something more simple):
-	--sims:insert(RoePLM(table(args, {equation=ADM1Dv1(equationArgs), fluxLimiter=limiter.donorCell})))
-	--sims:insert(RoePLM(table(args, {equation=ADM1Dv2(equationArgs), fluxLimiter=limiter.donorCell})))
-	--sims:insert(RoePLM(table(args, {equation=ADM3D(equationArgs), fluxLimiter=limiter.donorCell})))
-	--sims:insert(RoePLM(table(args, {equation=BSSNOK1D(equationArgs), fluxLimiter=limiter.donorCell})))
-	--sims:insert(RoePLM(table(args, {equation=Z41D(equationArgs), fluxLimiter=limiter.donorCell})))
-	--sims:insert(RoePLM(table(args, {equation=Z41Dv2(equationArgs), fluxLimiter=limiter.donorCell})))
+	--sims:insert(RoePLM(table(args, {equation=ADM1Dv1(equationArgs)})))
+	--sims:insert(RoePLM(table(args, {equation=ADM1Dv2(equationArgs)})))
+	--sims:insert(RoePLM(table(args, {equation=ADM3D(equationArgs)})))
+	--sims:insert(RoePLM(table(args, {equation=BSSNOK1D(equationArgs)})))
+	--sims:insert(RoePLM(table(args, {equation=Z41D(equationArgs)})))
+	--sims:insert(RoePLM(table(args, {equation=Z41Dv2(equationArgs)})))
 	
 	-- and here's the start of my looking into implicit solvers.
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1Dv1(equationArgs)})))
@@ -329,14 +331,15 @@ do
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='pvrs'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='twoshock'})))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
-	--sims:insert(HLL(args))
-	sims:insert(Roe(args))
-	--sims:insert(WENO5(args))
-	--sims:insert(RoePLM(table(args, {fluxLimiter=limiter.donorCell})))
-	--sims:insert(HLLPLM(args))
+	sims:insert(HLL(args))
+	--sims:insert(Roe(args))
+	--sims:insert(WENO5(args))	-- TODO finishme
+	--sims:insert(RoePLM(args))
+	sims:insert(HLLPLM(args))
 	--sims:insert(Roe(table(args, {equation = require 'euler1d_quasilinear'()})))
 	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
-	--sims:insert(Roe(table(args, {usePPM=true})))
+	--sims:insert(RoePPM(args))
+	sims:insert(HLLPPM(args))
 	--sims:insert(RoeImplicitLinearized(args))
 	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .005})))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
@@ -347,7 +350,7 @@ do
 	-- (doesn't work with mirror boundary conditions)
 	--sims:insert(Roe(table(args, {equation=MHD()})))	
 	--sims:insert(HLL(table(args, {equation=MHD()})))
-	--sims:insert(RoePLM(table(args, {equation=MHD(), fluxLimiter=limiter.donorCell})))
+	--sims:insert(RoePLM(table(args, {equation=MHD()})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation=MHD()})))
 
 	-- srhd Marti & Muller 2003 problem #1
@@ -377,8 +380,7 @@ do
 	--sims:insert(require 'sod_exact'(table(args, {gridsize=2000})))
 	sims:insert(Roe(table(args, {fluxLimiter=limiter.superbee})))
 	sims:insert(Roe(table(args, {fluxLimiter=limiter.donorCell}))) 	-- eliminate the flux limiter, so only the PLM slope limiter is applied
-	sims:insert(RoePLM(table(args, {fluxLimiter=limiter.donorCell}))) 	-- eliminate the flux limiter, so only the PLM slope limiter is applied
-	--sims:insert(RoePLM(table(args, {fluxLimiter=limiter.superbee}))) 	-- this is applying the limiter twice: the flux and the slope
+	sims:insert(RoePLM(args))
 	--sims:insert(RoeMUSCL(table(args, {fluxLimiter=limiter.superbee}))) 	-- this is applying the limiter twice: the flux and the slope
 	--sims:insert(RoeMUSCL(table(args, {fluxLimiter=limiter.donorCell}))) 	-- eliminate the flux limiter, so only the MUSCL slope limiter is applied
 	--]=]
@@ -1001,7 +1003,6 @@ function TestApp:update(...)
 						if #sim.ys > 0 then
 							for _,mode in ipairs{
 								gl.GL_LINE_STRIP,
-								DEBUG_PPM and gl.GL_POINTS
 							} do
 								gl.glBegin(mode)
 								for i=3,sim.gridsize-2 do
@@ -1010,43 +1011,6 @@ function TestApp:update(...)
 								gl.glEnd()
 							end
 						end
-			-- [[ special PPM hack
-			if DEBUG_PPM then
-						local channel = 2
-						local ppmCount = 0
-						local ppmYs = table()
-						gl.glColor3f(1,1,0)
-						gl.glBegin(gl.GL_LINE_STRIP)
-						for n=0,#sim.xs*10 do
-							local x = (xmax - xmin) / (#sim.xs*10) * n + xmin
-							-- getter ... abstracts the index of the state variable ...
-							local y = sim:getPPM(x,channel)
-							if y then
-								ppmYs:insert(y)
-								ppmCount = ppmCount + 1
-								gl.glVertex2f(x,y)
-							end
-						end
-						gl.glEnd()
-						--print(unpack(ppmYs,1,10))
-						--print(ppmCount) 
-						if sim.ppm_iqs then
-							gl.glColor3f(0,1,0)
-							gl.glBegin(gl.GL_LINES)
-							for i=3,sim.gridsize-2 do
-								gl.glVertex2f(sim.ixs[i], sim.ppm_qLs[i][channel])
-								gl.glVertex2f(sim.ixs[i+1], sim.ppm_qRs[i][channel])
-							end
-							gl.glEnd()
-							gl.glColor3f(1,0,1)
-							gl.glBegin(gl.GL_POINTS)
-							for i=3,sim.gridsize-1 do
-								gl.glVertex2f(sim.ixs[i],sim.ppm_iqs[i][channel])
-							end
-							gl.glEnd()
-						end
-			end
-			--]]
 						gl.glPointSize(1)
 						
 						if self.font then

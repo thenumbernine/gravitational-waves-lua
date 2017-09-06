@@ -15,6 +15,12 @@ local function PLMBehavior(parentClass)
 	end
 
 	function PLMTemplate:init(args)
+		
+		-- disable flux limiter
+		args = table(args)
+		local limiter = require 'limiter' 
+		args.fluxLimiter = limiter.donorCell
+		
 		PLMTemplate.super.init(self, args)
 		self.name = self.name .. ' PLM'
 

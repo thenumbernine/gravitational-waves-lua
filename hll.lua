@@ -6,37 +6,26 @@ local HLL = class(SolverFV)
 function HLL:init(args)
 	self.equation = assert(self.equation or args.equation)
 	self.name = self.equation.name .. ' HLL'
-	self.eigenvalues = {}
 	
 	HLL.super.init(self, args)
 end
 
-function HLL:reset()
-	HLL.super.reset(self)
-
-	for i=1,self.gridsize+1 do
-		self.eigenvalues[i] = {}
-		for j=1,self.numWaves do
-			self.eigenvalues[i][j] = 0
-		end
-	end
-end
-
 function HLL:calcFluxes(dt)
-	-- only the eigenvalues
-	self:calcInterfaceEigenvalues()
-	
-	local gamma = self.gamma
-	
-	local iqs = self:newState()
-	
 	for i=2,self.gridsize do
-		-- TODO use qL and qR to allow compatability with MUSCL
-		local qL = self.qs[i-1]
-		local qR = self.qs[i]
+		local qL = self:get_qL(i)
+		local qR = self:get_qR(i)
+
+		local lambdaInt = {} 
+		fill(lambdaInt, self.equation:calcEigenvalues(self.equation:calcRoeValues(qL, qR)))
+
+		local lambdaL = {}
+		fill(lambdaL, self.equation:calcEigenvaluesFromCons(table.unpack(qL)))
 		
-		local sL = self.eigenvalues[i][1]
-		local sR = self.eigenvalues[i][self.numWaves]
+		local lambdaR = {}
+		fill(lambdaR, self.equation:calcEigenvaluesFromCons(table.unpack(qR)))
+
+		local sL = math.min(lambdaInt[1], lambdaL[1])
+		local sR = math.max(lambdaInt[self.numWaves], lambdaR[self.numWaves])
 
 		local fluxL = {self.equation:calcFluxForState(qL)}
 		local fluxR = {self.equation:calcFluxForState(qR)}

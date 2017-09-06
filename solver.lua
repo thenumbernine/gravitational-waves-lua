@@ -24,8 +24,6 @@ function Solver:init(args)
 	self.fixed_dt = args.fixed_dt
 	self.stopAtTimes = args.stopAtTimes
 
-	self.usePPM = args.usePPM
-
 	self.xs = {}
 	self.ixs = {}
 	self.qs = self:newState()
@@ -61,24 +59,6 @@ function Solver:applyBoundary()
 	self.boundaryMethod(self.qs)
 end
 
--- [[ PPM hack
-function Solver:getPPM(xi,j)
-	if not self.ppm_qRs then return end
-	for i=1,#self.ixs-1 do
-		--self.ixs[i] <= xi < self.ixs[i+1]
-		if self.ixs[i+1] > xi then
-			local x = (xi - self.ixs[i]) / (self.ixs[i+1] - self.ixs[i])
-			-- DeltaA[j] = aR[j] - aL[j]
-			local DeltaA = self.ppm_qRs[i][j] - self.ppm_qLs[i][j]
-			-- a6[j] = 6 * (a[j] - .5 * (aL[j] + aR[j]))
-			local a6 = 6 * (self.qs[i][j] - .5 * (self.ppm_qLs[i][j] + self.ppm_qRs[i][j]))
-			-- a(x) = aL[j] + (x - ix[j]) / dx[j] * (DeltaA[j] + a6[j] * (1 - x))
-			return self.ppm_qLs[i][j] + x * (DeltaA + a6 * (1 - x))
-		end
-	end	
-end
---]]
-
 function Solver:step(dt)
 	self:integrate(dt, function()
 		local dq_dt = self:calcDerivFromFluxes(dt)
@@ -109,5 +89,16 @@ function Solver:iterate()
 	self.t = self.t + dt
 	self.iteration = self.iteration + 1
 end
+
+-- get the q at the left side of the interface
+function Solver:get_qL(i)
+	return self.qs[i-1]
+end
+
+-- get the q at the right side of the interface
+function Solver:get_qR(i)
+	return self.qs[i]
+end
+
 
 return Solver

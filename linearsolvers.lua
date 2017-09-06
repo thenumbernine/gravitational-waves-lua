@@ -11,8 +11,8 @@ local function prepArgs(args)
 	if not args.epsilon then args.epsilon = 1e-10 end
 	if not args.dot then args.dot = assert(args.b.dot) end
 	if not args.clone then args.clone = assert(args.b.clone) end
-	if not args.scale then args.scale = args.b.perElementMultiply end
-	if not args.invScale then args.invScale = args.b.perElementDivide end
+	if not args.scale then args.scale = args.b.emul end
+	if not args.invScale then args.invScale = args.b.ediv end
 	return args
 end
 

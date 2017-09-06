@@ -219,13 +219,23 @@ function Euler1D:calcEigenBasis(lambda, evR, evL, dF_dU, rho, vx, hTotal, Cs)
 	fill(evL[3], (.5 * gamma_1 * vxSq - Cs * vx) / (2 * CsSq),	(Cs - gamma_1 * vx) / (2 * CsSq),	gamma_1 / (2 * CsSq)	)
 end
 
+-- hmm, I have to work on these names ...
+function Euler1D:calcEigenBasisFromCons(lambda, evR, evL, dF_dU, q)
+	local rho, mx, ETotal = table.unpack(q)
+	local rho, vx, P = self:calcPrimFromCons(rho, mx, ETotal)
+	local hTotal = self:calc_hTotal(rho, P, ETotal)
+	return self:calcEigenBasis(lambda, evR, evL, dF_dU,
+		rho, vx, hTotal, Cs)
+end
+
 -- functions that use sim:
 
 -- used by HLL
 -- TODO how often do we create new tables of this?
-function Euler1D:calcInterfaceEigenvalues(sim, i, qL, qR)
+function Euler1D:calcInterfaceEigenvalues(sim, i, qL, qR, lambda)
+	lambda = lambda or sim.eigenvalues[i]
 	local rho, vx, hTotal, Cs = self:calcRoeValues(qL, qR)
-	fill(sim.eigenvalues[i], self:calcEigenvalues(vx, Cs))
+	fill(lambda, self:calcEigenvalues(vx, Cs))
 end
 
 --[[
@@ -240,6 +250,30 @@ function Euler1D:calcCellCenterRoeValues(solver, i)
 	local rho, vx, P = self:calcPrimFromCons(rho, mx, ETotal)
 	local hTotal = self:calc_hTotal(rho, P, ETotal)
 	return rho, vx, hTotal
+end
+
+--[[
+calc eigenvalues and eigenvectors of dF/dW using variables of W
+--]]
+function Euler1D:calcEigenBasisWrtPrimFromPrim(lambda, evR, evL, W)
+	local rho, vx, P = table.unpack(W)
+	local CsSq = self.gamma * P / rho
+	local Cs = math.sqrt(CsSq) 
+	
+	if lambda then
+		fill(lambda, vx - Cs, vx, vx + Cs)
+	end
+
+	if evR then
+		fill(evR[1], 1, 1, 1)
+		fill(evR[2], -Cs/rho, 0, Cs/rho)
+		fill(evR[3], CsSq, 0, CsSq)
+	end
+	if evL then
+		fill(evL[1], 0, -.5*rho/Cs, .5*CsSq)
+		fill(evL[2], 1, 0, -1/CsSq)
+		fill(evL[3], 0, .5*rho/Cs, .5*CsSq)
+	end
 end
 
 return Euler1D
