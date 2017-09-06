@@ -6,7 +6,9 @@ local HLL = class(SolverFV)
 function HLL:init(args)
 	self.equation = assert(self.equation or args.equation)
 	self.name = self.equation.name .. ' HLL'
-	
+
+	self.useDirect = args.useDirect
+
 	HLL.super.init(self, args)
 end
 
@@ -24,8 +26,14 @@ function HLL:calcFluxes(dt)
 		local lambdaR = {}
 		fill(lambdaR, self.equation:calcEigenvaluesFromCons(table.unpack(qR)))
 
-		local sL = math.min(lambdaInt[1], lambdaL[1])
-		local sR = math.max(lambdaInt[self.numWaves], lambdaR[self.numWaves])
+		local sL, sR
+		if self.useDirect then
+			sL = lambdaL[1]
+			sR = lambdaR[self.numWaves]
+		else
+			sL = math.min(lambdaInt[1], lambdaL[1])
+			sR = math.max(lambdaInt[self.numWaves], lambdaR[self.numWaves])
+		end
 
 		local fluxL = {self.equation:calcFluxForState(qL)}
 		local fluxR = {self.equation:calcFluxForState(qR)}
