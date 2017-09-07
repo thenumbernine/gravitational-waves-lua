@@ -38,15 +38,18 @@ local function PPMBehavior(parentClass)
 		local numStates = self.numStates
 		local eqn = self.equation
 
-		--[[ calc prims
-		local W = matrix.zeros{gridsize, numStates}
-		for i=1,gridsize do
-			W[i] = matrix{eqn:calcPrimFromCons(table.unpack(self.qs[i]))}
+		local applyPPMToCons = true
+
+		-- calc prims
+		local W
+		if not applyPPMToCons then
+			W = matrix.zeros{gridsize, numStates}
+			for i=1,gridsize do
+				W[i] = matrix{eqn:calcPrimFromCons(table.unpack(self.qs[i]))}
+			end
+		else
+			W = self.qs
 		end
-		--]]
-		-- [[
-		local W = self.qs
-		--]]
 
 		-- calc cell-centered eigenbasis wrt prims
 		local lambdas = matrix.zeros{gridsize, numStates}
@@ -58,8 +61,7 @@ local function PPMBehavior(parentClass)
 		end
 
 		local dWm = matrix.zeros{gridsize, numStates}
-		local Wim1h = matrix.zeros{gridsize, numStates}
-		for i=3,gridsize-1 do
+		for i=2,gridsize-1 do
 			-- calc prim differences across cell
 			local dWc = matrix.zeros{numStates}
 			local dWl = matrix.zeros{numStates}
@@ -110,23 +112,30 @@ local function PPMBehavior(parentClass)
 					dWm[i][j] = dWm[i][j] + evrs[i][j][k] * da[k]
 				end
 			end
+		end
 		
+		-- interface primitives based on parabolic reconstruction
+		local iW = matrix.zeros{gridsize, numStates}
+		for i=2,gridsize do
 			for j=1,numStates do
-				Wim1h[i][j] = .5 * (W[i][j] + W[i-1][j]) - (dWm[i][j] - dWm[i-1][j]) / 6
+				iW[i][j] = .5 * (W[i][j] + W[i-1][j]) - (dWm[i][j] - dWm[i-1][j]) / 6
 			end
-
-			local Wlv = matrix(Wim1h[i-1])	-- notice this depends on loop order 
-			local Wrv = matrix(Wim1h[i])
+		end
+		
+		for i=3,gridsize do
+			-- cell left and right values
+			local Wlv = matrix(iW[i-1])
+			local Wrv = matrix(iW[i])
 
 			local gamma_curv = 0
 			for j=1,numStates do
 				local qa = (Wrv[j] - W[i-1][j]) * (W[i-1][j] - Wlv[j])
 				local qb = Wrv[j] - Wlv[j]
 				local qc = 6 * (W[i-1][j] - .5 * (Wlv[j] * (1 - gamma_curv) + Wrv[j] * (1 + gamma_curv)))
-				if qa < 0 then
+				if qa <= 0 then
 					Wlv[j] = W[i-1][j]
 					Wrv[j] = W[i-1][j]
-				elseif qb * qc > qb * qb then	-- why not divide by qb?
+				elseif qb * qc > qb * qb then
 					Wlv[j] = (6 * W[i-1][j] - Wrv[j] * (4 + 3 * gamma_curv)) / (2 - 3 * gamma_curv)
 				elseif qb * qc < -qb * qb then
 					Wrv[j] = (6 * W[i-1][j] - Wlv[j] * (4 - 3 * gamma_curv)) / (2 + 3 * gamma_curv)
@@ -149,14 +158,13 @@ local function PPMBehavior(parentClass)
 			end
 		
 			-- now we have Wl = Wrv and Wr = Wlv
-			--[[
-			self.qLs[i+1] = matrix{eqn:calcConsFromPrim(table.unpack(Wrv))}
-			self.qRs[i] = matrix{eqn:calcConsFromPrim(table.unpack(Wlv))}
-			--]]
-			-- [[
-			self.qLs[i+1] = matrix(Wrv)
-			self.qRs[i] = matrix(Wlv)
-			--]]
+			if not applyPPMToCons then
+				self.qLs[i] = matrix{eqn:calcConsFromPrim(table.unpack(Wrv))}
+				self.qRs[i-1] = matrix{eqn:calcConsFromPrim(table.unpack(Wlv))}
+			else
+				self.qLs[i] = matrix(Wrv)
+				self.qRs[i-1] = matrix(Wlv)
+			end
 		end
 		
 		-- now qLs and qRs can be used
