@@ -174,12 +174,14 @@ local function PPMBehavior(parentClass)
 			end
 			--]]
 
+			--[[
 			local dW = matrix()
 			local W6 = matrix()
 			for j=1,numStates do
 				dW[j] = Wrv[j] - Wlv[j]
 				W6[j] = 6 * (W[i][j] - .5 * (Wlv[j] + Wrv[j]))
 			end
+			--]]
 		
 			if not applyPPMToCons then
 				self.qLs[i+1] = matrix{eqn:calcConsFromPrim(table.unpack(Wrv))}

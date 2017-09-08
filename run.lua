@@ -340,7 +340,7 @@ do
 	--sims:insert(HLLMUSCL(args))
 	--sims:insert(Roe(table(args, {equation = require 'euler1d_quasilinear'()})))
 	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
-	sims:insert(RoePPM(args))
+	--sims:insert(RoePPM(args))
 	--sims:insert(HLLPPM(args))
 	--sims:insert(RoeImplicitLinearized(args))
 	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .005})))

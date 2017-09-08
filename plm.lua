@@ -23,10 +23,6 @@ local function PLMBehavior(parentClass)
 		
 		PLMTemplate.super.init(self, args)
 		self.name = self.name .. ' PLM'
-
-		-- cells 
-		self.cellLeftEigenvectors = {}
-		self.cellRightEigenvectors = {}
 		
 		-- interface
 		self.qLs = {}
@@ -38,13 +34,6 @@ local function PLMBehavior(parentClass)
 
 		-- centered
 		for i=1,self.gridsize do
-			self.cellLeftEigenvectors[i] = {}
-			self.cellRightEigenvectors[i] = {}
-			for j=1,self.numStates do
-				self.cellLeftEigenvectors[i][j] = {}
-				self.cellRightEigenvectors[i][j] = {}
-			end
-				
 			self.qLs[i] = {}
 			self.qRs[i] = {}
 			for j=1,self.numStates do
@@ -57,9 +46,6 @@ local function PLMBehavior(parentClass)
 	function PLMTemplate:calcFluxes(dt)
 
 		for i=2,self.gridsize-1 do
-			-- only need to keep one copy of cell eigenvalues, for the current cell we're operating on
-			-- I could do the same with eigenvectors, but their application function (which isn't necessarily a matrix multiply)
-			--  is currently tied up with storage, passing the index
 			local lambdas = {}
 			local rightEigenvectors = {}
 			local leftEigenvectors = {}
@@ -76,65 +62,54 @@ local function PLMBehavior(parentClass)
 				nil,	-- not computing dF/dU at the cell center.  I only ever compute this for testing eigenbasis reconstruction accuracy.
 				self.equation:calcCellCenterRoeValues(self, i))
 		
-			-- (36) calc delta q's
+			-- calculate deltas in conserved variable space wrt grid index 
 			local deltaQL = {}
 			local deltaQR = {}
 			local deltaQC = {}
 			for j=1,self.numStates do
 				deltaQL[j] = self.qs[i][j] - self.qs[i-1][j]
 				deltaQR[j] = self.qs[i+1][j] - self.qs[i][j]
-				deltaQC[j] = self.qs[i+1][j] - self.qs[i-1][j]
+				deltaQC[j] = .5 * (self.qs[i+1][j] - self.qs[i-1][j])
 			end
 
-			-- (37) calc 'delta qtildes' by 'hydrodynamics ii' / 'delta a's by the paper
+			-- calc left right and centered deltas in characteristic variable space
 			local deltaQTildeL = self.equation:eigenLeftTransform(self, leftEigenvectors, deltaQL)
 			local deltaQTildeR = self.equation:eigenLeftTransform(self, leftEigenvectors, deltaQR)
 			local deltaQTildeC = self.equation:eigenLeftTransform(self, leftEigenvectors, deltaQC)
 		
-			-- (38) calc delta a^m TVD reconstruction
+			-- apply slope limiter 
 			local deltaQTildeM = {}
 			for j=1,self.numWaves do
 				deltaQTildeM[j] = 
-					math.min(
-						2 * math.abs(deltaQTildeL[j]), 
-						2 * math.abs(deltaQTildeR[j]), 
-						math.abs(deltaQTildeC[j]))
-					* sign(deltaQTildeC[j]) 
-					-- I didn't see this in the paper ... but it's in the code 
-					-- this looks like a 2nd deriv constraint to me:
+					2 * math.min(
+						math.abs(deltaQTildeL[j] / deltaQTildeC[j]), 
+						math.abs(deltaQTildeR[j] / deltaQTildeC[j]), 
+						1)
+					* deltaQTildeC[j]
+					-- if dQL * dQR < 0 then 0 else ...
 					* math.max(sign(deltaQTildeL[j] * deltaQTildeR[j]), 0)
 			end
 
 			local dx = self.ixs[i+1] - self.ixs[i]
 			local dt_dx = dt / dx
 
+			-- calculate left and right slopes in characteristic space
 			local pl = {}
 			local pr = {}
 			for j=1,self.numWaves do
-				pl[j] = deltaQTildeM[j] * .5 * (lambdas[j] >= 0 and 1 - dt_dx * lambdas[j] or 0)
-				pr[j] = deltaQTildeM[j] * .5 * (lambdas[j] <= 0 and 1 + dt_dx * lambdas[j] or 0)
+				pl[j] = lambdas[j] < 0 and 0 or (deltaQTildeM[j] * (1 - dt_dx * lambdas[j]))
+				pr[j] = lambdas[j] > 0 and 0 or (deltaQTildeM[j] * (1 + dt_dx * lambdas[j]))
 			end
 
-			local qTilde = self.equation:eigenLeftTransform(self, leftEigenvectors, self.qs[i])
-			local qp = {}
-			local qm = {}
-			for j=1,self.numWaves do
-				qp[j] = qTilde[j] + pl[j]
-				qm[j] = qTilde[j] - pr[j]
+			-- transform slopes back to conserved variable space
+			local qp = self.equation:eigenRightTransform(self, rightEigenvectors, pl)
+			local qm = self.equation:eigenRightTransform(self, rightEigenvectors, pr)
+
+			-- linearly extrapolate the slopes forward and backward from the cell center
+			for j=1,self.numStates do
+				self.qLs[i+1][j] = self.qs[i][j] + .5 * qp[j]
+				self.qRs[i][j] = self.qs[i][j] - .5 * qm[j]
 			end
-			self.qLs[i+1] = self.equation:eigenRightTransform(self, rightEigenvectors, qp)
-			self.qRs[i] = self.equation:eigenRightTransform(self, rightEigenvectors, qm)
---[[
-print('q', tolua(self.qs[i]))
-local qTilde = self.equation:eigenLeftTransform(self, leftEigenvectors, self.qs[i])
-print('l', tolua(leftEigenvectors))
-print('l q', tolua(qTilde))
-local q = self.equation:eigenRightTransform(self, rightEigenvectors, qTilde)
-print('r', tolua(rightEigenvectors))
-print('r l q', tolua(q))
-self.qLs[i+1] = q 
-self.qRs[i] = q 
---]]
 		end
 		
 		-- now qLs and qRs can be used
