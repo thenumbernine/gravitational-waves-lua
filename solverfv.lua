@@ -11,9 +11,11 @@ function SolverFV:init(args)
 	SolverFV.super.init(self, args)
 	
 	self.fluxLimiter = assert(args.fluxLimiter)
-	
-	self.name = self.name .. ' flux lim.=' .. self.fluxLimiter.name
-	
+
+	if self.fluxLimiter.name ~= 'donorCell' then
+		self.name = self.name .. ' flux lim.=' .. self.fluxLimiter.name
+	end
+
 	self.fluxes = {}
 end
 

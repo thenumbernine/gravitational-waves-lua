@@ -335,13 +335,13 @@ do
 	--sims:insert(HLL(table(args, {useDirect=true})))	-- not any noticeable difference with Euler
 	--sims:insert(Roe(args))
 	--sims:insert(WENO5(args))	-- TODO finishme
-	--sims:insert(RoePLM(args))
+	sims:insert(RoePLM(args))
 	--sims:insert(HLLPLM(args))
 	--sims:insert(HLLMUSCL(args))
 	--sims:insert(Roe(table(args, {equation = require 'euler1d_quasilinear'()})))
 	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
-	--sims:insert(RoePPM(args))
-	sims:insert(HLLPPM(args))
+	sims:insert(RoePPM(args))
+	--sims:insert(HLLPPM(args))
 	--sims:insert(RoeImplicitLinearized(args))
 	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .005})))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))

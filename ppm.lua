@@ -8,7 +8,6 @@ local function PPMBehavior(parentClass)
 
 	function PPMTemplate:init(args)
 		self.equation = assert(args.equation or self.equation)
-		self.name = self.equation.name .. ' PPMTemplate'
 	
 		-- disable flux limiter
 		args = table(args)
@@ -16,6 +15,7 @@ local function PPMBehavior(parentClass)
 		args.fluxLimiter = limiter.donorCell
 		
 		PPMTemplate.super.init(self, args)
+		self.name = self.name .. ' PPM'
 		
 		self.qLs = matrix.zeros{self.gridsize, self.numStates}
 		self.qRs = matrix.zeros{self.gridsize, self.numStates}
@@ -56,8 +56,31 @@ local function PPMBehavior(parentClass)
 		local evls = matrix.zeros{gridsize, numStates, numStates}
 		local evrs = matrix.zeros{gridsize, numStates, numStates}
 		for i=1,gridsize do
-			--eqn:calcEigenBasisWrtPrimFromPrim(lambdas[i], evrs[i], evls[i], W[i])
-			eqn:calcEigenBasisFromCons(lambdas[i], evrs[i], evls[i], nil, self.qs[i])
+			if not applyPPMToCons then
+				--[[
+				eqn:calcEigenBasisWrtPrimFromPrim(lambdas[i], evrs[i], evls[i], W[i])
+				--]]
+				-- [[
+				local gamma = self.equation.gamma
+				local rho, v, ETotal = table.unpack(W[i])
+				local dUdW = matrix{
+					{1, 0, 0},
+					{rho, v, 0},
+					{.5 * v*v, rho * v, 1/(gamma-1)},
+				}
+				local dWdU = matrix{
+					{1, 0, 0},
+					{-v/rho, 1/rho, 0},
+					{(gamma-1)*.5*v*v, -(gamma-1)*v, (gamma-1)},
+				}
+
+				eqn:calcEigenBasisFromCons(lambdas[i], evrs[i], evls[i], nil, self.qs[i])
+				evls[i] = evls[i] * dUdW
+				evrs[i] = dWdU * evrs[i]
+				--]]	
+			else
+				eqn:calcEigenBasisFromCons(lambdas[i], evrs[i], evls[i], nil, self.qs[i])
+			end
 		end
 
 		local dWm = matrix.zeros{gridsize, numStates}
@@ -79,10 +102,10 @@ local function PPMBehavior(parentClass)
 			end
 
 			-- project prim differences into eigenbasis 
-			local dac = matrix.zeros{numStates}
-			local dal = matrix.zeros{numStates}
-			local dar = matrix.zeros{numStates}
-			local dag = matrix.zeros{numStates}
+			local dac = matrix()
+			local dal = matrix()
+			local dar = matrix()
+			local dag = matrix()
 			for j=1,numStates do
 				dac[j] = 0
 				dal[j] = 0
@@ -96,7 +119,7 @@ local function PPMBehavior(parentClass)
 				end
 			end
 		
-			local da = matrix.zeros{numStates}
+			local da = matrix()
 			for j=1,numStates do
 				da[j]  = 0
 				if dal[j] * dar[j] > 0 then
@@ -105,7 +128,7 @@ local function PPMBehavior(parentClass)
 					da[j] = math.sign(dac[j]) * math.min(2 * lim_slope1, lim_slope2)
 				end
 			end
-
+			
 			for j=1,numStates do
 				dWm[i][j] = 0
 				for k=1,numStates do
@@ -122,48 +145,48 @@ local function PPMBehavior(parentClass)
 			end
 		end
 		
-		for i=3,gridsize do
+		for i=2,gridsize-1 do
 			-- cell left and right values
-			local Wlv = matrix(iW[i-1])
-			local Wrv = matrix(iW[i])
+			local Wlv = matrix(iW[i])
+			local Wrv = matrix(iW[i+1])
 
-			local gamma_curv = 0
 			for j=1,numStates do
-				local qa = (Wrv[j] - W[i-1][j]) * (W[i-1][j] - Wlv[j])
+				local qa = (Wrv[j] - W[i][j]) * (W[i][j] - Wlv[j])
 				local qb = Wrv[j] - Wlv[j]
-				local qc = 6 * (W[i-1][j] - .5 * (Wlv[j] * (1 - gamma_curv) + Wrv[j] * (1 + gamma_curv)))
+				local qc = 6 * (W[i][j] - .5 * (Wlv[j] + Wrv[j]))
 				if qa <= 0 then
-					Wlv[j] = W[i-1][j]
-					Wrv[j] = W[i-1][j]
+					Wlv[j] = W[i][j]
+					Wrv[j] = W[i][j]
 				elseif qb * qc > qb * qb then
-					Wlv[j] = (6 * W[i-1][j] - Wrv[j] * (4 + 3 * gamma_curv)) / (2 - 3 * gamma_curv)
+					Wlv[j] = 3 * W[i][j] - 2 * Wrv[j]
 				elseif qb * qc < -qb * qb then
-					Wrv[j] = (6 * W[i-1][j] - Wlv[j] * (4 - 3 * gamma_curv)) / (2 + 3 * gamma_curv)
+					Wrv[j] = 3 * W[i][j] - 2 * Wlv[j]
 				end
 			end
-		
+	
+			-- [[
 			for j=1,numStates do
-				Wlv[j] = math.max( math.min( W[i-1][j], W[i-2][j]), Wlv[j])
-				Wlv[j] = math.min( math.max( W[i-1][j], W[i-2][j]), Wlv[j])
+				Wlv[j] = math.max(math.min(W[i][j], W[i-1][j]), Wlv[j])
+				Wlv[j] = math.min(math.max(W[i][j], W[i-1][j]), Wlv[j])
 
-				Wrv[j] = math.max( math.min( W[i-1][j], W[i][j]), Wrv[j])
-				Wrv[j] = math.min( math.max( W[i-1][j], W[i][j]), Wrv[j])
+				Wrv[j] = math.max(math.min(W[i][j], W[i+1][j]), Wrv[j])
+				Wrv[j] = math.min(math.max(W[i][j], W[i+1][j]), Wrv[j])
 			end
-		
-			local dW = matrix.zeros{numStates}
-			local W6 = matrix.zeros{numStates}
+			--]]
+
+			local dW = matrix()
+			local W6 = matrix()
 			for j=1,numStates do
 				dW[j] = Wrv[j] - Wlv[j]
-				W6[j] = 6 * (W[i-1][j] - .5 * (Wlv[j] * (1 - gamma_curv) + Wrv[j] * (1 + gamma_curv)))
+				W6[j] = 6 * (W[i][j] - .5 * (Wlv[j] + Wrv[j]))
 			end
 		
-			-- now we have Wl = Wrv and Wr = Wlv
 			if not applyPPMToCons then
-				self.qLs[i] = matrix{eqn:calcConsFromPrim(table.unpack(Wrv))}
-				self.qRs[i-1] = matrix{eqn:calcConsFromPrim(table.unpack(Wlv))}
+				self.qLs[i+1] = matrix{eqn:calcConsFromPrim(table.unpack(Wrv))}
+				self.qRs[i] = matrix{eqn:calcConsFromPrim(table.unpack(Wlv))}
 			else
-				self.qLs[i] = matrix(Wrv)
-				self.qRs[i-1] = matrix(Wlv)
+				self.qLs[i+1] = matrix(Wrv)
+				self.qRs[i] = matrix(Wlv)
 			end
 		end
 		
