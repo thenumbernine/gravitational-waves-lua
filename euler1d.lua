@@ -41,6 +41,7 @@ do
 	local h = H / rho 
 	local HTotal = ETotal + P 
 	local hTotal = HTotal / rho
+	local Cs = math.sqrt:o(gamma * P / rho)	
 	
 	Euler1D:buildGraphInfos{
 		-- prims
@@ -54,6 +55,9 @@ do
 		{S = S},
 		-- conservative
 		--{mx = mx},
+		{Cs = Cs},
+		{['vx - Cs'] = vx - Cs},
+		{['vx + Cs'] = vx + Cs},
 		{ETotal = ETotal},
 	}
 end

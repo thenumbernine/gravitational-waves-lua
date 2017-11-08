@@ -144,6 +144,7 @@ end
 
 do
 	local q = function(self,i) return self.qs[i] end
+	local _2dx = function(self,i) return self.xs[i+1] - self.xs[i-1] end
 	local alpha = q:_(1)
 	local gamma_xx = q:_(2)
 	local a_x = q:_(3)
@@ -153,6 +154,8 @@ do
 	local KTilde = K_xx / math.sqrt:o(gamma_xx)
 	local K = K_xx / gamma_xx
 	local volume = alpha * math.sqrt:o(gamma_xx)
+	local f = function(self, i) return self.equation.calc.f(self.qs[i][1]) end
+	local dalpha_f = function(self, i) return self.equation.calc.dalpha_f(self.qs[i][1]) end
 	ADM1Dv2:buildGraphInfos{
 		{alpha = alpha},
 		{a_x = a_x},
@@ -162,7 +165,23 @@ do
 		{K_xx = K_xx},
 		{KTilde = KTilde},
 		{K = K},
+		{f = f},
+		{dalpha_f = dalpha_f},
 		{volume = volume},
+		
+		{['log alpha vs a_x'] = function(self, i)
+			-- a_x = (ln alpha),x = alpha,x / alpha
+			-- alpha a_x = alpha,x
+			local dx_alpha = (alpha(self,i+1) - alpha(self,i-1)) / _2dx(self,i)
+			return math.log(math.abs(dx_alpha - alpha(self,i) * a_x(self,i)), 10)
+		end},
+	
+		{['log gamma_xx vs d_xxx'] = function(self, i)
+			--d_xxx = 1/2 gamma_xx,x
+			-- gamma_xx,x = 2 d_xxx
+			local dx_gamma_xx = (gamma_xx(self,i+1) - gamma_xx(self,i-1)) / _2dx(self,i)
+			return math.log(math.abs(dx_gamma_xx - 2 * d_xxx(self,i)), 10)
+		end},
 	}
 end
 
@@ -235,9 +254,9 @@ function ADM1Dv2:calcCellMinMaxEigenvalues(sim, i)
 	return firstAndLast(self:calcEigenvalues(alpha, gamma_xx, f))
 end
 
-function ADM1Dv2:sourceTerm(sim, qs)
+function ADM1Dv2:sourceTerm(sim, qs, dt)
 	local source = sim:newState()
-	for i=1,sim.gridsize do
+	for i=2,sim.gridsize-1 do
 		local alpha, gamma_xx, a_x, d_xxx, K_xx = unpack(qs[i])
 		local f = self.calc.f(alpha)
 		local dalpha_f = self.calc.dalpha_f(alpha)
@@ -253,6 +272,19 @@ function ADM1Dv2:sourceTerm(sim, qs)
 		source[i][4] = -alpha * a_x * K_xx
 		source[i][5] = source[i][5] - alpha * a_x * a_x
 --]]
+	
+		-- [[ using dissipation for damping.  but why not just directly constrain the variables?
+		-- modification from Bona et al "Elements of Numerical Relativity..." 2009 eqns 4.9 & 4.10
+		local eta = 1/dt	-- damping term / constraint enforcing of 1st order terms
+		local _2dx = sim.xs[i+1] - sim.xs[i-1]
+		-- a_x = alpha,x / alpha <=> a_x += eta (alpha,x / alpha - a_x)
+		local dx_alpha = (sim.qs[i+1][1] - sim.qs[i-1][1]) / _2dx
+		source[i][3] = source[i][3] + eta * (dx_alpha / alpha - a_x)
+		
+		--d_xxx = .5 gamma_xx,x <=> d_xxx += eta (.5 gamma_xx,x - d_xxx)
+		local dx_gamma_xx = (sim.qs[i+1][2] - sim.qs[i-1][2]) / _2dx
+		source[i][4] = source[i][4] + eta * (.5 * dx_gamma_xx - d_xxx)
+		--]]
 	end
 	return source
 end

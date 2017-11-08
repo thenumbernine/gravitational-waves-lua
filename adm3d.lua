@@ -654,9 +654,9 @@ function ADM3D:get_V_from_state(q, gammaUxx, gammaUxy, gammaUxz, gammaUyy, gamma
 	return V_x, V_y, V_z
 end
 
-function ADM3D:sourceTerm(solver, qs)
+function ADM3D:sourceTerm(solver, qs, dt)
 	local source = solver:newState()
-	for i=1,solver.gridsize do
+	for i=2,solver.gridsize-1 do
 		local alpha = qs[i][1]
 		local gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz = unpack(qs[i], 2, 7)
 		local a_x, a_y, a_z = unpack(qs[i], 8, 10)
@@ -970,11 +970,37 @@ GU0L[3] + AKL[3] - a_z * trK + K12D23L[3] + KD23L[3] - 2 * K12D12L[3] + 2 * KD12
 		else
 			-- source terms of Gamma^i ?
 		end
+	
+		-- [[ converge to constraints
+		local eta = 1/dt	-- damping term / constraint enforcing of 1st order terms
+		local _2dx = solver.xs[i+1] - solver.xs[i-1]
+		-- a_i = alpha,i / alpha <=> a_i += eta (alpha,i / alpha - a_i)
+		local dx_alpha = (solver.qs[i+1][1] - solver.qs[i-1][1]) / _2dx
+		source[i][8] = source[i][8] + eta * (dx_alpha / alpha - a_x)
+		-- alpha,y and alpha,z = 0
+		source[i][9] = source[i][9] + eta * (-a_y)
+		source[i][10] = source[i][10] + eta * (-a_z)
+		
+		for ij=1,6 do
+			local gammaIndex = ij + 1
+			local dIndex = ij-1 + 11
+			-- d_xij = 1/2 gamma_ij,x <=> d_xij += eta (1/2 gamma_ij,x - d_kij)
+			local dx_gamma_ij = (solver.qs[i+1][gammaIndex] - solver.qs[i-1][gammaIndex]) / _2dx
+			source[i][dIndex] = source[i][dIndex] + eta * (.5 * dx_gamma_ij - solver.qs[i][dIndex])
+			-- d_yij = d_zij = 0
+			source[i][dIndex+6] = source[i][dIndex+6] + eta * (-solver.qs[i][dIndex+6])
+			source[i][dIndex+12] = source[i][dIndex+12] + eta * (-solver.qs[i][dIndex+12])
+		end
+		
+		-- V_i = d_ij^j - d^j_ji <=> V_i += eta (d_ij^j - d^j_ji - V_i)
+		
+
+		--]]
 	end
 	return source
 end
 
--- enforce constraint V_i = d_im^m - D^m_mi
+--[[ enforce constraint V_i = d_im^m - d^m_mi
 function ADM3D:postIterate(solver, qs)
 	for i=1,solver.gridsize do
 		local gamma_xx, gamma_xy, gamma_xz, gamma_yy, gamma_yz, gamma_zz = unpack(qs[i], 2, 7)
@@ -1054,5 +1080,6 @@ qs[i][37] = qs[i][37] + (-(epsilon * v_a))
 		end
 	end
 end
+--]]
 
 return ADM3D

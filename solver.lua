@@ -63,7 +63,7 @@ function Solver:step(dt)
 	self:integrate(dt, function()
 		local dq_dt = self:calcDerivFromFluxes(dt)
 		if self.equation.sourceTerm then
-			dq_dt = dq_dt + self.equation:sourceTerm(self, self.qs)
+			dq_dt = dq_dt + self.equation:sourceTerm(self, self.qs, dt)
 		end
 		return dq_dt
 	end)

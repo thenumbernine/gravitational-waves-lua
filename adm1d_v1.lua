@@ -197,6 +197,7 @@ end
 
 do
 	local q = function(self,i) return self.qs[i] end
+	local _2dx = function(self,i) return self.xs[i+1] - self.xs[i-1] end
 	local alpha = q:_(1)
 	local gamma_xx = q:_(2)
 	local a_x = q:_(3)
@@ -220,6 +221,20 @@ do
 		{f = f},
 		{dalpha_f = dalpha_f},
 		{volume = volume},
+	
+		{['log alpha vs a_x'] = function(self, i)
+			-- a_x = (ln alpha),x = alpha,x / alpha
+			-- alpha a_x = alpha,x
+			local dx_alpha = (alpha(self,i+1) - alpha(self,i-1)) / _2dx(self,i)
+			return math.log(math.abs(dx_alpha - alpha(self,i) * a_x(self,i)), 10)
+		end},
+	
+		{['log gamma_xx vs D_g'] = function(self, i)
+			--D_g = (ln gamma_xx),x  = gamma_xx,x / gamma_xx
+			-- gamma_xx,x = gamma_xx D_g
+			local dx_gamma_xx = (gamma_xx(self,i+1) - gamma_xx(self,i-1)) / _2dx(self,i)
+			return math.log(math.abs(dx_gamma_xx - gamma_xx(self,i) * D_g(self,i)), 10)
+		end},
 	}
 end
 
@@ -298,9 +313,9 @@ function ADM1Dv1:calcCellMinMaxEigenvalues(sim, i)
 	return firstAndLast(self:calcEigenvalues(alpha, gamma_xx, f))
 end
 
-function ADM1Dv1:sourceTerm(sim, qs)
+function ADM1Dv1:sourceTerm(sim, qs, dt)
 	local source = sim:newState()
-	for i=1,sim.gridsize do
+	for i=2,sim.gridsize-1 do
 		local alpha, gamma_xx, a_x, D_g, KTilde = table.unpack(qs[i])
 		local f = self.calc.f(alpha)
 		local dalpha_f = self.calc.dalpha_f(alpha)
@@ -311,8 +326,36 @@ function ADM1Dv1:sourceTerm(sim, qs)
 		source[i][3] = ((1/2 * D_g - a_x) * f - alpha * dalpha_f * a_x) * alpha * K
 		source[i][4] = (1/2 * D_g - a_x) * 2 * alpha * K
 		source[i][5] = (1/2 * D_g - a_x) * a_x * alpha / math.sqrt(gamma_xx)
+
+		-- [[ using dissipation for damping.  but why not just directly constrain the variables?
+		-- modification from Bona et al "Elements of Numerical Relativity..." 2009 eqns 4.9 & 4.10
+		local eta = 1/dt	-- damping term / constraint enforcing of 1st order terms
+		local _2dx = sim.xs[i+1] - sim.xs[i-1]
+		-- a_x = alpha,x / alpha <=> a_x += eta (alpha,x / alpha - a_x)
+		local dx_alpha = (sim.qs[i+1][1] - sim.qs[i-1][1]) / _2dx
+		source[i][3] = source[i][3] + eta * (dx_alpha / alpha - a_x)
+		
+		--D_g = gamma_xx,x / gamma_xx <=> D_g += eta (gamma_xx,x / gamma_xx - D_g)
+		local dx_gamma_xx = (sim.qs[i+1][2] - sim.qs[i-1][2]) / _2dx
+		source[i][4] = source[i][4] + eta * (dx_gamma_xx / gamma_xx - D_g)
+		--]]
 	end
 	return source
 end
+
+--[[ directly constraining the first-order variable constraints
+--[=[ nullspace of a rectangular matrix of finite difference of alpha,x; then -alpha a_x
+[h/2 0 -h/2   ... | -a_x_1 0 ... ] [ a_x_1 ]   [ 0 ]
+[0 h/2 0 -h/2 ... | 0 -a_x_2 ... ] [ a_x_2 ] = [ 0 ]
+ ...                               [  ...  ]
+                                   [alpha_1]
+					   			   [alpha_2]
+                                   [  ...  ]
+--]=]
+function ADM1Dv1:postIterate(sim, qs)
+	for i=2,sim.gridsize-1 do
+	end
+end
+--]]
 
 return ADM1Dv1

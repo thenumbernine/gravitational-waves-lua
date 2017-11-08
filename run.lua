@@ -41,7 +41,8 @@ local PLMBehavior = require 'plm'
 local RoePLM = PLMBehavior(Roe)
 local HLLPLM = PLMBehavior(HLL)
 
-local PPMBehavior = require 'ppm'
+local PPMBehavior = require 'ppm'	-- this is me trying to implement the first paper
+--local PPMBehavior = require 'ppm-v2'	-- this is from 2017 Zingale, based on a later Miller & Collela paper
 local RoePPM = PPMBehavior(Roe)
 local HLLPPM = PPMBehavior(HLL)
 
@@ -64,7 +65,7 @@ local Z43D = require 'z4-3d'
 -- setup
 local sims = table()
 
---[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+-- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -115,12 +116,12 @@ do
 	-- these two match:
 	--sims:insert(Roe(table(args, {equation = ADM1Dv1(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = ADM1Dv2(equationArgs)})))
-	--sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
+	sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
 	-- this one is similar to the last two, but off by just a bit (and has an asymmetric evolution of alpha)
 	--sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = Z41D(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = Z41Dv2(equationArgs)})))
-	sims:insert(Roe(table(args, {equation = Z43D(equationArgs)})))
+	--sims:insert(Roe(table(args, {equation = Z43D(equationArgs)})))
 	
 	-- ... and plm (was working before when I was using the Athena paper implementation, but I broke it when trying to use something more simple):
 	--sims:insert(RoePLM(table(args, {equation=ADM1Dv1(equationArgs)})))
@@ -298,7 +299,7 @@ end
 --]]
 
 
--- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+--[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
 	local args = {
 		equation = Euler1D(),
@@ -340,7 +341,8 @@ do
 	--sims:insert(HLLMUSCL(args))
 	--sims:insert(Roe(table(args, {equation = require 'euler1d_quasilinear'()})))
 	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
-	--sims:insert(RoePPM(args))
+	sims:insert(RoePPM(args))
+	--sims:insert(require 'ppm-v2'(Roe)(args))
 	--sims:insert(HLLPPM(args))
 	--sims:insert(RoeImplicitLinearized(args))
 	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .005})))

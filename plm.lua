@@ -89,9 +89,12 @@ local function PLMBehavior(parentClass)
 					-- if dQL * dQR < 0 then 0 else ...
 					* math.max(sign(deltaQTildeL[j] * deltaQTildeR[j]), 0)
 			end
-
+			-- deltaQTildeM is the post-limiter slope in characteristic space
+			
 			local dx = self.ixs[i+1] - self.ixs[i]
 			local dt_dx = dt / dx
+
+--[=[ my original plm, which is working just fine
 
 			-- calculate left and right slopes in characteristic space
 			local pl = {}
@@ -102,14 +105,47 @@ local function PLMBehavior(parentClass)
 			end
 
 			-- transform slopes back to conserved variable space
-			local qp = self.equation:eigenRightTransform(self, rightEigenvectors, pl)
-			local qm = self.equation:eigenRightTransform(self, rightEigenvectors, pr)
+			local ql = self.equation:eigenRightTransform(self, rightEigenvectors, pl)
+			local qr = self.equation:eigenRightTransform(self, rightEigenvectors, pr)
 
 			-- linearly extrapolate the slopes forward and backward from the cell center
 			for j=1,self.numStates do
-				self.qLs[i+1][j] = self.qs[i][j] + .5 * qp[j]
-				self.qRs[i][j] = self.qs[i][j] - .5 * qm[j]
+				self.qLs[i+1][j] = self.qs[i][j] + .5 * ql[j]
+				self.qRs[i][j] = self.qs[i][j] - .5 * qr[j]
 			end
+		
+--]=]
+-- [=[ subtract off reference states
+			local lambdaMin = math.min(0, lambdas[1])
+			local lambdaMax = math.max(0, lambdas[#lambdas])
+
+			local deltaQM = self.equation:eigenRightTransform(self, rightEigenvectors, deltaQTildeM)
+			local qMinusRef = {}
+			local qPlusRef = {}
+			for j=1,self.numStates do
+				qMinusRef[j] = self.qs[i][j] + .5 * (1 - dt_dx * lambdaMax) * deltaQM[j]	-- left side of the interface on the right of the cell
+				qPlusRef[j] = self.qs[i][j] - .5 * (1 + dt_dx * lambdaMin) * deltaQM[j]	-- right side of the interface on the left of the cell
+			end
+
+			-- calculate left and right slopes in characteristic space
+			local pl = {}
+			local pr = {}
+			for j=1,self.numWaves do
+				pl[j] = lambdas[j] < 0 and 0 or (deltaQTildeM[j] * dt_dx * (lambdaMax - lambdas[j]))
+				pr[j] = lambdas[j] > 0 and 0 or (deltaQTildeM[j] * dt_dx * (lambdaMin - lambdas[j]))
+			end
+
+			-- transform slopes back to conserved variable space
+			local ql = self.equation:eigenRightTransform(self, rightEigenvectors, pl)
+			local qr = self.equation:eigenRightTransform(self, rightEigenvectors, pr)
+
+			-- linearly extrapolate the slopes forward and backward from the cell center
+			for j=1,self.numStates do
+				self.qLs[i+1][j] = qMinusRef[j] + .5 * ql[j]
+				self.qRs[i][j] = qPlusRef[j] + .5 * qr[j]
+			end
+--]=]
+		
 		end
 		
 		-- now qLs and qRs can be used
