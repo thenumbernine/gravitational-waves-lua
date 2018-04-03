@@ -725,11 +725,11 @@ function TestApp:updateGUI()
 	ig.igText('simulations:')
 	local toRemove
 	for i,sim in ipairs(sims) do
-		ig.igPushIdStr(i..' '..sim.name)
+		ig.igPushIDStr(i..' '..sim.name)
 		sim.visiblePtr = sim.visiblePtr or ffi.new('bool[1]', true)
-		ig.igPushIdStr('visible')
+		ig.igPushIDStr('visible')
 		ig.igCheckbox('', sim.visiblePtr)
-		ig.igPopId()
+		ig.igPopID()
 		ig.igSameLine()
 		if ig.igButton('X') then
 			toRemove = toRemove or table()
@@ -737,7 +737,7 @@ function TestApp:updateGUI()
 		end
 		ig.igSameLine()
 		ig.igText(sim.name)
-		ig.igPopId()
+		ig.igPopID()
 	end
 	if toRemove then
 		for _,i in ipairs(toRemove) do
@@ -800,9 +800,9 @@ function TestApp:updateGUI()
 	local allBefore = graphNamesEnabled[1].ptr[0]
 	ig.igText('variables:')
 	for i,graphNameEnabled in ipairs(graphNamesEnabled) do
-		ig.igPushIdStr(tostring(i))
+		ig.igPushIDStr(tostring(i))
 		ig.igCheckbox(graphNameEnabled.name, graphNameEnabled.ptr)
-		ig.igPopId()
+		ig.igPopID()
 	end
 	local allAfter = graphNamesEnabled[1].ptr[0]
 	if allAfter ~= allBefore then
