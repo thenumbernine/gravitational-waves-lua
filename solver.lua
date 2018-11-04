@@ -60,6 +60,8 @@ function Solver:applyBoundary()
 end
 
 function Solver:step(dt)
+--print('qs', tolua(self.qs))
+self:applyBoundary()
 	self:integrate(dt, function()
 		local dq_dt = self:calcDerivFromFluxes(dt)
 		if self.equation.sourceTerm then
@@ -67,6 +69,8 @@ function Solver:step(dt)
 		end
 		return dq_dt
 	end)
+self:applyBoundary()
+--print('new qs', self.qs)
 end
 
 function Solver:calcDT()
@@ -77,8 +81,10 @@ function Solver:iterate()
 	self:applyBoundary()
 
 	local dt = self:calcDT()
+self:applyBoundary()
 	self:step(dt)
 
+self:applyBoundary()
 	if self.postIterate then
 		self:postIterate(dt)
 	end

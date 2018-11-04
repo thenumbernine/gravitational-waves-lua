@@ -149,8 +149,6 @@ end
 
 -- calculates the roe-averaged variables (often primitives) used for calculating interface eigenbasis
 function Euler1D:calcRoeValues(qL, qR)
-	local gamma = self.gamma
-
 	local ETotalL = qL[3]
 	local rhoL, vxL, PL = self:calcPrimFromCons(table.unpack(qL))
 	local hTotalL = self:calc_hTotal(rhoL, PL, ETotalL)
@@ -214,13 +212,17 @@ function Euler1D:calcEigenBasis(lambda, evR, evL, dF_dU, rho, vx, hTotal, Cs)
 		fill(dF_dU[3], vx * (.5 * gamma_1 * vxSq - hTotal), hTotal - gamma_1 * vxSq,	gamma*vx	)
 	end
 
-	fill(evR[1], 1, 				1, 			1				)
-	fill(evR[2], vx - Cs, 			vx, 		vx + Cs			)
-	fill(evR[3], hTotal - Cs * vx, .5 * vxSq, 	hTotal + Cs * vx)
+	if evR then
+		fill(evR[1], 1, 				1, 			1				)
+		fill(evR[2], vx - Cs, 			vx, 		vx + Cs			)
+		fill(evR[3], hTotal - Cs * vx, .5 * vxSq, 	hTotal + Cs * vx)
+	end
 
-	fill(evL[1], (.5 * gamma_1 * vxSq + Cs * vx) / (2 * CsSq),	-(Cs + gamma_1 * vx) / (2 * CsSq),	gamma_1 / (2 * CsSq)	)
-	fill(evL[2], 1 - gamma_1 * vxSq / (2 * CsSq),				gamma_1 * vx / CsSq,				-gamma_1 / CsSq			)
-	fill(evL[3], (.5 * gamma_1 * vxSq - Cs * vx) / (2 * CsSq),	(Cs - gamma_1 * vx) / (2 * CsSq),	gamma_1 / (2 * CsSq)	)
+	if evL then
+		fill(evL[1], (.5 * gamma_1 * vxSq + Cs * vx) / (2 * CsSq),	-(Cs + gamma_1 * vx) / (2 * CsSq),	gamma_1 / (2 * CsSq)	)
+		fill(evL[2], 1 - gamma_1 * vxSq / (2 * CsSq),				gamma_1 * vx / CsSq,				-gamma_1 / CsSq			)
+		fill(evL[3], (.5 * gamma_1 * vxSq - Cs * vx) / (2 * CsSq),	(Cs - gamma_1 * vx) / (2 * CsSq),	gamma_1 / (2 * CsSq)	)
+	end
 end
 
 -- hmm, I have to work on these names ...

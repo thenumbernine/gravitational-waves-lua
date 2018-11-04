@@ -43,8 +43,15 @@ local function PLMBehavior(parentClass)
 		end
 	end
 	
-	function PLMTemplate:calcFluxes(dt)
+	function PLMTemplate:get_qL(i)
+		return self.qLs[i]
+	end
 
+	function PLMTemplate:get_qR(i)
+		return self.qRs[i]
+	end
+
+	function PLMTemplate:calcFluxes(dt)
 		for i=2,self.gridsize-1 do
 			local lambdas = {}
 			local rightEigenvectors = {}
@@ -150,20 +157,6 @@ local function PLMBehavior(parentClass)
 		
 		-- now qLs and qRs can be used
 		PLMTemplate.super.calcFluxes(self, dt)
-	end
-
-	function PLMTemplate:get_qL(i)
-		for j=1,3 do
-			assert(self.qLs[i][j], "failed for i,j="..i..','..j)
-		end
-		return self.qLs[i]
-	end
-
-	function PLMTemplate:get_qR(i)
-		for j=1,3 do
-			assert(self.qRs[i][j], "failed for i,j="..i..','..j)
-		end
-		return self.qRs[i]
 	end
 
 	return PLMTemplate

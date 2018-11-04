@@ -31,7 +31,6 @@ local symmath = require 'symmath'
 -- solvers:
 local HLL = require 'hll'
 local Roe = require 'roe'
-local WENO5 = require 'weno5'
 
 local MUSCLBehavior = require 'muscl'
 local RoeMUSCL = MUSCLBehavior(Roe)
@@ -41,8 +40,11 @@ local PLMBehavior = require 'plm'
 local RoePLM = PLMBehavior(Roe)
 local HLLPLM = PLMBehavior(HLL)
 
-local PPMBehavior = require 'ppm'	-- this is me trying to implement the first paper
+local WENO5 = require 'weno5'
+
+--local PPMBehavior = require 'ppm'	-- this is me trying to implement the first paper
 --local PPMBehavior = require 'ppm-v2'	-- this is from 2017 Zingale, based on a later Miller & Collela paper
+local PPMBehavior = require 'ppm-v3'
 local RoePPM = PPMBehavior(Roe)
 local HLLPPM = PPMBehavior(HLL)
 
@@ -65,7 +67,7 @@ local Z43D = require 'z4-3d'
 -- setup
 local sims = table()
 
--- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+--[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -299,7 +301,7 @@ end
 --]]
 
 
---[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+-- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
 	local args = {
 		equation = Euler1D(),
@@ -311,10 +313,10 @@ do
 		--linearSolver = require 'linearsolvers'.jacobi,
 		--linearSolver = require 'linearsolvers'.conjgrad,
 		--linearSolver = require 'linearsolvers'.conjres,
-		linearSolver = require 'linearsolvers'.gmres,
+		--linearSolver = require 'linearsolvers'.gmres,
 		--linearSolver = require 'linearsolvers'.bicgstab,	-- working on this ...
-		--fluxLimiter = limiter.donorCell,
-		fluxLimiter = limiter.superbee,
+		fluxLimiter = limiter.donorCell,
+		--fluxLimiter = limiter.superbee,
 		integrator = integrators.ForwardEuler,
 		--integrator = integrators.RungeKutta4,
 		--[=[ TODO broken
@@ -335,13 +337,13 @@ do
 	--sims:insert(HLL(args))
 	--sims:insert(HLL(table(args, {useDirect=true})))	-- not any noticeable difference with Euler
 	--sims:insert(Roe(args))
-	--sims:insert(WENO5(args))	-- TODO finishme
-	sims:insert(RoePLM(args))
+	sims:insert(WENO5(args))
+	--sims:insert(RoePLM(args))
 	--sims:insert(HLLPLM(args))
 	--sims:insert(HLLMUSCL(args))
 	--sims:insert(Roe(table(args, {equation = require 'euler1d_quasilinear'()})))
 	--sims:insert(require 'euler1d_selfsimilar'(table(args, {gridsize=50, domain={xmin=-5, xmax=5}})))
-	sims:insert(RoePPM(args))
+	--sims:insert(RoePPM(args))
 	--sims:insert(require 'ppm-v2'(Roe)(args))
 	--sims:insert(HLLPPM(args))
 	--sims:insert(RoeImplicitLinearized(args))
@@ -443,30 +445,22 @@ end
 if #sims >= 1 then sims[1].color = {.2,1,1} end
 if #sims >= 2 then sims[2].color = {1,.4,1} end
 
---[[ text
-local printState = function()
-	for _,sim in ipairs(sims) do
-		for infoIndex,info in ipairs(sim.graphInfos) do
-			io.write(info.name)
-			for i=1,sim.gridsize do
-				local y = info.getter(i)
-				io.write('\t', y)
-			end
-			print()
-		end
+
+--[[
+local function printState(sim)
+	--print('#'..sim)
+	for i=1,#sim.qs do
+		print(sim.t, sim.xs[i], table.unpack(sim.qs[i]))
+	end
+	print()
+end
+for _,sim in ipairs(sims) do
+	if printState then
+		printState(sim)
 	end
 end
-printState()
-for iter=1,1 do
-	for _,sim in ipairs(sims) do
-		sim:iterate()
-	end
-	printState()
-end
-os.exit()
 --]]
 
--- [=[ graphics
 local ffi = require 'ffi'
 local gl = require 'gl'
 local sdl = require 'ffi.sdl'
@@ -852,7 +846,12 @@ function TestApp:update(...)
 		local oldestSim = sims:inf(function(a,b)
 			return a.t < b.t
 		end)
-		if oldestSim then oldestSim:iterate() end
+		if oldestSim then 
+			oldestSim:iterate() 
+if printState then
+	printState(oldestSim)
+end
+		end
 		--]]
 		--[[ iterate all
 		for _,sim in ipairs(sims) do
@@ -1097,4 +1096,3 @@ function TestApp:update(...)
 end
 
 TestApp():run()
---]=]

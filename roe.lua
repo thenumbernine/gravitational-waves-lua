@@ -205,13 +205,17 @@ end
 
 -- calcluate self.fluxes
 -- depends on self:calcDeltaQTildes and self:calcRTiles
+-- the i'th interface is between cells i-1 and cells i
 function Roe:calcFluxAtInterface(dt, i)
 	-- if we can calculate the flux directly then use that
 	local canCalcFlux = self.equation.calcFluxForState
 	
 	local qL = self:get_qL(i)
+--print('qL['..i..'] = '..tolua(qL))
 	local qR = self:get_qR(i)
+--print('qR['..i..'] = '..tolua(qR))
 	local lambdas = self.eigenvalues[i]
+--print('lambdas['..i..'] = '..tolua(lambdas))
 
 	--[[ shortcut if the equation has a 'calcFluxForState' function
 	-- but this bypasses any influence from the flux limiter ... 
@@ -262,6 +266,7 @@ function Roe:calcFluxAtInterface(dt, i)
 	end
 
 	self.fluxes[i] = flux
+--print('flux['..i..'] = '..tolua(flux))
 end
 
 function Roe:calcFluxes(dt)
@@ -274,8 +279,10 @@ function Roe:calcFluxes(dt)
 	-- slope limit on interface difference
 	self:calcRTildes()
 
+--print('Roe:calcFluxes')
 	for i=2,self.gridsize do
 		self:calcFluxAtInterface(dt, i)
+--print('flux['..i..'] = '..tolua(self.fluxes[i]))	
 	end
 	
 	-- this eliminates the flux within the ghost cells

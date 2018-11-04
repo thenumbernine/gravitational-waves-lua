@@ -11,11 +11,11 @@ function SolverFV:init(args)
 	SolverFV.super.init(self, args)
 	
 	self.fluxLimiter = assert(args.fluxLimiter)
-
+	
 	if self.fluxLimiter.name ~= 'donorCell' then
 		self.name = self.name .. ' flux lim.=' .. self.fluxLimiter.name
 	end
-
+	
 	self.fluxes = {}
 end
 
@@ -73,9 +73,9 @@ function SolverFV:calcDT()
 	end
 end
 
-function SolverFV:calcDerivFromFluxes(dt)
+function SolverFV:calcDerivFromFluxes(dt)	
+self:applyBoundary()
 	self:calcFluxes(dt)
-
 	local dq_dts = self:newState()
 	for i=1,self.gridsize do
 		local dx = self.ixs[i+1] - self.ixs[i]
