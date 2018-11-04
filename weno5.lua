@@ -82,7 +82,7 @@ function WENO5:calcFluxes(dt)
 		-- max lambda of all lambdas in this range of cells
 		local ml = 0
 		for j=-3,2 do
-			for k=1,self.numStates do
+			for k=1,self.numWaves do
 				ml = math.max(ml, math.abs(lambdas[i+j][k]))
 			end
 		end
@@ -105,7 +105,7 @@ function WENO5:calcFluxes(dt)
 			local char = self.equation:eigenLeftTransform(self, ievls[i], self.qs[i+j])
 			local charP = matrix()
 			local charM = matrix()
-			for k=1,self.numStates do
+			for k=1,self.numWaves do
 				charP[k] = char[k] * math.max(0, ilambdas[i][k])
 				charM[k] = char[k] * math.min(0, ilambdas[i][k])
 			end
@@ -125,7 +125,7 @@ function WENO5:calcFluxes(dt)
 		local function weno5(v, ofs, c, d)
 			local eps = 1e-6
 			local result = matrix()
-			for k=1,numStates do
+			for k=1,numWaves do
 				local B = {
 					(13./12.)*(  v[ofs+2][k] - 2*v[ofs+3][k] +   v[ofs+4][k])^2 +
 					 ( 1./ 4.)*(3*v[ofs+2][k] - 4*v[ofs+3][k] +   v[ofs+4][k])^2,
