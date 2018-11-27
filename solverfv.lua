@@ -4,6 +4,7 @@ has flux
 --]]
 local class = require 'ext.class'
 local Solver = require 'solver' 
+local matrix = require 'matrix'
 
 local SolverFV = class(Solver)
 
@@ -16,7 +17,7 @@ function SolverFV:init(args)
 		self.name = self.name .. ' flux lim.=' .. self.fluxLimiter.name
 	end
 	
-	self.fluxes = {}
+	self.fluxes = matrix()
 end
 
 function SolverFV:reset()
@@ -24,7 +25,7 @@ function SolverFV:reset()
 
 	-- state interfaces
 	for i=1,self.gridsize+1 do
-		self.fluxes[i] = {}
+		self.fluxes[i] = matrix()
 		for j=1,self.numStates do
 			self.fluxes[i][j] = 0
 		end
@@ -32,28 +33,11 @@ function SolverFV:reset()
 end
 
 function SolverFV:calcDT()
-	--[[
-	here's a dilemma
-	the dt calculation looks at interface eigenvalues
-	which uses getL/getR,
-	which (for PLM) depends on the extrapolated cell values
-	which depends on dt
-	
-	a fix is to go back to cell-centered eigenvalues
-	--]]
-	--[[ using interface
-	for i=2,self.gridsize do
-		local qL = self:get_qL(i)
-		local qR = self:get_qR(i)
-		self.equation:calcInterfaceEigenvalues(self, i, qL, qR)
-	end
-	--]]
-
 	if self.fixed_dt then
 		return self.fixed_dt
 	else
 		local result = math.huge
-		for i=1,self.gridsize do
+		for i=self.numGhost+1,self.gridsize-self.numGhost do
 			--[[ using interface 
 			local eigenvaluesL = self.eigenvalues[i]
 			local eigenvaluesR = self.eigenvalues[i+1]
@@ -62,11 +46,13 @@ function SolverFV:calcDT()
 			--]]
 			-- [[ using cell
 			local lambdaMin, lambdaMax = self.equation:calcCellMinMaxEigenvalues(self, i)
-			lambdaMin = math.min(0, lambdaMin)
-			lambdaMax = math.max(0, lambdaMax)
+			local lambdaAbsMax = math.max(
+				math.abs(lambdaMin),
+				math.abs(lambdaMax),
+				1e-9)
 			--]]
 			local dx = self.ixs[i+1] - self.ixs[i]
-			local dum = dx / (math.abs(lambdaMax - lambdaMin) + 1e-9)
+			local dum = dx / lambdaAbsMax
 			result = math.min(result, dum)
 		end
 		return result * self.cfl
@@ -75,6 +61,7 @@ end
 
 function SolverFV:calcDerivFromFluxes(dt)	
 self:applyBoundary()
+
 	self:calcFluxes(dt)
 	local dq_dts = self:newState()
 	for i=1,self.gridsize do
@@ -83,6 +70,7 @@ self:applyBoundary()
 			dq_dts[i][j] = dq_dts[i][j] - (self.fluxes[i+1][j] - self.fluxes[i][j]) / dx
 		end
 	end
+	
 	return dq_dts
 end
 

@@ -11,11 +11,12 @@ E,t = -(m/rho*(E+p)),x
 local table = require 'ext.table'
 local class = require 'ext.class'
 local Equation = require 'equation'
+local matrix = require 'matrix'
 
 local Euler1D = class(Equation)
 Euler1D.name = 'Euler 1D'
 Euler1D.numStates = 3
-Euler1D.gamma = 5/3	
+Euler1D.gamma = 7/5	
 
 do
 	--[[ just to know i could ...
@@ -87,7 +88,15 @@ function Euler1D:initCell(sim,i)
 	local vx = x<0 and .5-delta or .5+delta
 	local P = 1
 	--]]
-	-- [[ Sod
+	-- [[ advect wave
+	self.gamma = 7/5
+	local t = 0
+	local c = 1
+	local rho = 1.0 + 3.2e-1 * math.sin(2 * math.pi * (x - c * t))
+	local vx = c
+	local P = 1
+	--]]
+	--[[ Sod
 	local rho = x < 0 and 1 or .125
 	local vx = 0
 	local P = x < 0 and 1 or .1
@@ -127,7 +136,7 @@ function Euler1D:initCell(sim,i)
 	local P = (self.gamma - 1) * rho * (x < 0 and 2 or 1e-6)
 	--]]
 
-	return {self:calcConsFromPrim(rho, vx, P)}
+	return matrix{self:calcConsFromPrim(rho, vx, P)}
 end
 
 -- This is for an ideal gas
@@ -135,7 +144,7 @@ end
 -- SRHD uses rho, vx, eInt (because P is a function of eInt in general) 
 -- maybe I should switch to rho, vx, eInt for generalization's sake ...
 function Euler1D:calcConsFromPrim(rho, vx, P)
-	return rho, rho * vx, P/(self.gamma-1) + .5 * rho * vx*vx
+	return rho, rho * vx, rho * .5 * (vx*vx) + P/(self.gamma-1)
 end
 
 -- rho is th density

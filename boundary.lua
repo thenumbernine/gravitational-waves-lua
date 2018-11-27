@@ -32,4 +32,15 @@ return {
 			qs[gridsize-1][i] = qs[gridsize-2][i]
 		end
 	end,
+	periodic = function(qs, numGhost)
+		assert(numGhost)
+		local gridsize = #qs
+		local numStates = #qs[1]
+		for k=1,numGhost do
+			for j=1,numStates do
+				qs[k][j] = qs[gridsize-2*numGhost+k-1][j]
+				qs[gridsize-numGhost+k-1][j] = qs[numGhost+k][j]
+			end
+		end
+	end,
 }

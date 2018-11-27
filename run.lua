@@ -64,6 +64,8 @@ local Z41D = require 'z4-1d'
 local Z41Dv2 = require 'z4-1d-v2'
 local Z43D = require 'z4-3d'
 
+local tmax = 0
+
 -- setup
 local sims = table()
 
@@ -306,10 +308,11 @@ do
 	local args = {
 		equation = Euler1D(),
 		--stopAtTimes = {.1},
-		gridsize = 256,
-		domain = {xmin=-1, xmax=1},
-		boundaryMethod = boundaryMethods.freeFlow,
+		gridsize = 64,
+		domain = {xmin=0, xmax=1},
+		--boundaryMethod = boundaryMethods.freeFlow,
 		--boundaryMethod = boundaryMethods.mirror,
+		boundaryMethod = boundaryMethods.periodic,
 		--linearSolver = require 'linearsolvers'.jacobi,
 		--linearSolver = require 'linearsolvers'.conjgrad,
 		--linearSolver = require 'linearsolvers'.conjres,
@@ -337,7 +340,7 @@ do
 	--sims:insert(HLL(args))
 	--sims:insert(HLL(table(args, {useDirect=true})))	-- not any noticeable difference with Euler
 	--sims:insert(Roe(args))
-	sims:insert(WENO5(args))
+	sims:insert(WENO5(table(args, {integrator=integrators.RungeKutta4})))
 	--sims:insert(RoePLM(args))
 	--sims:insert(HLLPLM(args))
 	--sims:insert(HLLMUSCL(args))
@@ -351,6 +354,8 @@ do
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
+	--sims:insert(require 'sod_exact'(table(args, {gridsize=2000})))
+	--sims:insert(require 'wave_exact'(args))
 	
 	-- mhd:
 	-- (doesn't work with mirror boundary conditions)
@@ -383,7 +388,7 @@ do
 	--]=]
 
 	--[=[ compare flux vs plm slope limiter
-	--sims:insert(require 'sod_exact'(table(args, {gridsize=2000})))
+	sims:insert(require 'sod_exact'(table(args, {gridsize=2000})))
 	sims:insert(Roe(table(args, {fluxLimiter=limiter.superbee})))
 	sims:insert(Roe(table(args, {fluxLimiter=limiter.donorCell}))) 	-- eliminate the flux limiter, so only the PLM slope limiter is applied
 	sims:insert(RoePLM(args))
@@ -445,6 +450,40 @@ end
 if #sims >= 1 then sims[1].color = {.2,1,1} end
 if #sims >= 2 then sims[2].color = {1,.4,1} end
 
+
+local matrix = require 'matrix'
+local function printExactError(sim)
+	local n = sim.gridsize	-- hmm, getting errors on the last one
+	local ghost = sim.numGhost
+	local is = range(n-2*ghost)
+	local t = sim.t
+	local exact = matrix(is:mapi(function(i)
+		local x = sim.xs[i+ghost]
+		local rho = 1 + .32 * math.sin(2 * math.pi * (x - t))
+		local vx = 1
+		local P = 1
+		return matrix{rho, vx, P}
+	end))
+	--[[
+	local prims = matrix(is:mapi(function(i)
+		return matrix{sim.equation:calcPrimFromCons(sim.qs[i+ghost]:unpack())}
+	end))
+	local diff = exact - prims
+	--]]
+	-- [[
+	local exactCons = matrix(is:mapi(function(i)
+		return matrix{sim.equation:calcConsFromPrim(exact[i]:unpack())}
+	end))
+	local cons = matrix(is:mapi(function(i)
+		return sim.qs[i+ghost]
+	end))
+	local diff = exactCons - cons
+	--]]
+	local err = diff:normL1() / #diff
+
+	print('L1-error = '..('%.50f'):format(err))
+end
+--printExactError(sims[1])
 
 --[[
 local function printState(sim)
@@ -851,6 +890,10 @@ function TestApp:update(...)
 if printState then
 	printState(oldestSim)
 end
+			
+			if tmax and oldestSim.t >= tmax then
+				printExactError(oldestSim)
+			end
 		end
 		--]]
 		--[[ iterate all
