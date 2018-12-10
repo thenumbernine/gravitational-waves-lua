@@ -40,7 +40,8 @@ local PLMBehavior = require 'plm'
 local RoePLM = PLMBehavior(Roe)
 local HLLPLM = PLMBehavior(HLL)
 
-local WENO5 = require 'weno5'
+local WENO5FD = require 'weno5fd'
+local WENO5FV = require 'weno5fv'
 
 --local PPMBehavior = require 'ppm'	-- this is me trying to implement the first paper
 --local PPMBehavior = require 'ppm-v2'	-- this is from 2017 Zingale, based on a later Miller & Collela paper
@@ -340,7 +341,8 @@ do
 	--sims:insert(HLL(args))
 	--sims:insert(HLL(table(args, {useDirect=true})))	-- not any noticeable difference with Euler
 	--sims:insert(Roe(args))
-	sims:insert(WENO5(table(args, {integrator=integrators.RungeKutta4})))
+	sims:insert(WENO5FD(table(args, {integrator=integrators.RungeKutta4})))
+	--sims:insert(WENO5FV(table(args, {integrator=integrators.RungeKutta4})))
 	--sims:insert(RoePLM(args))
 	--sims:insert(HLLPLM(args))
 	--sims:insert(HLLMUSCL(args))
@@ -893,6 +895,7 @@ end
 			
 			if tmax and oldestSim.t >= tmax then
 				printExactError(oldestSim)
+--				os.exit()
 			end
 		end
 		--]]

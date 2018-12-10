@@ -43,41 +43,31 @@ function Solver:reset()
 	local xmin = self.domain.xmin
 	local xmax = self.domain.xmax
 	local width = xmax - xmin
---[[ cell-centered
-	for i=1,self.gridsize do
-		self.xs[i] = ((i-self.numGhost)-.5)/(self.gridsize-2*self.numGhost)*width + xmin
-	end
-	-- interface center of coordinate system
-	for i=1,self.gridsize+1 do
-		self.ixs[i] = ((i-self.numGhost)-1)/(self.gridsize-2*self.numGhost)*width + xmin
-	end
---]]
--- [[ edge-centered
-	local avg = .5 * (xmin + xmax)
-	for i=1,self.gridsize do
-		--[[
-		if i >= self.numGhost and i < self.gridsize + self.numGhost then
-			local j = math.floor(i - self.numGhost - 1 + .5)
-			local n = math.floor(self.gridsize - 2*self.numGhost - 1 + .5)
-			local f = j / n
-			--self.xs[i] = f*width + xmin
-			self.xs[i] = f
-		else
-		--]] do
+
+	if not self.useXEdgeCentered then
+		for i=1,self.gridsize do
+			self.xs[i] = ((i-self.numGhost)-.5)/(self.gridsize-2*self.numGhost)*width + xmin
+		end
+		-- interface center of coordinate system
+		for i=1,self.gridsize+1 do
+			self.ixs[i] = ((i-self.numGhost)-1)/(self.gridsize-2*self.numGhost)*width + xmin
+		end
+	else
+		local avg = .5 * (xmin + xmax)
+		for i=1,self.gridsize do
 			local f = math.floor(i-self.numGhost-1)/math.floor(self.gridsize-2*self.numGhost-1)
 			self.xs[i] = f*width + xmin
 			--self.xs[i] = f * xmax + (1-f) * xmin
 			--self.xs[i] = avg + (f - .5) * width
 		end
+		-- interface center of coordinate system
+		for i=1,self.gridsize+1 do
+			local f = (i-self.numGhost-1.5)/(self.gridsize-2*self.numGhost-1)
+			self.ixs[i] = f*width + xmin
+			--self.ixs[i] = f * xmax + (1-f) * xmin
+			--self.ixs[i] = avg + (f - .5) * width
+		end
 	end
-	-- interface center of coordinate system
-	for i=1,self.gridsize+1 do
-		local f = (i-self.numGhost-1.5)/(self.gridsize-2*self.numGhost-1)
-		self.ixs[i] = f*width + xmin
-		--self.ixs[i] = f * xmax + (1-f) * xmin
-		--self.ixs[i] = avg + (f - .5) * width
-	end
---]]
 	-- state at cell centers
 	for i=1,self.gridsize do
 		self.qs[i] = self.equation:initCell(self,i)
@@ -93,16 +83,14 @@ function Solver:applyBoundary()
 end
 
 function Solver:step(dt)
-self:applyBoundary()
 	self:integrate(dt, function()
-	
+		self:applyBoundary()
 		local dq_dt = self:calcDerivFromFluxes(dt)
 		if self.equation.sourceTerm then
 			dq_dt = dq_dt + self.equation:sourceTerm(self, self.qs, dt)
 		end
 		return dq_dt
 	end)
-self:applyBoundary()
 end
 
 function Solver:calcDT()
@@ -110,22 +98,36 @@ function Solver:calcDT()
 end
 
 function Solver:iterate()
-	self:applyBoundary()
-
-self:applyBoundary()
+--[[
+print'\nself.UBufObj:'
+local max = #tostring(self.gridsize)
+for i=1,self.gridsize do
+	io.write((' '):rep(max-#tostring(i)), i, ':')
+	print(('\t[%.50f,'):format(self.qs[i][1]))
+	print(('\t%.50f,'):format(self.qs[i][2]))
+	print(('\t%.50f,'):format(0))
+	print(('\t%.50f,'):format(0))
+	print(('\t%.50f]'):format(self.qs[i][3]))
+end
+--]]	
 	local dt = self:calcDT()
+
 	self:step(dt)
 
-self:applyBoundary()
 	if self.postIterate then
+		self:applyBoundary()
 		self:postIterate(dt)
 	end
 	if self.equation.postIterate then
+		self:applyBoundary()
 		self.equation:postIterate(self, self.qs)
 	end
 	
 	self.t = self.t + dt
 	self.iteration = self.iteration + 1
+
+	-- boundary before exiting the loop so rendering looks correct
+	self:applyBoundary()
 end
 
 -- get the q at the left side of the interface

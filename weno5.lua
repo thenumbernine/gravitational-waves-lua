@@ -1,160 +1,78 @@
--- based on code at https://www.mathworks.com/matlabcentral/fileexchange/44639-weighted-essentially-non-oscillatory--weno--scheme
--- also based on Mara test code
-local class = require 'ext.class'
 local matrix = require 'matrix'
 
--- technically a Godunov solver and not a Roe solver
--- and that's where I should put the eigenbasis stuff
-local SolverFV = require 'solverfv'
+local coeffs = {
+	fd = {
+		-- 1998 Shu, table 2.1, sc[k][r][j+1]
+		c = {
+			[3] = {
+				{11/6, -7/6,  1/3},
+				{ 1/3,  5/6, -1/6},
+				{-1/6,  5/6,  1/3},
+				{ 1/3, -7/6, 11/6},
+			},
+		},
+		-- 1998 Shu, between eqns 2.54 and 2.55
+		-- d[r+1]
+		d = {
+			3/10, 3/5, 1/10, 
+		},
+	},
+	fv = {
+		c = {
+			{15/8, -5/4,  3/8},
+			{ 3/8,  3/4, -1/8},
+			{-1/8,  3/4,  3/8},
+			{ 3/8, -5/4, 15/8},
+		},
+		d = {
+			l = {   1./ 16.,   5./  8.,   5./ 16. },
+			r = {   5./ 16.,   5./  8.,   1./ 16. },
+		},
+	},
+}
+
+local function sqr(x) return x*x end
+
+local function weno5(v, i, fv_or_fd, l_or_r, numWaves)
+	local cofs = l_or_r == 'l' and 1 or 2
+	local c = coeffs[fv_or_fd].c[3]
+	local d = coeffs[fv_or_fd].d
 	
-local WENO5 = class(SolverFV)
+	local epsilon = 1e-14
+	local result = matrix()
+	for j=1,numWaves do
+		-- 1998 Shu eqn 2.63
+		-- cites 1996 Jiang, Shu for the coefficient source
+		local beta = {
+			(13/12) * sqr( v[i+0][j] - 2 * v[i+1][j] + v[i+2][j]) + (1/4) * sqr(3 * v[i+0][j] - 4 * v[i+1][j] +     v[i+2][j]),
+			(13/12) * sqr( v[i-1][j] - 2 * v[i+0][j] + v[i+1][j]) + (1/4) * sqr(    v[i-1][j]                 -     v[i+1][j]),
+			(13/12) * sqr( v[i-2][j] - 2 * v[i-1][j] + v[i+0][j]) + (1/4) * sqr(    v[i-2][j] - 4 * v[i-1][j] + 3 * v[i+0][j]),
+		}
 
-function WENO5:init(args)
-	-- disable flux limiter
-	args = table(args)
-	local limiter = require 'limiter' 
-	args.fluxLimiter = limiter.donorCell	
-	
-	WENO5.super.init(self, args)
-	self.name = 'WENO5'
-end
-
-
-WENO5.numGhost = 3
-
-local CeesC2L = { {11./6., -7./6.,  1./3. },
-				{ 1./3.,  5./6., -1./6. },
-				{-1./6.,  5./6.,  1./3. } }
-local CeesC2R = { { 1./3.,  5./6., -1./6. },
-				{-1./6.,  5./6.,  1./3. },
-				{ 1./3., -7./6., 11./6. } }
-local DeesC2L = { 0.1, 0.6, 0.3 }
-local DeesC2R = { 0.3, 0.6, 0.1 }
-
-
--- TODO 3.2.1 of 2013 Lou et al:
-function WENO5:calcFluxes(dt)
-	local numStates = self.numStates
-	local numWaves = self.numWaves
-
-	-- cell centered fluxes
-	local Fs = self:newState()
-	for i=1,self.gridsize do
-		Fs[i] = matrix{self.equation:calcFluxForState(self.qs[i])}
-	end
-
-	-- cell centered eigenvalues
-	local lambdas = self:newState()
-	for i=1,self.gridsize do
-		lambdas[i] = matrix()
-		self.equation:calcEigenBasisFromCons(lambdas[i], nil, nil, nil, self.qs[i])
-	end
-
-	-- interface Roe averages
-	local iRoes = self:newState()
-	for i=2,self.gridsize do
-		iRoes[i] = matrix{self.equation:calcRoeValues(self.qs[i-1], self.qs[i])}
-	end
-
-	-- interface eigenbasis
-	local ievls = self:newState()
-	local ievrs = self:newState()
-	local ilambdas = self:newState()
-	for i=2,self.gridsize do
-		local iRoe = iRoes[i]
-		ilambdas[i] = matrix.zeros{numStates}
-		ievrs[i] = matrix.zeros{numStates, numStates}
-		ievls[i] = matrix.zeros{numStates, numStates}
-		self.equation:calcEigenBasis(ilambdas[i], ievrs[i], ievls[i], nil, iRoe:unpack())
-	end
-
-	-- now I guess we do polynomial interpolation on the neg and pos chars
-	-- and then reconstruct with the right eigenvectors at the interfaces
-
-	for i=3,self.gridsize-3 do	-- -2 if you can
-		-- the i'th interface is between cells i-1 and i
-		-- for each offset -3..2 from i
+		-- 1998 Shu, eqn 2.59
+		local alpha = l_or_r == 'l' 
+			and {
+				d[3] / sqr(epsilon + beta[1]),
+				d[2] / sqr(epsilon + beta[2]),
+				d[1] / sqr(epsilon + beta[3]),
+			}
+			or {
+				d[1] / sqr(epsilon + beta[1]),
+				d[2] / sqr(epsilon + beta[2]),
+				d[3] / sqr(epsilon + beta[3]),
+			}
 		
-		-- max lambda of all lambdas in this range of cells
-		local ml = 0
-		for j=-2,3 do
-			for k=1,self.numWaves do
-				ml = math.max(ml, math.abs(lambdas[i+j][k]))
-			end
-		end
-
-		-- extrapolate cell fluxes in left and right directions
-		--  according with the max wavespeed in this region
-		local Fp = {}
-		local Fm = {}
-		for j=-2,3 do
-			-- [[ plus and minus extrapolation by largest eigenvector
-			Fp[j] = matrix()
-			Fm[j] = matrix()
-			for k=1,numStates do
-				Fp[j][k] = (Fs[i+j][k] + ml * self.qs[i+j][k]) * .5
-				Fm[j][k] = (Fs[i+j][k] - ml * self.qs[i+j][k]) * .5
-			end
-			--]]
-			--[[ how about positive and negative eigenvalues?
-			-- F = A * U = evr * lambda * evl * U
-			local char = self.equation:eigenLeftTransform(self, ievls[i], self.qs[i+j])
-			local charP = matrix()
-			local charM = matrix()
-			for k=1,self.numWaves do
-				charP[k] = char[k] * math.max(0, ilambdas[i][k])
-				charM[k] = char[k] * math.min(0, ilambdas[i][k])
-			end
-			Fp[j] = self.equation:eigenRightTransform(self, ievls[i], charP)
-			Fm[j] = self.equation:eigenRightTransform(self, ievls[i], charM)
-			--]]
-		end
-
-		-- transform it to char space
-		local fp = {}
-		local fm = {}
-		for j=-2,3 do
-			fp[j] = self.equation:eigenLeftTransform(self, ievls[i], Fp[j])
-			fm[j] = self.equation:eigenLeftTransform(self, ievls[i], Fm[j])
-		end
-
-		local function weno5(v, ofs, c, d)
-			local eps = 1e-14
-			local result = matrix()
-			for k=1,numWaves do
-				local B = {
-					(13./12.)*(  v[ofs+2][k] - 2*v[ofs+3][k] +   v[ofs+4][k])^2 +
-					 ( 1./ 4.)*(3*v[ofs+2][k] - 4*v[ofs+3][k] +   v[ofs+4][k])^2,
-
-					 (13./12.)*(  v[ofs+1][k] - 2*v[ofs+2][k] +   v[ofs+3][k])^2 +
-					 ( 1./ 4.)*(  v[ofs+1][k] - 0*v[ofs+2][k] -   v[ofs+3][k])^2,
-					 
-					 (13./12.)*(  v[ofs+0][k] - 2*v[ofs+1][k] +   v[ofs+2][k])^2 +
-					 ( 1./ 4.)*(  v[ofs+0][k] - 4*v[ofs+1][k] + 3*v[ofs+2][k])^2}
-
-				local vs = {c[1+0][1+0]*v[ofs+2][k] + c[1+0][1+1]*v[ofs+3][k] + c[1+0][1+2]*v[ofs+4][k],
-						  c[1+1][1+0]*v[ofs+1][k] + c[1+1][1+1]*v[ofs+2][k] + c[1+1][1+2]*v[ofs+3][k],
-						  c[1+2][1+0]*v[ofs+0][k] + c[1+2][1+1]*v[ofs+1][k] + c[1+2][1+2]*v[ofs+2][k]}
-
-				local w = {d[1+0] / (eps + B[1+0])^2,
-						 d[1+1] / (eps + B[1+1])^2,
-						 d[1+2] / (eps + B[1+2])^2}
-				
-				local wtot = w[1+0] + w[1+1] + w[1+2]
-				result[k] = (w[1+0]*vs[1+0] + w[1+1]*vs[1+1] + w[1+2]*vs[1+2])/wtot
-			end
-			return result
-		end
-
-		local f = (weno5(fp, -2, CeesC2R, DeesC2R)
-					+ weno5(fm, -1, CeesC2L, DeesC2L))
-
-		f = self.equation:eigenRightTransform(self, ievrs[i], f)
-
-		for j=1,self.numStates do
-			self.fluxes[i+1][j] = f[j]
-		end
+		local alphasum = alpha[1] + alpha[2] + alpha[3]
+		
+		local vs = {
+			c[cofs+0][1] * v[i+0][j] + c[cofs+0][2] * v[i+1][j] + c[cofs+0][3] * v[i+2][j],
+			c[cofs+1][1] * v[i-1][j] + c[cofs+1][2] * v[i+0][j] + c[cofs+1][3] * v[i+1][j],
+			c[cofs+2][1] * v[i-2][j] + c[cofs+2][2] * v[i-1][j] + c[cofs+2][3] * v[i+0][j],
+		}
+		
+		result[j] = (alpha[1] * vs[1] + alpha[2] * vs[2] + alpha[3] * vs[3]) / alphasum
 	end
+	return result
 end
 
-return WENO5
+return weno5

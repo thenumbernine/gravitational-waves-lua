@@ -60,9 +60,8 @@ function SolverFV:calcDT()
 end
 
 function SolverFV:calcDerivFromFluxes(dt)	
-self:applyBoundary()
-
 	self:calcFluxes(dt)
+
 	local dq_dts = self:newState()
 	for i=1,self.gridsize do
 		local dx = self.ixs[i+1] - self.ixs[i]
