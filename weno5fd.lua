@@ -17,7 +17,9 @@ function WENO5FD:init(args)
 	args = table(args)
 	local limiter = require 'limiter' 
 	args.fluxLimiter = limiter.donorCell	
-	
+
+	self.weno5method = args.weno5method
+
 	WENO5FD.super.init(self, args)
 	self.name = 'WENO5FD'
 end
@@ -98,8 +100,8 @@ function WENO5FD:calcFluxes(dt)
 			fm[j+1] = self.equation:eigenLeftTransform(self, ievls[i], Fm[j+1])
 		end
 
-		local f = weno5(fp, 0, 'fd', 'r', numWaves)
-				+ weno5(fm, 1, 'fd', 'l', numWaves)
+		local f = weno5(fp, 0, 'fd', 'r', self.weno5method, numWaves)
+				+ weno5(fm, 1, 'fd', 'l', self.weno5method, numWaves)
 
 		f = self.equation:eigenRightTransform(self, ievrs[i], f)
 

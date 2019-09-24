@@ -323,6 +323,7 @@ do
 		--fluxLimiter = limiter.superbee,
 		integrator = integrators.ForwardEuler,
 		--integrator = integrators.RungeKutta4,
+		--integrator = integrators.BackwardEuler,
 		--[=[ TODO broken
 		scheme = require 'euler1d_muscl'{
 			baseScheme = require 'euler1d_burgers'(),
@@ -341,7 +342,9 @@ do
 	--sims:insert(HLL(args))
 	--sims:insert(HLL(table(args, {useDirect=true})))	-- not any noticeable difference with Euler
 	--sims:insert(Roe(args))
-	sims:insert(WENO5FD(table(args, {integrator=integrators.RungeKutta4})))
+	--sims:insert(WENO5FD(table(args, {integrator=integrators.RungeKutta4, weno5method='1996 Jiang Shu'})))
+	--sims:insert(WENO5FD(table(args, {integrator=integrators.RungeKutta4, weno5method='2008 Borges'})))
+	--sims:insert(WENO5FD(table(args, {integrator=integrators.RungeKutta4, weno5method='2010 Shen Zha'})))
 	--sims:insert(WENO5FV(table(args, {integrator=integrators.RungeKutta4})))
 	--sims:insert(RoePLM(args))
 	--sims:insert(HLLPLM(args))
@@ -415,7 +418,7 @@ do
 end
 --]]
 
---[[
+-- [[
 do
 	local args = {
 		gridsize = 256,
@@ -424,7 +427,8 @@ do
 		integrator = integrators.RungeKutta4,
 		--integrator = integrators.BackwardEuler,
 	}
-	sims:insert(require 'nls-sim'(args))
+	--sims:insert(require 'nls-sim'(args))
+	sims:insert(require 'nr-scalarfield'(args))
 end
 --]]
 
@@ -481,9 +485,15 @@ local function printExactError(sim)
 	end))
 	local diff = exactCons - cons
 	--]]
-	local err = diff:normL1() / #diff
+	local err = diff:normL1() / (3 * (n - 2 * ghost))
 
-	print('L1-error = '..('%.50f'):format(err))
+	print(
+		--'t='..
+		('%.50f'):format(sim.t)
+		..' '
+		--..'L1-error='
+		..('%.50f'):format(err)
+	)
 end
 --printExactError(sims[1])
 
