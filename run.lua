@@ -43,9 +43,9 @@ local HLLPLM = PLMBehavior(HLL)
 local WENO5FD = require 'weno5fd'
 local WENO5FV = require 'weno5fv'
 
---local PPMBehavior = require 'ppm'	-- this is me trying to implement the first paper
+local PPMBehavior = require 'ppm'	-- this is me trying to implement the first paper
 --local PPMBehavior = require 'ppm-v2'	-- this is from 2017 Zingale, based on a later Miller & Collela paper
-local PPMBehavior = require 'ppm-v3'
+--local PPMBehavior = require 'ppm-v3'
 local RoePPM = PPMBehavior(Roe)
 local HLLPPM = PPMBehavior(HLL)
 
@@ -70,7 +70,7 @@ local tmax = 0
 -- setup
 local sims = table()
 
---[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+-- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -121,7 +121,7 @@ do
 	-- these two match:
 	--sims:insert(Roe(table(args, {equation = ADM1Dv1(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = ADM1Dv2(equationArgs)})))
-	sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
+	--sims:insert(Roe(table(args, {equation = ADM3D(equationArgs)})))
 	-- this one is similar to the last two, but off by just a bit (and has an asymmetric evolution of alpha)
 	--sims:insert(Roe(table(args, {equation = BSSNOK1D(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = Z41D(equationArgs)})))
@@ -154,6 +154,36 @@ do
 		sim.fixed_dt = 0.125
 	end
 	--]=]
+end
+--]]
+
+-- [[
+do	
+	local x = symmath.var'x'
+	local alpha = symmath.var'alpha'
+	local xc = 0
+	local H = 1
+	local sigma = 1
+	local h = H * symmath.exp(-(x - xc)^2 / sigma^2)
+	local gamma_xx = 1 - h:diff(x)^2
+	local K_xx = -h:diff(x,x) / gamma_xx^.5
+	sims:insert(require 'teukolsky_exact'{
+		gridsize=160, 
+		domain = {xmin=-4, xmax=4},
+		boundaryMethod = boundaryMethods.freeFlow,
+		fluxLimiter = limiter.donorCell,
+		linearSolver = require 'linearsolvers'.gmres,
+		linearSolverEpsilon = 1e-10,
+		linearSolverMaxIter = 100,	
+		equation=ADM1Dv1{
+			x = x,
+			alpha = 1,
+			gamma_xx = gamma_xx,	-- gamma_xx
+			K_xx = K_xx,	-- K_xx
+			f_param = alpha,
+			f = 1 + 1/alpha^2,	
+		},
+	})
 end
 --]]
 
@@ -304,23 +334,24 @@ end
 --]]
 
 
--- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+--[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
 	local args = {
 		equation = Euler1D(),
 		--stopAtTimes = {.1},
 		gridsize = 64,
-		domain = {xmin=0, xmax=1},
-		--boundaryMethod = boundaryMethods.freeFlow,
+		domain = {xmin=-1, xmax=1},
+		--domain = {xmin=0, xmax=1},
+		boundaryMethod = boundaryMethods.freeFlow,
 		--boundaryMethod = boundaryMethods.mirror,
-		boundaryMethod = boundaryMethods.periodic,
+		--boundaryMethod = boundaryMethods.periodic,
 		--linearSolver = require 'linearsolvers'.jacobi,
 		--linearSolver = require 'linearsolvers'.conjgrad,
 		--linearSolver = require 'linearsolvers'.conjres,
 		--linearSolver = require 'linearsolvers'.gmres,
 		--linearSolver = require 'linearsolvers'.bicgstab,	-- working on this ...
-		fluxLimiter = limiter.donorCell,
-		--fluxLimiter = limiter.superbee,
+		--fluxLimiter = limiter.donorCell,
+		fluxLimiter = limiter.superbee,
 		integrator = integrators.ForwardEuler,
 		--integrator = integrators.RungeKutta4,
 		--[=[ TODO broken
@@ -341,7 +372,7 @@ do
 	--sims:insert(HLL(args))
 	--sims:insert(HLL(table(args, {useDirect=true})))	-- not any noticeable difference with Euler
 	--sims:insert(Roe(args))
-	sims:insert(WENO5FD(table(args, {integrator=integrators.RungeKutta4})))
+	--sims:insert(WENO5FD(table(args, {integrator=integrators.RungeKutta4})))
 	--sims:insert(WENO5FV(table(args, {integrator=integrators.RungeKutta4})))
 	--sims:insert(RoePLM(args))
 	--sims:insert(HLLPLM(args))
@@ -352,7 +383,7 @@ do
 	--sims:insert(require 'ppm-v2'(Roe)(args))
 	--sims:insert(HLLPPM(args))
 	--sims:insert(RoeImplicitLinearized(args))
-	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .005})))
+	sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .005})))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
@@ -894,7 +925,7 @@ if printState then
 end
 			
 			if tmax and oldestSim.t >= tmax then
-				printExactError(oldestSim)
+--				printExactError(oldestSim)
 --				os.exit()
 			end
 		end

@@ -88,7 +88,7 @@ function Euler1D:initCell(sim,i)
 	local vx = x<0 and .5-delta or .5+delta
 	local P = 1
 	--]]
-	-- [[ advect wave
+	--[[ advect wave
 	self.gamma = 7/5
 	local t = 0
 	local c = 1
@@ -96,7 +96,7 @@ function Euler1D:initCell(sim,i)
 	local vx = c
 	local P = 1
 	--]]
-	--[[ Sod
+	-- [[ Sod
 	local rho = x < 0 and 1 or .125
 	local vx = 0
 	local P = x < 0 and 1 or .1
