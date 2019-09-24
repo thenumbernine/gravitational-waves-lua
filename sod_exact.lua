@@ -56,62 +56,93 @@ function SodExact:init(args)
 	local PL = 1
 	local PR = .1
 
-	local cL = math.sqrt(gamma * PL / rhoL)
-	local cR = math.sqrt(gamma * PR / rhoR)
-
 	-- find the zero of the sod function
-	local Gamma = (gamma - 1) / (gamma + 1)
-	local beta = (gamma - 1) / (2 * gamma)
+	local muSq = (gamma - 1) / (gamma + 1)
+	local K = PL / rhoL^gamma
+	--local beta = (gamma - 1) / (2 * gamma)
+	
+	local CsL = math.sqrt(gamma * PL / rhoL)
+	local CsR = math.sqrt(gamma * PR / rhoR)
 
-	local PPostFunc, PPostDerivFunc
-	do
-		local P = symmath.var'P'
-		local f = (P - PR) * ( (1-Gamma)*(1-Gamma) / (rhoR*(P + Gamma * PR)) )^.5
-				- 2 * (gamma^.5/(gamma - 1)) * (1 - P^beta)
-		PPostFunc = f:compile{P}
-		local df_dp = f:diff(P)()
-		PPostDerivFunc = df_dp:compile{P}
+	local function solveP3()
+		local P3 = .5 * (PL + PR)
+		local epsilon = 1e-16
+		while true do
+			local f = ((((-2 * CsL) * (1 - ((P3 / PL) ^ ((-1 + gamma) / (2 * gamma))))) / (CsR * (-1 + gamma))) + ((-1 + (P3 / PR)) * ((0.75 / (gamma * (0.25 + (P3 / PR)))) ^ 0.5))) 
+			local df_dP3 = ((-((((((1.5 * math.sqrt(0.75) * CsR * PR * (gamma ^ 1.5)) - ((0.75 ^ 1.5) * CsR * PR * math.sqrt(gamma))) - ((0.75 ^ 1.5) * CsR * (gamma ^ 2.5) * PR)) - (0.5 * P3 * math.sqrt(0.75) * CsR * math.sqrt(gamma))) - (0.5 * P3 * math.sqrt(0.75) * CsR * (gamma ^ 2.5))) + (((P3 * math.sqrt(0.75) * CsR * (gamma ^ 1.5)) - (0.25 * (PL ^ ((1 - gamma) / (2 * gamma))) * CsL * (P3 ^ (((-1) - gamma) / (2 * gamma))) * (PR ^ 1.5) * math.sqrt((P3 + (0.25 * PR))))) - ((PL ^ ((1 - gamma) / (2 * gamma))) * CsL * (P3 ^ ((-(1 - gamma)) / (2 * gamma))) * math.sqrt(PR) * math.sqrt((P3 + (0.25 * PR))))) + (0.5 * (PL ^ ((1 - gamma) / (2 * gamma))) * CsL * (P3 ^ (((-1) - gamma) / (2 * gamma))) * (PR ^ 1.5) * gamma * math.sqrt((P3 + (0.25 * PR)))) + (((2 * (PL ^ ((1 - gamma) / (2 * gamma))) * CsL * (P3 ^ ((-(1 - gamma)) / (2 * gamma))) * math.sqrt(PR) * gamma * math.sqrt((P3 + (0.25 * PR)))) - (0.25 * (PL ^ ((1 - gamma) / (2 * gamma))) * CsL * (P3 ^ (((-1) - gamma) / (2 * gamma))) * (gamma ^ 2) * (PR ^ 1.5) * math.sqrt((P3 + (0.25 * PR))))) - ((PL ^ ((1 - gamma) / (2 * gamma))) * CsL * (P3 ^ ((-(1 - gamma)) / (2 * gamma))) * (gamma ^ 2) * math.sqrt(PR) * math.sqrt((P3 + (0.25 * PR))))))) / (math.sqrt(PR) * CsR * ((P3 + (0.25 * PR)) ^ 1.5) * gamma * ((1 - (2 * gamma)) + (gamma ^ 2)))) 
+			local dP3 = -f / df_dP3
+			if math.abs(dP3) <= epsilon then break end
+			if not math.isfinite(dP3) then error('delta is not finite! '..tostring(dP3)) end
+			P3 = P3 + dP3 
+		end
+		return P3
 	end
+			
+	local P3 = solveP3()
+	local P4 = P3
+	
+	local rho3 = rhoL * (P3 / PL) ^ (1 / gamma)
+	
+	local v3 = vR + 2 * CsL / (gamma - 1) * (1 - (P3 / PL)^((gamma - 1)/(2*gamma)))
+	local v4 = v3
+	
+	local rho4 = rhoR * (P4 + muSq * PR) / (PR + muSq * P4)
+	
+	local vshock = v4 * rho4 / (rho4 - rhoR)
+	local vtail = CsL - v4 / (1 - muSq)
+	
+	-- between regions 1 and 2
+	local s1 = -CsL	
+	
+	-- between regions 2 and 3
+	-- http://www.itam.nsc.ru/flowlib/SRC/sod.f
+	local s2 = -vtail
+
+	local s3 = v3	-- between regions 3 and 4
+
+	-- between regions 4 and 5 ...
+	local s4 = vshock
 
 	self.genConsFunc = function(t)
-		
-		-- 2 sqrt(gamma) / (gamma - 1) (1 - P^beta) = (P - PR) sqrt( (1 - Gamma)^2 / (rR (P + Gamma PR)) )
-		local PPost = newton{
-			f = PPostFunc,
-			df = PPostDerivFunc,
-			x0 = PR,	-- sod_exact uses pi as the initial guess.  why would't you use PR or PL or something?
-		}
-		
-		local vPost = 2 * (math.sqrt(gamma) / (gamma - 1)) * (1 - PPost^beta)
-		local rhoPost = rhoR * (PPost + Gamma * PR) / (PR + Gamma * PPost)
-		local vShock = vPost * (rhoPost / rhoR) / (rhoPost / rhoR - 1)
-		local rhoMiddle = rhoL * (PPost / PL) ^ (1 / gamma)
-		
-		local x0 = .5 * (self.domain.xmin + self.domain.xmax)
-		local x1 = x0 - cL * t
-		local x3 = x0 + vPost * t
-		local x4 = x0 + vShock * t
-		
-		local c2 = cL - ((gamma - 1) / 2) * vPost
-		local x2 = x0 + (vPost - c2) * t
-		
 		local consFunc = function(x)
-			if x < x1 then	-- left
-				return rhoL, vL, PL
-			elseif x <= x2 then	-- rarefaction
-				local c = Gamma * ((x0 - x) / t) + (1 - Gamma) * cL
-				rho = rhoL * (c / cL) ^ (2 / (gamma - 1))
-				v = (1 - Gamma) * ( -(x0 - x) / t + cL)
-				P = PL * (rho / rhoL) ^ gamma
-				return rho, v, P
-			elseif x <= x3 then	-- middle
-				return rhoMiddle, vPost, PPost
-			elseif x <= x4 then	-- post 
-				return rhoPost, vPost, PPost
-			else	-- right
-				return rhoR, vR, PR
+			--print('wavespeeds:',s1,s2,s3,s4)
+
+			local rho, vx, P
+			local xi = x / t
+			if xi < s1 then
+				rho = rhoL
+				vx = vL
+				P = PL
+			elseif xi < s2 then
+				vx = (1 - muSq) * (x/t + CsL)
+				
+				-- Dullemon:
+				--rho = (rhoL^gamma / (gamma * PL) * (v2(x) - x/t)^2)^(1/(gamma-1))
+				-- http://www.itam.nsc.ru/flowlib/SRC/sod.f
+				rho = rhoL * (-muSq * (x / (CsL * t)) + (1 - muSq))^(2/(gamma-1))
+
+				-- Dullemon:
+				--P = K * rho2^gamma
+				-- http://www.itam.nsc.ru/flowlib/SRC/sod.f
+				P = PL * (-muSq * (x / (CsL * t)) + (1 - muSq)) ^ (2*gamma/(gamma-1))
+			elseif xi < s3 then
+				rho = rho3
+				vx = v3
+				P = P3
+			elseif xi < s4 then
+				rho = rho4
+				vx = v4
+				P = P4
+			else
+				rho = rhoR
+				vx = vR
+				P = PR
 			end
-			error'here'
+
+			local EInt = P / (gamma - 1)
+			local EKin = .5 * rho * vx*vx
+			local ETotal = EKin + EInt
+			return rho, rho * vx, ETotal	
 		end
 	
 		return consFunc
@@ -123,7 +154,7 @@ function SodExact:step(dt)
 	for i=1,self.gridsize do
 		local q = self.qs[i]
 		local x = self.xs[i]
-		fill(q, self.equation:calcConsFromPrim(consFunc(x)))
+		fill(q, consFunc(x))
 	end
 end
 

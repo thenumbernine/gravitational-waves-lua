@@ -1,5 +1,6 @@
 local class = require 'ext.class'
 local Roe = require 'roe'
+local matrix = require 'matrix'
 
 local RoeImplicitLinearized = class(Roe)
 
@@ -7,10 +8,11 @@ function RoeImplicitLinearized:init(args)
 	RoeImplicitLinearized.super.init(self, args)
 	
 	self.linearSolver = args.linearSolver or require 'linearsolvers'.gmres
-	self.linearSolverEpsilon = args.linearSolverEpsilon or 1e-10
+	self.linearSolverEpsilon = args.linearSolverEpsilon or 1e-18
 	self.linearSolverMaxIter = args.linearSolverMaxIter or 10 * self.gridsize * self.numStates 
 	self.linearSolverRestart = args.linearSolverRestart or self.gridsize * self.numStates 
 	self.errorLogging = args.errorLogging
+self.errorLogging = true
 
 	self.name = self.equation.name .. ' Roe Implicit Linearized'
 end
@@ -40,7 +42,9 @@ function RoeImplicitLinearized:step(dt)
 	local qs = self.qs
 	local linearSolverArgs = {
 		--maxiter = 1000,
-		x = qs:clone(),
+		clone = matrix,
+		dot = function(a,b) return matrix.dot(a,b) / math.sqrt(self.gridsize) end,
+		x = matrix(qs),
 		epsilon = self.linearSolverEpsilon, 
 		maxiter = self.linearSolverMaxIter,
 		restart = self.linearSolverRestart,
@@ -64,11 +68,11 @@ function RoeImplicitLinearized:step(dt)
 	}
 
 	--[=[ identity.  do nothing.
-	linearSolverArgs.b = qs:clone()
+	linearSolverArgs.b = matrix(qs)
 	linearSolverArgs.A = function(qs) return qs end
 	--]=]
 	-- [=[ backward Euler
-	linearSolverArgs.b = qs:clone()
+	linearSolverArgs.b = matrix(qs)
 	linearSolverArgs.A = function(qs)
 		-- if this is a linearized implicit solver
 		-- then the matrix should be computed before invoking the iterative solver
