@@ -29,10 +29,14 @@ function RungeKutta4:integrate(qs, dt, dq_dts)
 end
 
 local BackwardEuler = class()
-BackwardEuler.name = 'BE'
+BackwardEuler.name = 'B.E.'
 function BackwardEuler:integrate(qs, dt, dq_dts)
 	return require 'solver.gmres'{
 		A = function(u)
+			-- TODO this is only sampling dq_dts() from the u(t) timestep
+			-- so you can either store it once outside the solve loop
+			-- or you can try to recalculate it each time based on u instead of qs
+			-- (but that might mean rearranging dq_dts to accept input parameters of its state)
 			return u - dt * dq_dts()
 		end,
 		x = qs:clone(),

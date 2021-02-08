@@ -97,7 +97,7 @@ function ADM3D:init(args, ...)
 	-- convert from symbolic functions to Lua functions
 	local function buildCalc(expr, name)
 		assert(type(expr) == 'table')
-		if expr.isa and expr:isa(symmath.Expression) then
+		if symmath.Expression:isa(expr) then
 			return expr:compile{x,y,z}, name
 		else
 			return table.map(expr, buildCalc), name

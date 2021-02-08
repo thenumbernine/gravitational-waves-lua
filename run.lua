@@ -450,7 +450,7 @@ do
 end
 --]]
 
--- [[
+--[[ FIXME not finished
 do
 	local args = {
 		gridsize = 256,
