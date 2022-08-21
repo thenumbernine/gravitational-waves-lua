@@ -544,7 +544,6 @@ for _,sim in ipairs(sims) do
 end
 --]]
 
-local ffi = require 'ffi'
 local gl = require 'gl'
 local sdl = require 'ffi.sdl'
 local GLTex2D = require 'gl.tex2d'
@@ -619,7 +618,7 @@ TestApp.keyDownCallbacks = {
 local graphNamesEnabled = table()
 graphNamesEnabled:insert{
 	name = 'all',
-	ptr = ffi.new('bool[1]', true),
+	enabled = true,
 }
 
 local solverGens 
@@ -796,16 +795,18 @@ do
 		{name='Euler1D DFT', gen=require 'euler1d_dft'},
 	}
 end
-local solverGenIndex = ffi.new('int[1]', 0)
+local solverGenIndex = {value = 1}
 
 function TestApp:updateGUI()
 	ig.igText('simulations:')
 	local toRemove
 	for i,sim in ipairs(sims) do
 		ig.igPushIDStr(i..' '..sim.name)
-		sim.visiblePtr = sim.visiblePtr or ffi.new('bool[1]', true)
+		if sim.visible == nil then
+			sim.visible = true
+		end
 		ig.igPushIDStr('visible')
-		ig.igCheckbox('', sim.visiblePtr)
+		ig.luatableCheckbox('', sim, 'visible')
 		ig.igPopID()
 		ig.igSameLine()
 		if ig.igButton('X') then
@@ -822,10 +823,10 @@ function TestApp:updateGUI()
 		end
 	end
 
-	ig.igCombo('new sim type', solverGenIndex, solverGens:map(function(solverGen) return solverGen.name end))
+	ig.luatableCombo('new sim type', solverGenIndex, 'value', solverGens:map(function(solverGen) return solverGen.name end))
 	if ig.igButton('Add New...') then
-		print('adding new sim '..solverGenIndex[0]..' named '..solverGens[solverGenIndex[0]+1].name)
-		local sim = solverGens[solverGenIndex[0]+1].gen{
+		print('adding new sim '..solverGenIndex.value..' named '..solverGens[solverGenIndex.value].name)
+		local sim = solverGens[solverGenIndex.value].gen{
 			gridsize = 100,
 			domain = {xmin=-1, xmax=1},
 			boundaryMethod = boundaryMethods.freeFlow,
@@ -856,7 +857,7 @@ function TestApp:updateGUI()
 			else
 				graphNamesEnabled:insert{
 					name = graphInfo.name,
-					ptr = ffi.new('bool[1]', true),
+					enabled = true,
 					found = true,
 				}
 			end
@@ -874,17 +875,17 @@ function TestApp:updateGUI()
 	end)
 	--]]
 
-	local allBefore = graphNamesEnabled[1].ptr[0]
+	local allBefore = graphNamesEnabled[1].enabled
 	ig.igText('variables:')
 	for i,graphNameEnabled in ipairs(graphNamesEnabled) do
 		ig.igPushIDStr(tostring(i))
-		ig.igCheckbox(graphNameEnabled.name, graphNameEnabled.ptr)
+		ig.luatableCheckbox(graphNameEnabled.name, graphNameEnabled, 'enabled')
 		ig.igPopID()
 	end
-	local allAfter = graphNamesEnabled[1].ptr[0]
+	local allAfter = graphNamesEnabled[1].enabled
 	if allAfter ~= allBefore then
 		for i=2,#graphNamesEnabled do
-			graphNamesEnabled[i].ptr[0] = allAfter
+			graphNamesEnabled[i].enabled = allAfter
 		end
 	end
 
@@ -956,7 +957,7 @@ end
 
 	local numEnabled = 0
 	for i=2,#graphNamesEnabled do
-		if graphNamesEnabled[i].ptr[0] then
+		if graphNamesEnabled[i].enabled then
 			numEnabled = numEnabled + 1
 		end
 	end
@@ -970,12 +971,12 @@ end
 	if #sims > 0 then
 		for j=2,#graphNamesEnabled do
 			local graphNameEnabled = graphNamesEnabled[j]
-			if graphNameEnabled.ptr[0] then		
+			if graphNameEnabled.enabled then		
 				local name = graphNameEnabled.name
 
 				local xmin, xmax, ymin, ymax
 				for _,sim in ipairs(sims) do
-					if sim.visiblePtr and sim.visiblePtr[0] then
+					if sim.visible then
 						sim.ys = {}
 						local simymin, simymax
 						for i=3,sim.gridsize-2 do
@@ -1088,7 +1089,7 @@ end
 			
 				-- should I show ghost cells? for some derived values it causes errors...
 				for _,sim in ipairs(sims) do
-					if sim.visiblePtr and sim.visiblePtr[0] then
+					if sim.visible then
 						gl.glColor3f(unpack(sim.color))
 						gl.glPointSize(2)
 						if #sim.ys > 0 then
