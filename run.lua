@@ -551,7 +551,7 @@ local GLTex2D = require 'gl.tex2d'
 local Font = require 'gui.font'
 
 -- [[ with ImGui
-local ig = require 'ffi.imgui'
+local ig = require 'imgui'
 local ImGuiApp = require 'imguiapp'
 local TestApp = class(ImGuiApp)
 --]]
