@@ -157,7 +157,7 @@ do
 end
 --]]
 
--- [[
+--[[
 do	
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -334,7 +334,7 @@ end
 --]]
 
 
---[[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
+-- [[	shockwave test via Roe (or Brio-Wu for the MHD simulation)
 do
 	local args = {
 		equation = Euler1D(),
@@ -801,11 +801,11 @@ function TestApp:updateGUI()
 	ig.igText('simulations:')
 	local toRemove
 	for i,sim in ipairs(sims) do
-		ig.igPushIDStr(i..' '..sim.name)
+		ig.igPushID_Str(i..' '..sim.name)
 		if sim.visible == nil then
 			sim.visible = true
 		end
-		ig.igPushIDStr('visible')
+		ig.igPushID_Str('visible')
 		ig.luatableCheckbox('', sim, 'visible')
 		ig.igPopID()
 		ig.igSameLine()
@@ -878,7 +878,7 @@ function TestApp:updateGUI()
 	local allBefore = graphNamesEnabled[1].enabled
 	ig.igText('variables:')
 	for i,graphNameEnabled in ipairs(graphNamesEnabled) do
-		ig.igPushIDStr(tostring(i))
+		ig.igPushID_Str(tostring(i))
 		ig.luatableCheckbox(graphNameEnabled.name, graphNameEnabled, 'enabled')
 		ig.igPopID()
 	end
