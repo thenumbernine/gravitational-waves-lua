@@ -23,7 +23,7 @@ args:
 local function newton(args)
 	local f = assert(args.f)
 	local df
-	if symmath.Expression.is(f) then
+	if symmath.Expression:isa(f) then
 		local xvar = assert(args.xvar)
 		df = f:diff(xvar)():compile{xvar}
 		f = f:compile{xvar}
