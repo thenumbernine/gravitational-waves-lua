@@ -1184,4 +1184,4 @@ end
 	end
 end
 
-TestApp():run()
+return TestApp():run()
