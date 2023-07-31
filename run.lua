@@ -545,7 +545,7 @@ end
 --]]
 
 local gl = require 'gl'
-local sdl = require 'ffi.sdl'
+local sdl = require 'ffi.req' 'sdl'
 local GLTex2D = require 'gl.tex2d'
 local Font = require 'gui.font'
 
