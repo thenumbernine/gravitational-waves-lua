@@ -70,7 +70,7 @@ local tmax = 0
 -- setup
 local sims = table()
 
--- [[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
+--[[	1D Gaussian curve perturbation / shows coordinate shock waves in 1 direction
 do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
@@ -342,8 +342,8 @@ do
 		gridsize = 64,
 		domain = {xmin=-1, xmax=1},
 		--domain = {xmin=0, xmax=1},
-		boundaryMethod = boundaryMethods.freeFlow,
-		--boundaryMethod = boundaryMethods.mirror,
+		--boundaryMethod = boundaryMethods.freeFlow,
+		boundaryMethod = boundaryMethods.mirror,
 		--boundaryMethod = boundaryMethods.periodic,
 		--linearSolver = require 'linearsolvers'.jacobi,
 		--linearSolver = require 'linearsolvers'.conjgrad,
@@ -372,7 +372,7 @@ do
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='adaptive'})))
 	--sims:insert(HLL(args))
 	--sims:insert(HLL(table(args, {useDirect=true})))	-- not any noticeable difference with Euler
-	--sims:insert(Roe(args))
+	sims:insert(Roe(args))
 	--sims:insert(WENO5FD(table(args, {integrator=integrators.RungeKutta4, weno5method='1996 Jiang Shu'})))
 	--sims:insert(WENO5FD(table(args, {integrator=integrators.RungeKutta4, weno5method='2008 Borges'})))
 	--sims:insert(WENO5FD(table(args, {integrator=integrators.RungeKutta4, weno5method='2010 Shen Zha'})))
@@ -387,7 +387,7 @@ do
 	--sims:insert(require 'ppm-v2'(Roe)(args))
 	--sims:insert(HLLPPM(args))
 	--sims:insert(RoeImplicitLinearized(args))
-	sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .005})))
+	--sims:insert(RoeImplicitLinearized(table(args, {fixed_dt = .005})))
 	--sims:insert(require 'euler1d_backwardeuler_newton'(args))
 	--sims:insert(require 'euler1d_backwardeuler_linear'(args))
 	--sims:insert(require 'euler1d_dft'(args))
@@ -589,9 +589,10 @@ function TestApp:initGL(...)
 	--]]
 end
 
-function TestApp:event(event)
-	if event.type == sdl.SDL_KEYDOWN then
-		local callback = self.keyDownCallbacks[event.key.keysym.sym]
+function TestApp:event(e)
+	TestApp.super.event(self, e)
+	if e[0].type == sdl.SDL_KEYDOWN then
+		local callback = self.keyDownCallbacks[e[0].key.keysym.sym]
 		if callback then
 			callback(self)
 		end
