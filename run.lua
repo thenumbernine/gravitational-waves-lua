@@ -552,7 +552,8 @@ local Font = require 'gui.font'
 -- [[ with ImGui
 local ig = require 'imgui'
 local ImGuiApp = require 'imguiapp'
-local TestApp = class(ImGuiApp)
+local TestApp = ImGuiApp:subclass()
+TestApp.viewUseGLMatrixMode = true
 --]]
 --[[ disable ImGui
 local ig = setmetatable({
