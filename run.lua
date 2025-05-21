@@ -566,6 +566,7 @@ local GLApp = require 'glapp'
 local TestApp = class(GLApp)
 --]]
 
+local hasGLPointSize = op.safeindex(gl, 'glPointSize')
 
 TestApp.width = 800
 TestApp.height = 600
@@ -1135,7 +1136,9 @@ end
 				-- should I show ghost cells? for some derived values it causes errors...
 				for _,sim in ipairs(sims) do
 					if sim.visible then
-						gl.glPointSize(2)
+						if hasGLPointSize then
+							--gl.glPointSize(2)	-- not really necessary anymore unless I re-add point rendering here ...
+						end
 						if #sim.ys > 0 then
 							self.lineStripObj.uniforms.color = sim.color
 							local vtxs = self.lineStripObj:beginUpdate()
@@ -1144,7 +1147,9 @@ end
 							end
 							self.lineStripObj:endUpdate()
 						end
-						gl.glPointSize(1)
+						if hasGLPointSize then
+							--gl.glPointSize(1)
+						end
 
 						if self.font then
 							local fontSizeX = (xmax - xmin) * .05
