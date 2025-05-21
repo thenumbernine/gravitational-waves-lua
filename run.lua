@@ -17,7 +17,7 @@ function assertfinite(x, msg)
 	assert(math.isfinite(x), msg or 'is not finite!')
 end
 
-local limiter = require 'limiter' 
+local limiter = require 'limiter'
 local boundaryMethods = require 'boundary'
 local integrators = require 'integrators'
 
@@ -98,7 +98,7 @@ do
 		alpha = 1/2 * (
 			(1 + symmath.sqrt(1 + kappa))
 			* symmath.sqrt((1-h:diff(x))/(1+h:diff(x)))
-			- 
+			-
 			kappa / (1 + symmath.sqrt(1 + kappa))
 			* symmath.sqrt((1+h:diff(x))/(1-h:diff(x)))
 		),
@@ -117,7 +117,7 @@ do
 		--f = 1 + kappa/alpha^2,
 	}
 
-	-- [=[ compare different equations/formalisms 
+	-- [=[ compare different equations/formalisms
 	-- these two match:
 	--sims:insert(Roe(table(args, {equation = ADM1Dv1(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = ADM1Dv2(equationArgs)})))
@@ -127,7 +127,7 @@ do
 	--sims:insert(Roe(table(args, {equation = Z41D(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = Z41Dv2(equationArgs)})))
 	--sims:insert(Roe(table(args, {equation = Z43D(equationArgs)})))
-	
+
 	-- ... and plm (was working before when I was using the Athena paper implementation, but I broke it when trying to use something more simple):
 	--sims:insert(RoePLM(table(args, {equation=ADM1Dv1(equationArgs)})))
 	--sims:insert(RoePLM(table(args, {equation=ADM1Dv2(equationArgs)})))
@@ -135,7 +135,7 @@ do
 	--sims:insert(RoePLM(table(args, {equation=BSSNOK1D(equationArgs)})))
 	--sims:insert(RoePLM(table(args, {equation=Z41D(equationArgs)})))
 	--sims:insert(RoePLM(table(args, {equation=Z41Dv2(equationArgs)})))
-	
+
 	-- and here's the start of my looking into implicit solvers.
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1Dv1(equationArgs)})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation = ADM1Dv2(equationArgs)})))
@@ -158,7 +158,7 @@ end
 --]]
 
 --[[
-do	
+do
 	local x = symmath.var'x'
 	local alpha = symmath.var'alpha'
 	local xc = 0
@@ -168,20 +168,20 @@ do
 	local gamma_xx = 1 - h:diff(x)^2
 	local K_xx = -h:diff(x,x) / gamma_xx^.5
 	sims:insert(require 'teukolsky_exact'{
-		gridsize=160, 
+		gridsize=160,
 		domain = {xmin=-4, xmax=4},
 		boundaryMethod = boundaryMethods.freeFlow,
 		fluxLimiter = limiter.donorCell,
 		linearSolver = require 'linearsolvers'.gmres,
 		linearSolverEpsilon = 1e-10,
-		linearSolverMaxIter = 100,	
+		linearSolverMaxIter = 100,
 		equation=ADM1Dv1{
 			x = x,
 			alpha = 1,
 			gamma_xx = gamma_xx,	-- gamma_xx
 			K_xx = K_xx,	-- K_xx
 			f_param = alpha,
-			f = 1 + 1/alpha^2,	
+			f = 1 + 1/alpha^2,
 		},
 	})
 end
@@ -271,7 +271,7 @@ do
 			K_yz = -hyz / sqrt_det_g,
 			K_zz = -hzz / sqrt_det_g,
 			-- Bona-Masso slicing conditions:
-			f_param = alpha,	
+			f_param = alpha,
 			--f = 1,
 			--f = 1.69,
 			--f = .49,
@@ -322,7 +322,7 @@ do
 			K_yz = 0,
 			K_zz = 0,
 			-- Bona-Masso slicing conditions:
-			f_param = alpha,	
+			f_param = alpha,
 			--f = 1,
 			--f = 1.69,
 			--f = .49,
@@ -362,7 +362,7 @@ do
 		}
 		--]=]
 	}
-	
+
 	-- [=[ compare schemes
 	--sims:insert(require 'euler1d_burgers'(args))
 	--sims:insert(require 'euler1d_godunov'(table(args, {godunovMethod='exact', sampleMethod='alt'})))
@@ -393,10 +393,10 @@ do
 	--sims:insert(require 'euler1d_dft'(args))
 	--sims:insert(require 'sod_exact'(table(args, {gridsize=2000})))
 	--sims:insert(require 'wave_exact'(args))
-	
+
 	-- mhd:
 	-- (doesn't work with mirror boundary conditions)
-	--sims:insert(Roe(table(args, {equation=MHD()})))	
+	--sims:insert(Roe(table(args, {equation=MHD()})))
 	--sims:insert(HLL(table(args, {equation=MHD()})))
 	--sims:insert(RoePLM(table(args, {equation=MHD()})))
 	--sims:insert(RoeImplicitLinearized(table(args, {equation=MHD()})))
@@ -409,10 +409,10 @@ do
 	--sims:insert(require 'srhd1d_roe'(table(args, {stopAtTimes={.1, .26, .426}, gridsize=4000, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
 	-- srhd versus euler
 	--sims:insert(Roe(table(args, {gridsize=2000})))
-	
+
 	-- problem #1 with PLM ... not working
 	--sims:insert(PLMBehavior(require 'srhd1d_roe')(table(args, {stopAtTimes={.4249}, gridsize=400, domain={xmin=0, xmax=1}, equation=require 'srhd1d'()})))
-	
+
 	-- emhd
 	--sims:insert(Roe(table(args, {equation=EMHD()})))
 	--]=]
@@ -439,7 +439,7 @@ do
 	sims:insert(HLL(args))
 	--sims:insert(require 'euler1d_muscl'(table(args, {baseScheme = Roe(args)})))	-- TODO I broke this
 	--sims:insert(require 'euler1d_muscl'(table(args, {baseScheme = HLL()})))	-- TODO I broke this
-	--sims:insert(Roe(table(args, {scheme = schemes.HLLC()})))	-- TODO 
+	--sims:insert(Roe(table(args, {scheme = schemes.HLLC()})))	-- TODO
 	--]=]
 
 	--[=[ compare integrators
@@ -545,20 +545,20 @@ end
 --]]
 
 local gl = require 'gl'
-local sdl = require 'ffi.req' 'sdl'
+local sdl = require 'sdl'
 local GLTex2D = require 'gl.tex2d'
 local Font = require 'gui.font'
+Font.drawImmediateMode = false
 
 -- [[ with ImGui
 local ig = require 'imgui'
-local ImGuiApp = require 'imguiapp'
-local TestApp = ImGuiApp:subclass()
-TestApp.viewUseGLMatrixMode = true
+local ImGuiApp = require 'imgui.app'
+local TestApp = require 'glapp.view'.apply(ImGuiApp):subclass()
 --]]
 --[[ disable ImGui
 local ig = setmetatable({
 }, {
-	__index = function() 
+	__index = function()
 		return function() end
 	end,
 })
@@ -579,15 +579,54 @@ function TestApp:initGL(...)
 		filename = 'font.png',
 		minFilter = gl.GL_LINEAR_MIPMAP_LINEAR,
 		magFilter = gl.GL_LINEAR,
-	}
-	if not pcall(function()
-		gl.glGenerateMipmap(gl.GL_TEXTURE_2D) 
-	end) then
-		gl.glTexParameteri(fonttex.target, gl.GL_TEXTURE_MIN_FILTER, gl.GL_NEAREST)
-		gl.glTexParameteri(fonttex.target, gl.GL_TEXTURE_MAG_FILTER, gl.GL_LINEAR) 
-	end
-	self.font = Font{tex=fonttex}
+		generateMipmap = true,
+	}:unbind()
+	self.font = Font{tex = fonttex}
+	self.font.view = self.view
 	--]]
+
+	local program = require 'gl.program'{
+		version = 'latest',
+		precision = 'best',
+		vertexCode = [[
+in vec2 vertex;
+uniform mat4 mvProjMat;
+void main() {
+	gl_Position = mvProjMat * vec4(vertex, 0., 1.);
+}
+]],
+		fragmentCode = [[
+out vec4 fragColor;
+uniform vec3 color;
+void main() {
+	fragColor = vec4(color, 1.);
+}
+]],
+	}:useNone()
+
+	local vertexes = require 'gl.arraybuffer'{
+		dim = 2,
+		useVec = true,
+	}:unbind()
+
+	-- can I give the same GLArrayBuffer obj to multiple sceneobjs / geometries?
+	-- or will I have to update their .count every time I draw?
+	-- as long as I use .beginUpdate / .endUpdate am I fine?
+	self.linesObj = require 'gl.sceneobject'{
+		program = program,
+		vertexes = vertexes,
+		geometry = {
+			mode = gl.GL_LINES,
+		},
+	}
+
+	self.lineStripObj = require 'gl.sceneobject'{
+		program = program,
+		vertexes = vertexes,
+		geometry = {
+			mode = gl.GL_LINE_STRIP,
+		},
+	}
 end
 
 function TestApp:event(e)
@@ -607,7 +646,7 @@ TestApp.keyDownCallbacks = {
 		end
 	end,
 	[sdl.SDLK_e] = function(self)
-		self.reportError = not self.reportError	
+		self.reportError = not self.reportError
 	end,
 	[sdl.SDLK_SPACE] = function(self)
 		self.doIteration = not self.doIteration
@@ -623,7 +662,7 @@ graphNamesEnabled:insert{
 	enabled = true,
 }
 
-local solverGens 
+local solverGens
 do
 	local numRel1DArgs	-- used for NR simulations
 	do
@@ -653,7 +692,7 @@ do
 			alpha = 1/2 * (
 				(1 + symmath.sqrt(1 + kappa))
 				* symmath.sqrt((1-h:diff(x))/(1+h:diff(x)))
-				- 
+				-
 				kappa / (1 + symmath.sqrt(1 + kappa))
 				* symmath.sqrt((1+h:diff(x))/(1-h:diff(x)))
 			),
@@ -678,7 +717,7 @@ do
 		local rc = 300
 		local r = symmath.var'r'
 		local alpha = symmath.var'alpha'
-		local h = 5 * symmath.exp(-((r - rc) / 10)^2)	
+		local h = 5 * symmath.exp(-((r - rc) / 10)^2)
 		numRel2DSphericalArgs = {
 			-- the symbolic math driving it:
 			r = r,
@@ -743,7 +782,7 @@ do
 			K_yz = -hyz / sqrt_det_g,
 			K_zz = -hzz / sqrt_det_g,
 			-- Bona-Masso slicing conditions:
-			f_param = alpha,	
+			f_param = alpha,
 			--f = 1,
 			--f = 1.69,
 			--f = .49,
@@ -912,7 +951,7 @@ end
 
 function TestApp:update(...)
 	gl.glClear(gl.GL_COLOR_BUFFER_BIT)
-	
+
 	for _,sim in ipairs(sims) do
 		if sim.stopAtTimes then
 			local t = sim.t
@@ -932,12 +971,12 @@ function TestApp:update(...)
 		local oldestSim = sims:inf(function(a,b)
 			return a.t < b.t
 		end)
-		if oldestSim then 
-			oldestSim:iterate() 
+		if oldestSim then
+			oldestSim:iterate()
 if printState then
 	printState(oldestSim)
 end
-			
+
 			if tmax and oldestSim.t >= tmax then
 --				printExactError(oldestSim)
 --				os.exit()
@@ -973,7 +1012,7 @@ end
 	if #sims > 0 then
 		for j=2,#graphNamesEnabled do
 			local graphNameEnabled = graphNamesEnabled[j]
-			if graphNameEnabled.enabled then		
+			if graphNameEnabled.enabled then
 				local name = graphNameEnabled.name
 
 				local xmin, xmax, ymin, ymax
@@ -984,9 +1023,9 @@ end
 						for i=3,sim.gridsize-2 do
 							local siminfo = sim.equation.graphInfoForNames[name]
 							if siminfo then
-								
+
 								local y = siminfo.getter(sim,i)
-								if not y then 
+								if not y then
 									--error("failed to get for getter "..name)
 								else
 									sim.ys[i] = y
@@ -1008,7 +1047,7 @@ end
 						else
 							local base = 10	-- round to nearest base-10
 							local scale = 10 -- ...with increments of 10
-							simymin, simymax = 1.1 * simymin - .1 * simymax, 1.1 * simymax - .1 * simymin	
+							simymin, simymax = 1.1 * simymin - .1 * simymax, 1.1 * simymax - .1 * simymin
 							local newymin = (simymin<0 and -1 or 1)*(math.abs(simymin)==math.huge and 1e+100 or base^math.log(math.abs(simymin),base))
 							local newymax = (simymax<0 and -1 or 1)*(math.abs(simymax)==math.huge and 1e+100 or base^math.log(math.abs(simymax),base))
 							simymin, simymax = newymin, newymax
@@ -1029,14 +1068,14 @@ end
 						xmax = xmax or simxmax
 						ymin = ymin or simymin
 						ymax = ymax or simymax
-							
+
 						if xmin and simxmin then xmin = math.min(xmin, simxmin) end
 						if xmax and simxmax then xmax = math.max(xmax, simxmax) end
 						if ymin and simymin then ymin = math.min(ymin, simymin) end
 						if ymax and simymax then ymax = math.max(ymax, simymax) end
 					end
 				end
-				
+
 				if not xmin or not xmax or xmin ~= xmin or xmax ~= xmax then
 					xmin = -1
 					xmax = 1
@@ -1048,95 +1087,93 @@ end
 
 				-- display
 				-- TODO viewports per variable and maybe ticks too
+
+				self.lineStripObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
+				self.linesObj.uniforms.mvProjMat = self.view.mvProjMat.ptr
+
 				gl.glViewport(
 					graphCol / graphsWide * w,
 					(1 - (graphRow + 1) / graphsHigh) * h,
 					w / graphsWide,
 					h / graphsHigh)
-				gl.glMatrixMode(gl.GL_PROJECTION)
-				gl.glLoadIdentity()
-				gl.glOrtho(xmin, xmax, ymin, ymax, -1, 1)
-				gl.glMatrixMode(gl.GL_MODELVIEW)
-				gl.glLoadIdentity()
+				self.view.projMat:setOrtho(xmin, xmax, ymin, ymax, -1, 1)
+				self.view.mvMat:setIdent()
+				self.view.mvProjMat:mul4x4(self.view.projMat, self.view.mvMat)
 
-				gl.glColor3f(.1, .1, .1)
 				local xrange = xmax - xmin
 				local xstep = 10^math.floor(math.log(xrange, 10) - .5)
 				local xticmin = math.floor(xmin/xstep)
 				local xticmax = math.ceil(xmax/xstep)
-				gl.glBegin(gl.GL_LINES)
+
+				self.linesObj.uniforms.color = {.1, .1, .1}
+				local vtxs = self.linesObj:beginUpdate()
 				for x=xticmin,xticmax do
-					gl.glVertex2f(x*xstep,ymin)
-					gl.glVertex2f(x*xstep,ymax)
+					vtxs:emplace_back():set(x*xstep, ymin)
+					vtxs:emplace_back():set(x*xstep, ymax)
 				end
-				gl.glEnd()
+				self.linesObj:endUpdate()
+
 				local yrange = ymax - ymin
 				local ystep = 10^math.floor(math.log(yrange, 10) - .5)
 				local yticmin = math.floor(ymin/ystep)
 				local yticmax = math.ceil(ymax/ystep)
-				gl.glBegin(gl.GL_LINES)
+				local vtxs = self.linesObj:beginUpdate()
 				for y=yticmin,yticmax do
-					gl.glVertex2f(xmin,y*ystep)
-					gl.glVertex2f(xmax,y*ystep)
+					vtxs:emplace_back():set(xmin, y*ystep)
+					vtxs:emplace_back():set(xmax, y*ystep)
 				end
-				gl.glEnd()
-					
-				gl.glColor3f(.5, .5, .5)
-				gl.glBegin(gl.GL_LINES)
-				gl.glVertex2f(xmin, 0)
-				gl.glVertex2f(xmax, 0)
-				gl.glVertex2f(0, ymin)
-				gl.glVertex2f(0, ymax)
-				gl.glEnd()
-			
+				self.linesObj:endUpdate()
+
+				self.linesObj.uniforms.color = {.5, .5, .5}
+				local vtxs = self.linesObj:beginUpdate()
+				vtxs:emplace_back():set(xmin, 0)
+				vtxs:emplace_back():set(xmax, 0)
+				vtxs:emplace_back():set(0, ymin)
+				vtxs:emplace_back():set(0, ymax)
+				self.linesObj:endUpdate()
+
 				-- should I show ghost cells? for some derived values it causes errors...
 				for _,sim in ipairs(sims) do
 					if sim.visible then
-						gl.glColor3f(unpack(sim.color))
 						gl.glPointSize(2)
 						if #sim.ys > 0 then
-							for _,mode in ipairs{
-								gl.GL_LINE_STRIP,
-							} do
-								gl.glBegin(mode)
-								for i=3,sim.gridsize-2 do
-									gl.glVertex2f(sim.xs[i], sim.ys[i])
-								end
-								gl.glEnd()
+							self.lineStripObj.uniforms.color = sim.color
+							local vtxs = self.lineStripObj:beginUpdate()
+							for i=3,sim.gridsize-2 do
+								vtxs:emplace_back():set(sim.xs[i], sim.ys[i])
 							end
+							self.lineStripObj:endUpdate()
 						end
 						gl.glPointSize(1)
-						
+
 						if self.font then
 							local fontSizeX = (xmax - xmin) * .05
 							local fontSizeY = (ymax - ymin) * .05
 							local ystep = ystep * 2
 							for y=math.floor(ymin/ystep)*ystep,math.ceil(ymax/ystep)*ystep,ystep do
 								self.font:draw{
-									pos={xmin * .9 + xmax * .1, y + fontSizeY * .5},
-									text=tostring(y),
+									pos = {xmin * .9 + xmax * .1, y + fontSizeY * .5},
+									text = tostring(y),
 									color = {1,1,1,1},
-									fontSize={fontSizeX, -fontSizeY},
-									multiLine=false,
+									fontSize = {fontSizeX, -fontSizeY},
+									multiLine = false,
 								}
 							end
 							self.font:draw{
-								pos={xmin, ymax},
-								text=name,
+								pos = {xmin, ymax},
+								text = name,
 								color = {1,1,1,1},
-								fontSize={fontSizeX, -fontSizeY},
-								multiLine=false,
+								fontSize = {fontSizeX, -fontSizeY},
+								multiLine = false,
 							}
 						end
 					end
 				end
 
 				gl.glViewport(0,0,w,h)
-				gl.glMatrixMode(gl.GL_PROJECTION)
-				gl.glLoadIdentity()
-				gl.glOrtho(0, w/h, 0, 1, -1, 1)
-				gl.glMatrixMode(gl.GL_MODELVIEW)
-				gl.glLoadIdentity()
+				self.view.projMat:setOrtho(0, w/h, 0, 1, -1, 1)
+				self.view.mvMat:setIdent()
+				self.view.mvProjMat:mul4x4(self.view.projMat, self.view.mvMat)
 
 				if self.font then
 					local simNames = sims:map(function(sim)
@@ -1165,7 +1202,7 @@ end
 						}
 					end
 				end
-			
+
 				graphCol = graphCol + 1
 				if graphCol == graphsWide then
 					graphCol = 0
@@ -1177,7 +1214,7 @@ end
 			self.reportError = false
 		end
 		gl.glViewport(0,0,w,h)
-	end	
+	end
 
 	if TestApp.super.update then
 		return TestApp.super.update(self, ...)
