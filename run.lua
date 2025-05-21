@@ -586,24 +586,7 @@ function TestApp:initGL(...)
 	self.font.view = self.view
 	--]]
 
-	local program = require 'gl.program'{
-		version = 'latest',
-		precision = 'best',
-		vertexCode = [[
-in vec2 vertex;
-uniform mat4 mvProjMat;
-void main() {
-	gl_Position = mvProjMat * vec4(vertex, 0., 1.);
-}
-]],
-		fragmentCode = [[
-out vec4 fragColor;
-uniform vec3 color;
-void main() {
-	fragColor = vec4(color, 1.);
-}
-]],
-	}:useNone()
+	local program = require 'gl.program'.make{vertex='vec2', color={uniform='vec3'}}
 
 	local vertexes = require 'gl.arraybuffer'{
 		dim = 2,
