@@ -615,8 +615,8 @@ end
 
 function TestApp:event(e)
 	TestApp.super.event(self, e)
-	if e[0].type == sdl.SDL_KEYDOWN then
-		local callback = self.keyDownCallbacks[e[0].key.keysym.sym]
+	if e[0].type == sdl.SDL_EVENT_KEY_DOWN then
+		local callback = self.keyDownCallbacks[e[0].key.key]
 		if callback then
 			callback(self)
 		end
@@ -624,18 +624,18 @@ function TestApp:event(e)
 end
 
 TestApp.keyDownCallbacks = {
-	[sdl.SDLK_r] = function(self)
+	[sdl.SDLK_R] = function(self)
 		for _,sim in ipairs(sims) do
 			sim:reset()
 		end
 	end,
-	[sdl.SDLK_e] = function(self)
+	[sdl.SDLK_E] = function(self)
 		self.reportError = not self.reportError
 	end,
 	[sdl.SDLK_SPACE] = function(self)
 		self.doIteration = not self.doIteration
 	end,
-	[sdl.SDLK_u] = function(self)
+	[sdl.SDLK_U] = function(self)
 		self.doIteration = 'once'
 	end,
 }
