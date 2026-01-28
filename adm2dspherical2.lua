@@ -84,11 +84,11 @@ function ADM2DSpherical2:calcInterfaceEigenBasis(sim,i,qL,qR)
 	local f = self.calc.f(alpha)
 	local Dalpha, DA, DB, KA, KB = unpack(avgQ)
 	sim.eigenvalues[i] = {
-		-alpha * sqrt(f/A)
-		-alpha / sqrt(A)
+		-alpha * sqrt(f/A),
+		-alpha / sqrt(A),
 		0,
 		alpha / sqrt(A),
-		alpha * sqrt(f/A)
+		alpha * sqrt(f/A),
 	}
 end
 

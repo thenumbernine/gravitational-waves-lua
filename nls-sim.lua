@@ -1,6 +1,6 @@
 local table = require 'ext.table'
 local class = require 'ext.class'
-local complex = require 'symmath.complex'
+local complex = require 'complex'
 local matrix = require 'matrix'
 
 local Equation = require 'equation'

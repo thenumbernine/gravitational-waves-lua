@@ -8,7 +8,7 @@ BSSNOK1DOriginal.numStates = 6
 function BSSNOK1DOriginal:init(args, ...)
 	
 	local symmath = require 'symmath'
-	symmath.tostring = require 'symmath.tostring.SingleLine'
+	symmath.tostring = require 'symmath.export.SingleLine'
 	local function makesym(field)
 		return symmath.clone(assert(args[field], "expected to find field "..field))() 
 	end
