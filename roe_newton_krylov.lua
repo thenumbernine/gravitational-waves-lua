@@ -8,4 +8,3 @@ function RoeNewtonKrylov:init(args)
 	self.errorLogging = args.errorLogging
 end
 
-function 
