@@ -30,7 +30,6 @@ files = {
 	"euler1d_quasilinear.lua",
 	"euler1d_selfsimilar.lua",
 	"euler3d.lua",
-	"font.png",
 	"hll.lua",
 	"integrators.lua",
 	"limiter.lua",

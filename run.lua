@@ -548,7 +548,6 @@ local gl = require 'gl'
 local sdl = require 'sdl'
 local GLTex2D = require 'gl.tex2d'
 local Font = require 'gui.font'
-Font.drawImmediateMode = false
 
 -- [[ with ImGui
 local ig = require 'imgui'
@@ -575,16 +574,7 @@ TestApp.showFPS = false
 function TestApp:initGL(...)
 	if TestApp.super.initGL then TestApp.super.initGL(self, ...) end
 	self.doIteration = false
-	-- [[ need to get image loading working
-	local fonttex = GLTex2D{
-		filename = 'font.png',
-		minFilter = gl.GL_LINEAR_MIPMAP_LINEAR,
-		magFilter = gl.GL_LINEAR,
-		generateMipmap = true,
-	}:unbind()
-	self.font = Font{tex = fonttex}
-	self.font.view = self.view
-	--]]
+	self.font = Font{view = self.view}
 
 	local program = require 'gl.program'.make{vertex='vec2', color={uniform='vec3'}}
 
